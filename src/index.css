@@ -1,0 +1,313 @@
+@import "tailwindcss";
+
+@layer base {
+  @font-face {
+    font-family: 'Noto Sans TC';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url(https://fonts.gstatic.com/s/notosanstc/v35/-nFuOG829Oofr2wohFbTp9ifNAn722rq0MXz76Cy_CpOtma3uNQ.7.woff2) format('woff2');
+  }
+
+  @font-face {
+    font-family: 'Noto Sans TC';
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url(https://fonts.gstatic.com/s/notosanstc/v35/-nFuOG829Oofr2wohFbTp9ifNAn722rq0MXz76Cy_CpOtma3uNQ.7.woff2) format('woff2');
+  }
+
+  :root {
+    --color-primary: #A8D8B9;
+    --color-primary-dark: #7BC496;
+    --color-warning: #FFADAD;
+    --color-warning-dark: #FF8A8A;
+    --color-accent: #FFD6A5;
+    --color-accent-dark: #FFBF69;
+    --color-text: #5D5D5D;
+    --color-text-light: #8B8B8B;
+    --color-bg: #fdfbf7;
+    --color-card: #FFFFFF;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    font-family: 'Noto Sans TC', 'Segoe UI', system-ui, sans-serif;
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    min-height: 100vh;
+    /* 格紋噪點紋理背景 */
+    background-image: 
+      radial-gradient(circle at 25% 25%, rgba(168, 216, 185, 0.03) 0%, transparent 50%),
+      radial-gradient(circle at 75% 75%, rgba(255, 214, 165, 0.03) 0%, transparent 50%),
+      url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    background-blend-mode: overlay;
+  }
+
+  #root {
+    min-height: 100vh;
+  }
+}
+
+@layer components {
+  /* 貓咪走路動畫 */
+  @keyframes catWalk {
+    0%, 100% { transform: translateY(0) rotate(-2deg); }
+    25% { transform: translateY(-8px) rotate(2deg); }
+    50% { transform: translateY(0) rotate(-2deg); }
+    75% { transform: translateY(-4px) rotate(1deg); }
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+
+  @keyframes sparkle {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(1.2); }
+  }
+
+  @keyframes bounce {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+  }
+
+  @keyframes shake {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-5deg); }
+    75% { transform: rotate(5deg); }
+  }
+
+  @keyframes glow {
+    0%, 100% { box-shadow: 0 0 5px rgba(168, 216, 185, 0.5), 0 8px 32px rgba(0, 0, 0, 0.1); }
+    50% { box-shadow: 0 0 20px rgba(168, 216, 185, 0.8), 0 8px 32px rgba(0, 0, 0, 0.1); }
+  }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes popIn {
+    0% { opacity: 0; transform: scale(0.8); }
+    50% { transform: scale(1.05); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+
+  .animate-cat-walk {
+    animation: catWalk 1s ease-in-out infinite;
+  }
+
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  .animate-sparkle {
+    animation: sparkle 1.5s ease-in-out infinite;
+  }
+
+  .animate-bounce-soft {
+    animation: bounce 0.3s ease-out;
+  }
+
+  .animate-shake {
+    animation: shake 0.5s ease-in-out infinite;
+  }
+
+  .animate-glow {
+    animation: glow 2s ease-in-out infinite;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.4s ease-out forwards;
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-out forwards;
+  }
+
+  .animate-pop-in {
+    animation: popIn 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+  }
+
+  /* 木板紋理 */
+  .wood-texture {
+    background-color: #8B7355;
+    background-image: 
+      repeating-linear-gradient(
+        90deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.03) 2px,
+        rgba(0,0,0,0.03) 4px
+      ),
+      repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 40px,
+        rgba(139, 115, 85, 0.1) 40px,
+        rgba(139, 115, 85, 0.1) 41px
+      ),
+      linear-gradient(180deg, 
+        rgba(255,255,255,0.1) 0%, 
+        transparent 20%,
+        transparent 80%,
+        rgba(0,0,0,0.1) 100%
+      );
+  }
+
+  /* 軟木塞紋理 */
+  .cork-texture {
+    background-color: #D4A574;
+    background-image: 
+      url("data:image/svg+xml,%3Csvg viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+    background-blend-mode: multiply;
+  }
+
+  /* 拍立得卡片效果 */
+  .polaroid-card {
+    background: white;
+    padding: 12px 12px 40px 12px;
+    box-shadow: 
+      0 4px 6px rgba(0, 0, 0, 0.1),
+      0 10px 20px rgba(0, 0, 0, 0.08),
+      inset 0 -2px 4px rgba(0, 0, 0, 0.02);
+    transform: rotate(var(--rotation, 0deg));
+    transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  }
+
+  .polaroid-card:hover {
+    transform: rotate(0deg) scale(1.05) translateY(-8px);
+    box-shadow: 
+      0 12px 24px rgba(0, 0, 0, 0.15),
+      0 20px 40px rgba(0, 0, 0, 0.1);
+  }
+
+  /* 滾動條樣式 */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-primary);
+    border-radius: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-primary-dark);
+  }
+
+  /* React Calendar 動森風格樣式 */
+  .react-calendar {
+    background: transparent !important;
+    border: none !important;
+    font-family: 'Noto Sans TC', sans-serif;
+  }
+
+  .react-calendar__navigation {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+
+  .react-calendar__navigation button {
+    background: transparent;
+    border: none;
+    color: var(--color-text);
+    font-weight: 600;
+    padding: 0.5rem;
+    border-radius: 12px;
+    transition: all 0.3s;
+  }
+
+  .react-calendar__navigation button:hover {
+    background: var(--color-primary);
+    color: white;
+  }
+
+  .react-calendar__navigation button:disabled {
+    background: transparent;
+    color: var(--color-text-light);
+    opacity: 0.5;
+  }
+
+  .react-calendar__month-view__weekdays {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 0.5rem;
+  }
+
+  .react-calendar__month-view__weekdays__weekday {
+    padding: 0.5rem;
+    font-weight: 600;
+    color: var(--color-text-light);
+    font-size: 0.875rem;
+  }
+
+  .react-calendar__month-view__days {
+    display: grid !important;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0.25rem;
+  }
+
+  .react-calendar__tile {
+    aspect-ratio: 1;
+    border: none;
+    background: transparent;
+    color: var(--color-text);
+    padding: 0.5rem;
+    border-radius: 12px;
+    transition: all 0.3s;
+    font-weight: 500;
+  }
+
+  .react-calendar__tile:hover {
+    background: var(--color-primary);
+    color: white;
+  }
+
+  .react-calendar__tile--active {
+    background: #eebbba !important; /* 肉球粉 */
+    color: white !important;
+    border-radius: 50% !important;
+    font-weight: bold;
+  }
+
+  .react-calendar__tile--today {
+    background: #eebbba !important; /* 肉球粉 */
+    color: white !important;
+    font-weight: bold;
+    border-radius: 50% !important;
+  }
+
+  /* 週末文字顏色（橘紅色） */
+  .react-calendar__tile--weekend {
+    color: #ff8a8a !important;
+  }
+
+  .react-calendar__tile--neighboringMonth {
+    color: var(--color-text-light);
+    opacity: 0.5;
+  }
+}
