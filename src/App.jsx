@@ -201,6 +201,7 @@ function WelcomeView({ onConnect }) {
               <PawPrint size={40} className="text-white" />
             </div>
             <h1 className="text-3xl font-bold text-[#5D5D5D] mb-2">歡迎來到<br/>呼嚕嚕小鎮</h1>
+            <p className="text-[#B8B8B8] text-xs">Dev Mode</p>
             <p className="text-[#8B8B8B] text-sm">
               這裡是一個安全、去中心化的班級管理工具。<br/>
               資料由您自行保管，請連結您的村莊資料庫。
