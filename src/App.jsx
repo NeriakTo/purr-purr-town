@@ -6,6 +6,7 @@ import {
   PawPrint,
   BookOpen,
   AlertTriangle,
+  AlertCircle,
   CheckCircle,
   X,
   Sparkles,
@@ -78,11 +79,9 @@ function getTaskIcon(title) {
   return ScrollText
 }
 
-// DiceBear 頭像 URL (notionists 風格)
+// DiceBear 頭像 URL (fun-emoji 風格 - v3.0 更可愛的動物表情)
 function getAvatarUrl(uuid) {
-  const colors = ['b6e3f4', 'ffd5dc', 'ffdfbf', 'e0d4ff', 'd1f4e0', 'fff4c4']
-  const color = colors[parseInt(uuid?.slice(-1) || '0', 16) % colors.length]
-  return `https://api.dicebear.com/7.x/notionists/svg?seed=${uuid}&backgroundColor=${color}`
+  return `https://api.dicebear.com/9.x/fun-emoji/svg?seed=${uuid}`
 }
 
 // 檢查是否為預設姓名
@@ -201,8 +200,7 @@ function WelcomeView({ onConnect }) {
               <PawPrint size={40} className="text-white" />
             </div>
             <h1 className="text-3xl font-bold text-[#5D5D5D] mb-2">歡迎來到<br/>呼嚕嚕小鎮</h1>
-            <p className="text-[#B8B8B8] text-xs">Dev Mode</p>
-            <p className="text-[#8B8B8B] text-sm">
+                        <p className="text-[#8B8B8B] text-sm">
               這裡是一個安全、去中心化的班級管理工具。<br/>
               資料由您自行保管，請連結您的村莊資料庫。
             </p>
@@ -596,8 +594,10 @@ function LoginView({ onSelectClass, loading, error, apiUrl, onDisconnect }) {
 
 function CalendarNav({ currentDate, onDateChange }) {
   const todayStr = getTodayStr()
+  const isToday = formatDate(currentDate) === todayStr
+
   return (
-    <div className="react-calendar-container">
+    <div className="react-calendar-container space-y-3">
       <Calendar
         onChange={onDateChange}
         value={currentDate}
@@ -615,6 +615,14 @@ function CalendarNav({ currentDate, onDateChange }) {
         next2Label={null}
         prev2Label={null}
       />
+      {!isToday && (
+        <button
+          onClick={() => onDateChange(new Date())}
+          className="w-full py-2 rounded-xl border-2 border-[#A8D8B9] text-[#A8D8B9] font-medium text-sm hover:bg-[#A8D8B9] hover:text-white transition-all flex items-center justify-center gap-2"
+        >
+          📅 回到今天
+        </button>
+      )}
     </div>
   )
 }
@@ -742,13 +750,13 @@ function TaskBoard({ tasks, students, studentStatus, classId, currentDateStr, on
 // 村民卡片 & 設定 & 護照 (共用組件)
 // ============================================
 
-function VillagerCard({ student, tasks, studentStatus, onClick }) {
+function VillagerCard({ student, tasks, studentStatus, onClick, hasOverdue }) {
   const status = studentStatus[student.id] || {}
   const hasTasks = tasks.length > 0
   const isAngry = hasTasks && tasks.some(t => status[t.id] !== true)
   const isPurr = hasTasks && tasks.every(t => status[t.id] === true)
   const isIdle = !hasTasks
-  
+
   const studentNumber = student.number || student.seatNumber
   const hasDefaultName = isDefaultName(student.name, studentNumber)
   const rotation = ((student.id || 0) % 7) - 3
@@ -764,8 +772,15 @@ function VillagerCard({ student, tasks, studentStatus, onClick }) {
       </div>
       <div className={`absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full z-10 shadow-sm ${isIdle ? 'bg-[#E8E8E8]' : isAngry ? 'bg-[#FFADAD]' : 'bg-[#A8D8B9]'}`} />
 
+      {/* v3.0 欠交警示 */}
+      {hasOverdue && (
+        <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-[#D64545] flex items-center justify-center z-20 animate-pulse">
+          <AlertCircle size={12} className="text-white" />
+        </div>
+      )}
+
       <div className={`relative w-12 h-12 mx-auto rounded-lg overflow-hidden mb-1.5 ${isAngry ? 'bg-gradient-to-br from-[#FFADAD]/20 to-[#FF8A8A]/10' : isPurr ? 'bg-gradient-to-br from-[#A8D8B9]/20 to-[#7BC496]/10' : 'bg-gradient-to-br from-[#E8E8E8]/20 to-[#D8D8D8]/10'}`}>
-        <img src={getAvatarUrl(student.uuid || student.id)} alt={student.name} className={`w-full h-full object-cover transition-all duration-300 group-hover:scale-110 ${isAngry ? 'grayscale-[50%] opacity-80' : isIdle ? 'opacity-60' : ''}`} />
+        <img src={getAvatarUrl(student.uuid || student.id)} alt={student.name} className={`w-full h-full object-contain transition-all duration-300 group-hover:scale-110 ${isIdle ? 'opacity-60' : ''}`} />
       </div>
 
       <div className="text-center">
@@ -778,9 +793,15 @@ function VillagerCard({ student, tasks, studentStatus, onClick }) {
 }
 
 function SettingsModal({ classId, settings, onClose, onSave, apiUrl }) {
-  const [localSettings, setLocalSettings] = useState({ taskTypes: settings?.taskTypes || ['作業', '訂正', '攜帶物品', '考試', '通知單', '回條'] })
+  const [localSettings, setLocalSettings] = useState({
+    taskTypes: settings?.taskTypes || ['作業', '訂正', '攜帶物品', '考試', '通知單', '回條'],
+    groupAliases: settings?.groupAliases || {}
+  })
   const [newTaskType, setNewTaskType] = useState('')
+  const [editingGroup, setEditingGroup] = useState(null)
   const [saving, setSaving] = useState(false)
+
+  const defaultGroups = ['A', 'B', 'C', 'D', 'E', 'F']
 
   const handleSave = async () => {
     try {
@@ -806,10 +827,16 @@ function SettingsModal({ classId, settings, onClose, onSave, apiUrl }) {
       <div className="relative bg-[#fdfbf7] rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden animate-pop-in">
         <div className="h-3" style={{ background: 'repeating-linear-gradient(90deg, #A8D8B9, #A8D8B9 20px, #FFD6A5 20px, #FFD6A5 40px)' }} />
         <button onClick={onClose} disabled={saving} className="absolute top-6 right-4 p-2 rounded-full bg-white/80 hover:bg-white shadow-md transition-all z-10"><X size={20} className="text-[#5D5D5D]" /></button>
-        <div className="p-6">
+        <div className="p-6 max-h-[80vh] overflow-y-auto">
           <div className="text-center mb-6"><h2 className="text-2xl font-bold text-[#5D5D5D]">⚙️ 村莊設定</h2></div>
-          <div className="space-y-4">
-            <div className="flex flex-wrap gap-2 mb-4">
+
+          {/* 任務類型設定 */}
+          <div className="space-y-4 mb-6">
+            <h3 className="text-sm font-bold text-[#5D5D5D] flex items-center gap-2">
+              <ClipboardList size={16} className="text-[#A8D8B9]" />
+              任務類型標籤
+            </h3>
+            <div className="flex flex-wrap gap-2">
               {localSettings.taskTypes.map(type => (
                 <div key={type} className="flex items-center gap-2 px-3 py-1.5 rounded-xl border-2 bg-gray-100 text-gray-700 border-gray-300">
                   <span className="text-sm font-medium">{type}</span>
@@ -822,6 +849,34 @@ function SettingsModal({ classId, settings, onClose, onSave, apiUrl }) {
               <button onClick={() => { if(newTaskType) { setLocalSettings(p => ({...p, taskTypes: [...p.taskTypes, newTaskType]})); setNewTaskType('') } }} className="px-4 py-2 rounded-xl bg-[#A8D8B9] text-white"><Plus /></button>
             </div>
           </div>
+
+          {/* 小隊名稱設定 */}
+          <div className="border-t border-[#E8E8E8] pt-6 space-y-4">
+            <h3 className="text-sm font-bold text-[#5D5D5D] flex items-center gap-2">
+              <Flag size={16} className="text-[#FFD6A5]" />
+              小隊名稱設定
+            </h3>
+            <div className="grid grid-cols-2 gap-3">
+              {defaultGroups.map(group => (
+                <div key={group} className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-[#8B8B8B] w-6">{group}</span>
+                  <input
+                    type="text"
+                    value={localSettings.groupAliases[group] || ''}
+                    onChange={e => setLocalSettings(p => ({
+                      ...p,
+                      groupAliases: { ...p.groupAliases, [group]: e.target.value }
+                    }))}
+                    onFocus={() => setEditingGroup(group)}
+                    onBlur={() => setEditingGroup(null)}
+                    placeholder={`${group} 小隊`}
+                    className="flex-1 px-3 py-2 text-sm rounded-xl border-2 border-[#E8E8E8] focus:border-[#FFD6A5] outline-none"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div className="mt-6 flex gap-3">
             <button onClick={handleSave} disabled={saving} className="flex-1 py-3 rounded-xl bg-gradient-to-r from-[#A8D8B9] to-[#7BC496] text-white font-medium">{saving ? '儲存中...' : '儲存設定'}</button>
             <button onClick={onClose} disabled={saving} className="px-4 py-3 rounded-xl bg-[#E8E8E8] text-[#5D5D5D]">取消</button>
@@ -832,7 +887,7 @@ function SettingsModal({ classId, settings, onClose, onSave, apiUrl }) {
   )
 }
 
-function PassportModal({ student, tasks, studentStatus, classId, onClose, onToggleStatus, onStudentUpdate, apiUrl }) {
+function PassportModal({ student, tasks, studentStatus, classId, onClose, onToggleStatus, onStudentUpdate, apiUrl, hasOverdue }) {
   const [isEditMode, setIsEditMode] = useState(false)
   const [editData, setEditData] = useState({ name: student.name || '', gender: student.gender || 'male', group: student.group || 'A' })
   const status = studentStatus[student.id] || {}
@@ -861,6 +916,13 @@ function PassportModal({ student, tasks, studentStatus, classId, onClose, onTogg
         <div className="h-3" style={{ background: 'repeating-linear-gradient(90deg, #A8D8B9, #A8D8B9 20px, #FFD6A5 20px, #FFD6A5 40px)' }} />
         <button onClick={onClose} className="absolute top-6 right-4 p-2 rounded-full bg-white/80 hover:bg-white shadow-md z-10"><X size={20} className="text-[#5D5D5D]" /></button>
         <div className="p-6">
+          {/* v3.0 欠交警示 */}
+          {hasOverdue && (
+            <div className="mb-4 p-3 rounded-xl bg-[#FFADAD]/20 border-2 border-[#D64545] text-[#D64545] text-sm flex items-start gap-2">
+              <AlertCircle size={18} className="shrink-0 mt-0.5" />
+              <span>⚠️ 尚有過去任務未完成，請檢查歷史日誌</span>
+            </div>
+          )}
           <div className="flex items-start gap-6 mb-6">
             <div className={`w-28 h-28 rounded-3xl overflow-hidden shadow-lg shrink-0 ring-4 ${isAllDone ? 'ring-[#A8D8B9]' : 'ring-[#FFADAD]'}`}>
               <img src={getAvatarUrl(student.uuid || student.id)} alt={student.name} className="w-full h-full object-cover" />
@@ -936,7 +998,7 @@ function Header({ todayStr, completionRate, error, className, classAlias, onLogo
 function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onDisconnect }) {
   const [students, setStudents] = useState([])
   const [allLogs, setAllLogs] = useState([])
-  const [settings, setSettings] = useState({ taskTypes: ['作業', '訂正', '攜帶物品', '考試', '通知單', '回條'] })
+  const [settings, setSettings] = useState({ taskTypes: ['作業', '訂正', '攜帶物品', '考試', '通知單', '回條'], groupAliases: {} })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [selectedStudent, setSelectedStudent] = useState(null)
@@ -1014,6 +1076,28 @@ function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onDis
     fetch(apiUrl, { method: 'POST', mode: 'no-cors', headers: {'Content-Type': 'text/plain'}, body: JSON.stringify({ action: 'update_status', classId, date: dateStr, studentId, taskId, checked }) }).catch(console.error)
   }, [classId, currentDate, normalizeDate, tasks, apiUrl])
 
+  // v3.0 新功能：檢查欠交作業
+  const checkOverdue = useCallback((studentId) => {
+    const todayStr = getTodayStr()
+    const today = parseDate(todayStr)
+
+    for (const log of allLogs) {
+      const logDate = parseDate(normalizeDate(log.date))
+      if (logDate >= today) continue // 跳過今天及未來的日期
+
+      const logTasks = log.tasks || []
+      const logStatus = log.status?.[studentId] || {}
+
+      // 檢查該日期是否有未完成的任務
+      for (const task of logTasks) {
+        if (logStatus[task.id] !== true) {
+          return true // 有欠交
+        }
+      }
+    }
+    return false // 沒有欠交
+  }, [allLogs, normalizeDate])
+
   const groupedStudents = useMemo(() => {
     const groups = {}
     students.forEach(s => { const g = s.group || 'A'; if(!groups[g]) groups[g] = []; groups[g].push(s) })
@@ -1066,12 +1150,13 @@ function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onDis
                 {Object.entries(groupedStudents).map(([group, groupStudents]) => {
                   const rate = getGroupCompletionRate(groupStudents)
                   const isComplete = rate === 1 && tasks.length > 0
+                  const groupName = settings.groupAliases?.[group] || `${group} 小隊`
                   return (
                     <div key={group} className={`p-4 rounded-2xl transition-all ${isComplete ? 'bg-yellow-50 border-4 border-yellow-400 shadow-[0_0_20px_rgba(250,204,21,0.6)]' : 'bg-white/40 border border-white/50'}`}>
                       <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-2">
                           <Flag size={20} className="text-[#FF8A8A]" />
-                          <h3 className="text-lg font-bold text-[#5D5D5D]">🚩 {group} 小隊</h3>
+                          <h3 className="text-lg font-bold text-[#5D5D5D]">🚩 {groupName}</h3>
                           {isComplete && <span className="flex items-center gap-1 px-2 py-1 rounded-lg bg-yellow-400 text-yellow-900 text-xs font-bold"><Trophy size={14} />🏆 全員達成！</span>}
                         </div>
                         <div className="flex items-center gap-3">
@@ -1084,7 +1169,7 @@ function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onDis
                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-3">
                         {groupStudents.map((student, i) => (
                           <div key={student.id} style={{ animation: 'slideUp 0.5s ease-out forwards', animationDelay: `${i * 0.03}s`, opacity: 0 }}>
-                            <VillagerCard student={student} tasks={tasks} studentStatus={studentStatus} onClick={() => setSelectedStudent(student)} />
+                            <VillagerCard student={student} tasks={tasks} studentStatus={studentStatus} onClick={() => setSelectedStudent(student)} hasOverdue={checkOverdue(student.id)} />
                           </div>
                         ))}
                       </div>
@@ -1104,6 +1189,7 @@ function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onDis
       {selectedStudent && (
         <PassportModal
           student={selectedStudent} tasks={tasks} studentStatus={studentStatus} classId={classId} apiUrl={apiUrl}
+          hasOverdue={checkOverdue(selectedStudent.id)}
           onClose={() => setSelectedStudent(null)}
           onToggleStatus={toggleStatus}
           onStudentUpdate={(updated) => { setStudents(p => p.map(s => s.id === updated.id ? updated : s)); setSelectedStudent(null) }}
