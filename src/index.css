@@ -4,7 +4,7 @@
   @font-face {
     font-family: 'Noto Sans TC';
     font-style: normal;
-    font-weight: 400;
+  font-weight: 400;
     font-display: swap;
     src: url(https://fonts.gstatic.com/s/notosanstc/v35/-nFuOG829Oofr2wohFbTp9ifNAn722rq0MXz76Cy_CpOtma3uNQ.7.woff2) format('woff2');
   }
@@ -32,18 +32,18 @@
 
   * {
     box-sizing: border-box;
-  }
+}
 
   html {
     scroll-behavior: smooth;
-  }
+}
 
-  body {
-    margin: 0;
+body {
+  margin: 0;
     font-family: 'Noto Sans TC', 'Segoe UI', system-ui, sans-serif;
     background-color: var(--color-bg);
     color: var(--color-text);
-    min-height: 100vh;
+  min-height: 100vh;
     /* 格紋噪點紋理背景 */
     background-image: 
       radial-gradient(circle at 25% 25%, rgba(168, 216, 185, 0.03) 0%, transparent 50%),
@@ -195,7 +195,7 @@
     box-shadow: 
       0 12px 24px rgba(0, 0, 0, 0.15),
       0 20px 40px rgba(0, 0, 0, 0.1);
-  }
+}
 
   /* 滾動條樣式 */
   ::-webkit-scrollbar {
@@ -279,7 +279,7 @@
     padding: 0.5rem;
     border-radius: 12px;
     transition: all 0.3s;
-    font-weight: 500;
+  font-weight: 500;
   }
 
   .react-calendar__tile:hover {
