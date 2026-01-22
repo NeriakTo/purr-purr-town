@@ -1,22 +1,6 @@
 @import "tailwindcss";
 
 @layer base {
-  @font-face {
-    font-family: 'Noto Sans TC';
-    font-style: normal;
-  font-weight: 400;
-    font-display: swap;
-    src: url(https://fonts.gstatic.com/s/notosanstc/v35/-nFuOG829Oofr2wohFbTp9ifNAn722rq0MXz76Cy_CpOtma3uNQ.7.woff2) format('woff2');
-  }
-
-  @font-face {
-    font-family: 'Noto Sans TC';
-    font-style: normal;
-    font-weight: 700;
-    font-display: swap;
-    src: url(https://fonts.gstatic.com/s/notosanstc/v35/-nFuOG829Oofr2wohFbTp9ifNAn722rq0MXz76Cy_CpOtma3uNQ.7.woff2) format('woff2');
-  }
-
   :root {
     --color-primary: #A8D8B9;
     --color-primary-dark: #7BC496;
