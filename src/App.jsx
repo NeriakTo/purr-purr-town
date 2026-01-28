@@ -821,7 +821,7 @@ function TeamManagementModal({ students, settings, classId, onClose, onSave, api
             /* 小隊編輯視圖 */
             <div className="flex h-full">
               {/* 左側：當前小隊成員 */}
-              <div className="w-1/2 border-r border-[#E8E8E8] p-5 flex flex-col">
+              <div className="w-1/2 border-r border-[#E8E8E8] p-5 flex flex-col overflow-hidden">
                 {/* 小隊名稱編輯 */}
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-[#5D5D5D] mb-2">
@@ -852,7 +852,7 @@ function TeamManagementModal({ students, settings, classId, onClose, onSave, api
                   </span>
                 </div>
                 
-                <div className="flex-1 overflow-y-auto space-y-2 pr-2">
+                <div className="flex-1 min-h-0 overflow-y-scroll space-y-2 pr-1" style={{ scrollbarWidth: 'thin' }}>
                   {groupedStudents[editingGroup]?.length === 0 ? (
                     <div className="text-center py-8 bg-[#F9F9F9] rounded-xl">
                       <div className="text-4xl mb-2">🏠</div>
@@ -885,7 +885,7 @@ function TeamManagementModal({ students, settings, classId, onClose, onSave, api
               </div>
 
               {/* 右側：可添加的成員 */}
-              <div className="w-1/2 p-5 flex flex-col bg-[#F9F9F9]">
+              <div className="w-1/2 p-5 flex flex-col bg-[#F9F9F9] overflow-hidden">
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-[#5D5D5D] mb-2">
                     添加成員
@@ -912,7 +912,7 @@ function TeamManagementModal({ students, settings, classId, onClose, onSave, api
                   </span>
                 </div>
 
-                <div className="flex-1 overflow-y-auto space-y-2 pr-2">
+                <div className="flex-1 min-h-0 overflow-y-scroll space-y-2 pr-1" style={{ scrollbarWidth: 'thin' }}>
                   {availableStudents.length === 0 ? (
                     <div className="text-center py-8">
                       <div className="text-4xl mb-2">🎉</div>
@@ -1791,24 +1791,6 @@ function Header({ todayStr, completionRate, className, classAlias, onLogout, onO
           </div>
         </div>
         
-        {/* 快捷功能按鈕 */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={onOpenTeamManagement}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#FFD6A5] to-[#FF8A8A] text-white font-medium shadow-md hover:shadow-lg transition-all"
-          >
-            <Flag size={18} />
-            <span className="hidden sm:inline">小隊管理</span>
-          </button>
-          <button
-            onClick={onOpenTaskOverview}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#A8D8B9] to-[#7BC496] text-white font-medium shadow-md hover:shadow-lg transition-all"
-          >
-            <ListTodo size={18} />
-            <span className="hidden sm:inline">任務總覽</span>
-          </button>
-        </div>
-
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-3 bg-[#fdfbf7] px-4 py-2 rounded-2xl">
             <div className="hidden sm:block">
@@ -1822,7 +1804,13 @@ function Header({ todayStr, completionRate, className, classAlias, onLogout, onO
               />
             </div>
           </div>
-          <button onClick={onOpenSettings} className="p-3 rounded-2xl bg-[#fdfbf7] hover:bg-[#FFD6A5]/20 transition-colors">
+          <button onClick={onOpenTeamManagement} className="p-3 rounded-2xl bg-[#fdfbf7] hover:bg-[#FFD6A5]/20 transition-colors" title="小隊管理">
+            <Flag size={22} className="text-[#5D5D5D]" />
+          </button>
+          <button onClick={onOpenTaskOverview} className="p-3 rounded-2xl bg-[#fdfbf7] hover:bg-[#A8D8B9]/20 transition-colors" title="任務總覽">
+            <ListTodo size={22} className="text-[#5D5D5D]" />
+          </button>
+          <button onClick={onOpenSettings} className="p-3 rounded-2xl bg-[#fdfbf7] hover:bg-[#FFD6A5]/20 transition-colors" title="村莊設定">
             <Settings size={22} className="text-[#5D5D5D]" />
           </button>
           <button onClick={onLogout} className="p-3 rounded-2xl bg-[#fdfbf7] hover:bg-[#FFADAD]/20 transition-colors" title="返回村莊列表">
