@@ -587,6 +587,12 @@ function LoginView({ onSelectClass, loading, error, apiUrl, onDisconnect }) {
 function TeamManagementModal({ students, settings, classId, onClose, onSave, apiUrl, onSettingsUpdate }) {
   const defaultGroups = ['A', 'B', 'C', 'D', 'E', 'F']
   
+  // 鎖定背景捲軸
+  useEffect(() => {
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = '' }
+  }, [])
+  
   // 小隊分配狀態
   const [assignments, setAssignments] = useState(() => {
     const initial = {}
@@ -852,7 +858,7 @@ function TeamManagementModal({ students, settings, classId, onClose, onSave, api
                   </span>
                 </div>
                 
-                <div className="flex-1 min-h-0 overflow-y-scroll space-y-2 pr-1" style={{ scrollbarWidth: 'thin' }}>
+                <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1" style={{ scrollbarWidth: 'thin', overscrollBehavior: 'contain' }}>
                   {groupedStudents[editingGroup]?.length === 0 ? (
                     <div className="text-center py-8 bg-[#F9F9F9] rounded-xl">
                       <div className="text-4xl mb-2">🏠</div>
@@ -912,7 +918,7 @@ function TeamManagementModal({ students, settings, classId, onClose, onSave, api
                   </span>
                 </div>
 
-                <div className="flex-1 min-h-0 overflow-y-scroll space-y-2 pr-1" style={{ scrollbarWidth: 'thin' }}>
+                <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1" style={{ scrollbarWidth: 'thin', overscrollBehavior: 'contain' }}>
                   {availableStudents.length === 0 ? (
                     <div className="text-center py-8">
                       <div className="text-4xl mb-2">🎉</div>
