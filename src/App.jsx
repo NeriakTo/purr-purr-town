@@ -769,10 +769,10 @@ function TeamManagementModal({ students, settings, classId, onClose, onSave, api
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 min-h-0 flex flex-col">
           {!editingGroup ? (
             /* 小隊列表視圖 */
-            <div className="p-6 overflow-y-auto h-full">
+            <div className="p-6 overflow-y-auto flex-1">
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {defaultGroups.map(group => {
                   const colors = groupColors[group]
@@ -825,9 +825,9 @@ function TeamManagementModal({ students, settings, classId, onClose, onSave, api
             </div>
           ) : (
             /* 小隊編輯視圖 */
-            <div className="flex h-full">
+            <div className="flex flex-1 min-h-0">
               {/* 左側：當前小隊成員 */}
-              <div className="w-1/2 border-r border-[#E8E8E8] p-5 flex flex-col overflow-hidden">
+              <div className="w-1/2 border-r border-[#E8E8E8] p-5 flex flex-col min-h-0">
                 {/* 小隊名稱編輯 */}
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-[#5D5D5D] mb-2">
@@ -891,7 +891,7 @@ function TeamManagementModal({ students, settings, classId, onClose, onSave, api
               </div>
 
               {/* 右側：可添加的成員 */}
-              <div className="w-1/2 p-5 flex flex-col bg-[#F9F9F9] overflow-hidden">
+              <div className="w-1/2 p-5 flex flex-col bg-[#F9F9F9] min-h-0">
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-[#5D5D5D] mb-2">
                     添加成員
@@ -911,10 +911,10 @@ function TeamManagementModal({ students, settings, classId, onClose, onSave, api
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="font-bold text-[#5D5D5D] flex items-center gap-2">
                     <UserPlus size={18} className="text-[#FFD6A5]" />
-                    其他村民
+                    從其他小隊移入
                   </h3>
-                  <span className="text-sm text-[#8B8B8B]">
-                    點擊添加到 {getGroupDisplayName(editingGroup)}
+                  <span className="text-xs text-[#8B8B8B]">
+                    點擊移入 {getGroupDisplayName(editingGroup)}
                   </span>
                 </div>
 
