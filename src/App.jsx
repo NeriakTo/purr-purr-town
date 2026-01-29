@@ -46,7 +46,8 @@ import {
   ChevronDown,
   ChevronUp,
   Search,
-  Filter
+  Filter,
+  Projector
 } from 'lucide-react'
 
 // ============================================
@@ -85,8 +86,42 @@ function getTaskIcon(title) {
 }
 
 // v2.0 改用 lorelei 風格 - 更可愛的手繪風格頭像
-function getAvatarUrl(uuid, style = 'lorelei') {
-  return `https://api.dicebear.com/9.x/${style}/svg?seed=${uuid}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`
+const AVATAR_EMOJIS = ['🐻', '🐱', '🐶', '🐰', '🦊', '🐼', '🐨', '🐯', '🦁', '🐷']
+const AVATAR_COLORS = ['#FCE3E3', '#FDEBC8', '#E7F3D7', '#DDF1F8', '#E7E3FA', '#F8E6D8', '#FDE2F3', '#E2F0FF', '#E9F7F1', '#FFF1CC']
+
+function hashSeed(seed) {
+  const str = String(seed ?? '')
+  let h = 0
+  for (let i = 0; i < str.length; i++) {
+    h = (h * 31 + str.charCodeAt(i)) >>> 0
+  }
+  return h
+}
+
+function makeTaskId(dateStr, task, index) {
+  const base = `${dateStr}-${task?.title || ''}-${task?.type || ''}-${index}`
+  return `task_${hashSeed(base).toString(36)}`
+}
+
+function getAvatarMeta(seed) {
+  const hash = hashSeed(seed)
+  return {
+    emoji: AVATAR_EMOJIS[hash % AVATAR_EMOJIS.length],
+    bg: AVATAR_COLORS[hash % AVATAR_COLORS.length]
+  }
+}
+
+function AvatarEmoji({ seed, className = '', emojiClassName = '' }) {
+  const meta = getAvatarMeta(seed)
+  return (
+    <div
+      className={`flex items-center justify-center ${className}`}
+      style={{ backgroundColor: meta.bg }}
+      aria-hidden="true"
+    >
+      <span className={emojiClassName}>{meta.emoji}</span>
+    </div>
+  )
 }
 
 function isDefaultName(name, number) {
@@ -145,6 +180,7 @@ function LoadingScreen({ message = '正在前往呼嚕嚕小鎮...' }) {
         <span className="text-sm font-medium">Purr Purr Town v2.0</span>
         <PawPrint size={20} />
       </div>
+
     </div>
   )
 }
@@ -349,6 +385,14 @@ function CreateClassModal({ onClose, onSuccess, apiUrl }) {
         </button>
 
         <div className="p-6">
+          <div className="flex justify-end mb-2">
+            <button
+              onClick={() => setShowHistory(prev => !prev)}
+              className="px-3 py-1.5 rounded-lg bg-[#E8E8E8] text-[#5D5D5D] text-xs font-medium hover:bg-[#D8D8D8] transition-colors"
+            >
+              📊 查看該生所有紀錄
+            </button>
+          </div>
           <div className="text-center mb-6">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4" style={{ background: 'linear-gradient(135deg, #FFD6A5 0%, #FFBF69 100%)' }}>
               <Home size={32} className="text-white" />
@@ -806,7 +850,7 @@ function TeamManagementModal({ students, settings, classId, onClose, onSave, api
                             className="w-8 h-8 rounded-full overflow-hidden border-2 border-white shadow-sm"
                             title={`${s.number}. ${s.name}`}
                           >
-                            <img src={getAvatarUrl(s.uuid || s.id)} alt="" className="w-full h-full object-cover" />
+                            <AvatarEmoji seed={s.uuid || s.id} className="w-full h-full rounded-full text-sm" />
                           </div>
                         ))}
                         {members.length > 8 && (
@@ -872,7 +916,7 @@ function TeamManagementModal({ students, settings, classId, onClose, onSave, api
                         className={`flex items-center gap-3 p-3 rounded-xl bg-white border-2 ${groupColors[editingGroup].border} shadow-sm group`}
                       >
                         <div className="w-10 h-10 rounded-xl overflow-hidden shadow-sm">
-                          <img src={getAvatarUrl(student.uuid || student.id)} alt="" className="w-full h-full object-cover" />
+                          <AvatarEmoji seed={student.uuid || student.id} className="w-full h-full rounded-xl text-lg" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="font-medium text-[#5D5D5D]">{student.number}. {student.name}</div>
@@ -938,7 +982,7 @@ function TeamManagementModal({ students, settings, classId, onClose, onSave, api
                           className="flex items-center gap-3 p-3 rounded-xl bg-white border-2 border-transparent hover:border-[#A8D8B9] cursor-pointer transition-all hover:shadow-md group"
                         >
                           <div className="w-10 h-10 rounded-xl overflow-hidden shadow-sm">
-                            <img src={getAvatarUrl(student.uuid || student.id)} alt="" className="w-full h-full object-cover" />
+                            <AvatarEmoji seed={student.uuid || student.id} className="w-full h-full rounded-xl text-lg" />
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="font-medium text-[#5D5D5D]">{student.number}. {student.name}</div>
@@ -1187,7 +1231,7 @@ function TaskOverviewModal({ allLogs, students, classId, onClose, onNavigateToDa
                                 className="flex items-center gap-2 px-3 py-1.5 bg-[#FFADAD]/20 rounded-lg text-sm border border-[#FFADAD]/30"
                               >
                                 <div className="w-6 h-6 rounded-full overflow-hidden">
-                                  <img src={getAvatarUrl(s.uuid || s.id)} alt="" className="w-full h-full object-cover" />
+                                  <AvatarEmoji seed={s.uuid || s.id} className="w-full h-full rounded-full text-xs" />
                                 </div>
                                 <span className="text-[#D64545] font-medium">{s.number}. {s.name}</span>
                               </div>
@@ -1209,7 +1253,7 @@ function TaskOverviewModal({ allLogs, students, classId, onClose, onNavigateToDa
                                 className="flex items-center gap-2 px-3 py-1.5 bg-[#A8D8B9]/20 rounded-lg text-sm border border-[#A8D8B9]/30"
                               >
                                 <div className="w-6 h-6 rounded-full overflow-hidden">
-                                  <img src={getAvatarUrl(s.uuid || s.id)} alt="" className="w-full h-full object-cover" />
+                                  <AvatarEmoji seed={s.uuid || s.id} className="w-full h-full rounded-full text-xs" />
                                 </div>
                                 <span className="text-[#5D5D5D]">{s.number}. {s.name}</span>
                               </div>
@@ -1280,7 +1324,7 @@ function CalendarNav({ currentDate, onDateChange }) {
 // 任務板
 // ============================================
 
-function TaskBoard({ tasks, students, studentStatus, classId, currentDateStr, onTasksUpdate, taskTypes, apiUrl }) {
+function TaskBoard({ tasks, students, studentStatus, classId, currentDateStr, onTasksUpdate, taskTypes, apiUrl, onOpenFocus }) {
   const [showAddTask, setShowAddTask] = useState(false)
   const [newTaskTitle, setNewTaskTitle] = useState('')
   const [newTaskType, setNewTaskType] = useState(taskTypes?.[0] || '作業')
@@ -1323,9 +1367,19 @@ function TaskBoard({ tasks, students, studentStatus, classId, currentDateStr, on
 
   return (
     <div>
-      <h2 className="text-lg font-bold text-[#5D5D5D] mb-4 flex items-center gap-2">
-        <ClipboardList size={20} className="text-[#A8D8B9]" />📝 今日任務
-      </h2>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h2 className="text-lg font-bold text-[#5D5D5D] flex items-center gap-2">
+          <ClipboardList size={20} className="text-[#A8D8B9]" />📝 今日任務
+        </h2>
+        <button
+          onClick={onOpenFocus}
+          className="px-3 py-2 rounded-xl bg-[#1f3327] text-[#E8F5E9] text-sm font-bold shadow-md transition-all duration-200 flex items-center gap-2 hover:-translate-y-0.5 hover:scale-[1.02] hover:shadow-xl hover:bg-[#2a4634] active:scale-[0.99]"
+          title="投影模式"
+        >
+          <Projector size={16} />
+          🎥 投影模式
+        </button>
+      </div>
       
       <div className="rounded-2xl p-4 shadow-md relative overflow-hidden bg-[#F5E6D3] border-4 border-[#8B7355]">
         {!showAddTask && (
@@ -1414,6 +1468,293 @@ function TaskBoard({ tasks, students, studentStatus, classId, currentDateStr, on
 }
 
 // ============================================
+// 投影模式 (Focus View)
+// ============================================
+
+function FocusView({ tasks, currentDateStr, onClose }) {
+  const [checked, setChecked] = useState({})
+
+  useEffect(() => {
+    const handleKey = (e) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handleKey)
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', handleKey)
+      document.body.style.overflow = ''
+    }
+  }, [onClose])
+
+  const toggleTask = (taskId) => {
+    setChecked(prev => ({ ...prev, [taskId]: !prev[taskId] }))
+  }
+
+  return (
+    <div className="fixed inset-0 z-50">
+      <div className="absolute inset-0 focus-overlay" />
+      <div className="absolute inset-0 px-6 md:px-12 py-8 md:py-12 flex flex-col">
+        <div className="flex items-start justify-between gap-4">
+          <div className="text-[#E8F5E9] font-chalk text-4xl md:text-6xl lg:text-7xl tracking-wide">
+            {formatDateDisplay(currentDateStr)}
+          </div>
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-xl bg-[#E8F5E9] text-[#1f3327] font-bold text-lg shadow-lg hover:scale-105 transition-transform"
+          >
+            ❌ 關閉
+          </button>
+        </div>
+
+        <div className="mt-8 flex-1 overflow-y-auto">
+          {tasks.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-[#E8F5E9]">
+              <div className="text-6xl md:text-8xl mb-6">🐾</div>
+              <div className="font-chalk text-3xl md:text-5xl text-center">今日無作業，放學囉！</div>
+            </div>
+          ) : (
+            <div className="space-y-4 md:space-y-6">
+              {tasks.map(task => {
+                const isChecked = !!checked[task.id]
+                return (
+                  <button
+                    key={task.id}
+                    onClick={() => toggleTask(task.id)}
+                    className="w-full flex items-center gap-4 md:gap-6 text-left"
+                  >
+                    <span className={`focus-checkbox ${isChecked ? 'is-checked' : ''}`} />
+                    <span className={`font-chalk text-3xl md:text-5xl lg:text-6xl ${isChecked ? 'focus-strike' : ''}`}>
+                      {task.title}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+    </div>
+  )
+}
+
+// ============================================
+// 課堂法寶 (Gadgets)
+// ============================================
+
+function GadgetsModal({ students, onClose }) {
+  const [activeTab, setActiveTab] = useState('timer')
+  const [duration, setDuration] = useState(180)
+  const [remaining, setRemaining] = useState(0)
+  const [running, setRunning] = useState(false)
+  const [timeUp, setTimeUp] = useState(false)
+  const [drawRunning, setDrawRunning] = useState(false)
+  const [drawIndex, setDrawIndex] = useState(0)
+  const [winner, setWinner] = useState(null)
+
+  useEffect(() => {
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = '' }
+  }, [])
+
+  useEffect(() => {
+    if (!running) return
+    const id = setInterval(() => {
+      setRemaining(prev => {
+        if (prev <= 1) {
+          clearInterval(id)
+          setRunning(false)
+          setTimeUp(true)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+    return () => clearInterval(id)
+  }, [running])
+
+  useEffect(() => {
+    if (!drawRunning) return
+    const id = setInterval(() => {
+      setDrawIndex(prev => (students.length ? (prev + 1) % students.length : 0))
+    }, 80)
+    const stopId = setTimeout(() => {
+      clearInterval(id)
+      setDrawRunning(false)
+      if (students.length) {
+        const finalIndex = Math.floor(Math.random() * students.length)
+        setDrawIndex(finalIndex)
+        setWinner(students[finalIndex])
+      }
+    }, 3000)
+    return () => {
+      clearInterval(id)
+      clearTimeout(stopId)
+    }
+  }, [drawRunning, students])
+
+  const startTimer = (seconds) => {
+    setDuration(seconds)
+    setRemaining(seconds)
+    setTimeUp(false)
+    setRunning(true)
+  }
+
+  const stopTimer = () => {
+    setRunning(false)
+  }
+
+  const resetTimer = () => {
+    setRunning(false)
+    setRemaining(0)
+    setTimeUp(false)
+  }
+
+  const startDraw = () => {
+    setWinner(null)
+    setDrawIndex(0)
+    setDrawRunning(true)
+  }
+
+  const progress = duration > 0 ? (remaining / duration) : 0
+  const circleStyle = {
+    background: `conic-gradient(#A8D8B9 ${progress * 360}deg, rgba(255,255,255,0.12) 0deg)`
+  }
+
+  const currentStudent = students[drawIndex]
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-[#fdfbf7] rounded-3xl shadow-2xl max-w-3xl w-full overflow-hidden">
+        <div className="h-3 bg-gradient-to-r from-[#A8D8B9] to-[#FFD6A5]" />
+        <button onClick={onClose} className="absolute top-5 right-5 p-2 rounded-full bg-white/80 hover:bg-white shadow-md">
+          <X size={20} className="text-[#5D5D5D]" />
+        </button>
+
+        <div className="p-6 md:p-8">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-12 h-12 rounded-2xl bg-[#A8D8B9] flex items-center justify-center text-white shadow-md">
+              <Sparkles size={24} />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-[#5D5D5D]">🧰 課堂法寶</h2>
+              <p className="text-sm text-[#8B8B8B]">上課小工具，讓課堂更順暢</p>
+            </div>
+          </div>
+
+          <div className="flex gap-3 mb-6">
+            <button
+              onClick={() => setActiveTab('timer')}
+              className={`px-4 py-2 rounded-xl font-bold text-sm transition-all ${activeTab === 'timer' ? 'bg-[#A8D8B9] text-white shadow-md' : 'bg-[#E8E8E8] text-[#5D5D5D]'}`}
+            >
+              ⏳ 專注計時
+            </button>
+            <button
+              onClick={() => setActiveTab('draw')}
+              className={`px-4 py-2 rounded-xl font-bold text-sm transition-all ${activeTab === 'draw' ? 'bg-[#FFD6A5] text-white shadow-md' : 'bg-[#E8E8E8] text-[#5D5D5D]'}`}
+            >
+              🎲 幸運抽籤
+            </button>
+          </div>
+
+          {activeTab === 'timer' && (
+            <div className="flex flex-col items-center justify-center gap-6">
+              <div className="relative flex items-center justify-center">
+                {running && (
+                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 text-4xl animate-cat-walk">
+                    🐱
+                  </div>
+                )}
+                <div className="timer-ring" style={{ ...circleStyle, width: 260, height: 260 }}>
+                  <div className="timer-center">
+                    <div className="text-4xl md:text-5xl font-bold text-[#5D5D5D]">
+                      {String(Math.floor(remaining / 60)).padStart(2, '0')}:{String(remaining % 60).padStart(2, '0')}
+                    </div>
+                    <div className="text-sm text-[#8B8B8B] mt-2">
+                      {running ? '專注中...' : remaining > 0 ? '暫停中' : '準備開始'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full max-w-md">
+                {[60, 180, 300, 600].map(s => (
+                  <button
+                    key={s}
+                    onClick={() => startTimer(s)}
+                    className="px-4 py-2 rounded-xl bg-white border-2 border-[#A8D8B9] text-[#4A7C59] font-bold hover:bg-[#A8D8B9] hover:text-white transition-all"
+                  >
+                    {s / 60} 分鐘
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex flex-wrap items-center justify-center gap-3 w-full">
+                <button
+                  onClick={() => (running ? stopTimer() : startTimer(remaining || duration || 180))}
+                  className="px-6 py-3 rounded-2xl bg-gradient-to-r from-[#A8D8B9] to-[#7BC496] text-white font-bold text-lg shadow-lg hover:shadow-xl active:scale-[0.98] transition-all"
+                >
+                  {running ? '暫停' : '開始'}
+                </button>
+                <button onClick={resetTimer} className="px-6 py-3 rounded-2xl bg-[#E8E8E8] text-[#5D5D5D] font-bold text-lg hover:bg-[#D8D8D8] transition-all">
+                  重設
+                </button>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'draw' && (
+            <div className="flex flex-col items-center justify-center gap-6">
+              <div className={`relative w-full max-w-md transition-all duration-500 ${winner ? 'scale-105' : ''}`}>
+                <div className={`draw-reel transition-all duration-500 ${winner ? 'border-4 border-[#FFBF69] shadow-2xl' : ''}`}>
+                  {winner && <div className="confetti-layer" />}
+                  {currentStudent ? (
+                    <div className="draw-avatar">
+                      <AvatarEmoji seed={currentStudent.uuid || currentStudent.id} className="w-full h-full rounded-2xl text-5xl" />
+                    </div>
+                  ) : (
+                    <div className="draw-avatar empty">🎁</div>
+                  )}
+                  <div className="text-lg font-bold text-[#5D5D5D] mt-3">
+                    {drawRunning ? '抽籤中...' : currentStudent?.name || '等待抽籤'}
+                  </div>
+                  {winner && (
+                    <div className="mt-2 text-xl font-bold text-[#7BC496]">🎉 幸運兒：{winner.name}</div>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={startDraw}
+                disabled={drawRunning || students.length === 0}
+                className="px-6 py-3 rounded-2xl bg-gradient-to-r from-[#A8D8B9] to-[#7BC496] text-white font-bold text-lg shadow-lg hover:shadow-xl active:scale-[0.98] transition-all disabled:opacity-50"
+              >
+                {drawRunning ? '抽籤中...' : '開始抽籤'}
+              </button>
+              {students.length === 0 && (
+                <div className="text-sm text-[#D64545]">目前沒有可抽籤的村民。</div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {timeUp && (
+          <div className="gadget-alert">
+            <div className="gadget-alert-card">
+              <div className="text-4xl mb-3">⏰</div>
+              <div className="text-2xl font-bold text-[#5D5D5D]">時間到！</div>
+              <button onClick={() => setTimeUp(false)} className="mt-4 px-4 py-2 rounded-xl bg-[#A8D8B9] text-white font-bold">
+                好的
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ============================================
 // 村民卡片 (v2.0 重新設計)
 // ============================================
 
@@ -1457,10 +1798,9 @@ function VillagerCard({ student, tasks, studentStatus, onClick, hasOverdue }) {
 
       {/* 頭像區 */}
       <div className="relative w-full aspect-square mb-2 rounded-xl overflow-hidden bg-white/50 shadow-inner">
-        <img
-          src={getAvatarUrl(student.uuid || student.id)}
-          alt={student.name}
-          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+        <AvatarEmoji
+          seed={student.uuid || student.id}
+          className="w-full h-full rounded-xl text-5xl transition-transform duration-300 group-hover:scale-110"
         />
         
         {/* 完成狀態指示器 */}
@@ -1505,13 +1845,48 @@ function VillagerCard({ student, tasks, studentStatus, onClick, hasOverdue }) {
 // 村民護照 Modal
 // ============================================
 
-function PassportModal({ student, tasks, studentStatus, classId, onClose, onToggleStatus, onStudentUpdate, apiUrl, hasOverdue, settings }) {
+function PassportModal({ student, tasks, studentStatus, classId, onClose, onToggleStatus, onStudentUpdate, apiUrl, hasOverdue, settings, allLogs, currentDateStr }) {
   const [isEditMode, setIsEditMode] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
   const [editData, setEditData] = useState({ name: student.name || '', gender: student.gender || 'male', group: student.group || 'A' })
   const status = studentStatus[student.id] || {}
   const hasTasks = tasks.length > 0
   const completedCount = tasks.filter(t => status[t.id] === true).length
   const isAllDone = hasTasks && completedCount === tasks.length
+
+  const overdueItems = useMemo(() => {
+    if (!allLogs || !currentDateStr) return []
+    const today = parseDate(currentDateStr)
+    const items = []
+    allLogs.forEach(log => {
+      const logDateStr = typeof log.date === 'string' ? log.date.split('T')[0] : formatDate(log.date)
+      if (!logDateStr) return
+      if (parseDate(logDateStr) >= today) return
+      const logTasks = log.tasks || []
+      const logStatus = log.status?.[student.id] || {}
+      logTasks.forEach(task => {
+        if (logStatus[task.id] !== true) {
+          items.push({ date: logDateStr, task })
+        }
+      })
+    })
+    return items
+  }, [allLogs, currentDateStr, student.id])
+
+  const historyItems = useMemo(() => {
+    if (!allLogs) return []
+    const items = []
+    allLogs.forEach(log => {
+      const logDateStr = typeof log.date === 'string' ? log.date.split('T')[0] : formatDate(log.date)
+      if (!logDateStr) return
+      const logTasks = log.tasks || []
+      const logStatus = log.status?.[student.id] || {}
+      logTasks.forEach(task => {
+        items.push({ date: logDateStr, task, completed: logStatus[task.id] === true })
+      })
+    })
+    return items.sort((a, b) => new Date(b.date) - new Date(a.date))
+  }, [allLogs, student.id])
 
   const saveEdit = () => {
     if (!editData.name.trim()) return
@@ -1547,7 +1922,7 @@ function PassportModal({ student, tasks, studentStatus, classId, onClose, onTogg
           {/* 頭像和基本資料 */}
           <div className="flex items-start gap-6 mb-6">
             <div className={`w-28 h-28 rounded-3xl overflow-hidden shadow-lg shrink-0 ring-4 ${isAllDone ? 'ring-[#A8D8B9]' : hasTasks ? 'ring-[#FFD6A5]' : 'ring-[#E8E8E8]'}`}>
-              <img src={getAvatarUrl(student.uuid || student.id)} alt={student.name} className="w-full h-full object-cover" />
+              <AvatarEmoji seed={student.uuid || student.id} className="w-full h-full rounded-3xl text-5xl" />
             </div>
             <div className="flex-1">
               {isEditMode ? (
@@ -1656,6 +2031,72 @@ function PassportModal({ student, tasks, studentStatus, classId, onClose, onTogg
               })
             )}
           </div>
+
+          {overdueItems.length > 0 && (
+            <div className="mt-4 p-4 rounded-2xl border-2 border-[#FFADAD] bg-[#FFADAD]/10">
+              <div className="font-bold text-[#D64545] mb-2">⚠️ 尚有未完成的歷史任務</div>
+              <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                {overdueItems.map((item, idx) => (
+                  <label
+                    key={`${item.date || 'no-date'}-${item.task.id || 'no-id'}-${idx}`}
+                    className="flex items-center gap-3 p-3 rounded-xl bg-white border-2 border-transparent hover:border-[#FFADAD]/40 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={false}
+                      onChange={e => onToggleStatus(student.id, item.task.id, e.target.checked, item.date)}
+                      className="sr-only"
+                    />
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-[#FFADAD]/60 text-white">
+                      <AlertTriangle size={18} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-bold text-[#D64545] truncate">{item.task.title}</div>
+                      <div className="text-xs text-[#8B8B8B]">日期：{formatDateDisplay(item.date)}</div>
+                    </div>
+                    <div className="w-7 h-7 rounded-lg border-2 border-[#FFADAD] flex items-center justify-center">
+                      <Check size={16} className="text-[#FFADAD]" />
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {showHistory && (
+            <div className="mt-4 p-4 rounded-2xl bg-[#F9F9F9] border border-[#E8E8E8]">
+              <div className="font-bold text-[#5D5D5D] mb-3">📊 該生完整任務紀錄</div>
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                {historyItems.length === 0 ? (
+                  <div className="text-sm text-[#8B8B8B]">尚無歷史紀錄。</div>
+                ) : (
+                  historyItems.map((item, idx) => (
+                    <label
+                      key={`${item.date || 'no-date'}-${item.task.id || 'no-id'}-${idx}-history`}
+                      className={`flex items-center gap-3 p-3 rounded-xl border-2 ${item.completed ? 'bg-[#A8D8B9]/15 border-[#A8D8B9]/40' : 'bg-white border-[#E8E8E8]'}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={item.completed}
+                        onChange={e => onToggleStatus(student.id, item.task.id, e.target.checked, item.date)}
+                        className="sr-only"
+                      />
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${item.completed ? 'bg-[#A8D8B9]' : 'bg-[#FFD6A5]'}`}>
+                        {item.completed ? <Check size={18} className="text-white" /> : <ScrollText size={18} className="text-white" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-bold text-[#5D5D5D] truncate">{item.task.title}</div>
+                        <div className="text-xs text-[#8B8B8B]">日期：{formatDateDisplay(item.date)}</div>
+                      </div>
+                      <div className="text-xs font-medium text-[#8B8B8B]">
+                        {item.completed ? '已完成' : '未完成'}
+                      </div>
+                    </label>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -1782,7 +2223,7 @@ function SettingsModal({ classId, settings, onClose, onSave, apiUrl }) {
 // Header
 // ============================================
 
-function Header({ todayStr, completionRate, className, classAlias, onLogout, onOpenSettings, onOpenTeamManagement, onOpenTaskOverview, onDisconnect }) {
+function Header({ todayStr, completionRate, className, classAlias, onLogout, onOpenSettings, onOpenTeamManagement, onOpenTaskOverview, onOpenGadgets, onDisconnect }) {
   const displayName = classAlias || className
   return (
     <header className="bg-white/80 backdrop-blur-md rounded-3xl p-4 md:p-5 mb-6 shadow-lg border border-white/50">
@@ -1819,6 +2260,9 @@ function Header({ todayStr, completionRate, className, classAlias, onLogout, onO
           <button onClick={onOpenSettings} className="p-3 rounded-2xl bg-[#fdfbf7] hover:bg-[#FFD6A5]/20 transition-colors" title="村莊設定">
             <Settings size={22} className="text-[#5D5D5D]" />
           </button>
+          <button onClick={onOpenGadgets} className="p-3 rounded-2xl bg-[#fdfbf7] hover:bg-[#A8D8B9]/20 transition-colors" title="課堂法寶">
+            <Sparkles size={22} className="text-[#5D5D5D]" />
+          </button>
           <button onClick={onLogout} className="p-3 rounded-2xl bg-[#fdfbf7] hover:bg-[#FFADAD]/20 transition-colors" title="返回村莊列表">
             <LogOut size={22} className="text-[#5D5D5D]" />
           </button>
@@ -1846,6 +2290,8 @@ function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onDis
   const [showSettings, setShowSettings] = useState(false)
   const [showTeamManagement, setShowTeamManagement] = useState(false)
   const [showTaskOverview, setShowTaskOverview] = useState(false)
+  const [showFocus, setShowFocus] = useState(false)
+  const [showGadgets, setShowGadgets] = useState(false)
 
   const normalizeDate = useCallback((date) => {
     if (typeof date === 'string') {
@@ -1876,7 +2322,11 @@ function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onDis
       const data = await response.json()
       
       const normStudents = (data.students || []).map((s, i) => ({...s, id: s.id || s.uuid || `student_${i}`}))
-      const normLogs = (data.logs || []).map(log => ({...log, date: normalizeDate(log.date)}))
+      const normLogs = (data.logs || []).map(log => {
+        const dateStr = normalizeDate(log.date)
+        const tasks = (log.tasks || []).map((t, i) => ({ ...t, id: t.id || makeTaskId(dateStr, t, i) }))
+        return { ...log, date: dateStr, tasks }
+      })
       const normSettings = data.settings || settings
 
       setStudents(normStudents)
@@ -1905,9 +2355,11 @@ function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onDis
     })
   }, [currentDate, normalizeDate])
 
-  const toggleStatus = useCallback((studentId, taskId, checked) => {
-    const dateStr = formatDate(currentDate)
+  const toggleStatus = useCallback((studentId, taskId, checked, dateOverride) => {
+    const rawDate = dateOverride || currentDate
+    const dateStr = typeof rawDate === 'string' ? rawDate : formatDate(rawDate)
     const normDate = normalizeDate(dateStr)
+
     setAllLogs(prev => {
       const idx = prev.findIndex(l => normalizeDate(l.date) === normDate)
       if (idx >= 0) {
@@ -1916,10 +2368,12 @@ function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onDis
         newLogs[idx] = { ...newLogs[idx], status: { ...currentStatus, [studentId]: { ...currentStatus[studentId], [taskId]: checked } } }
         return newLogs
       }
-      return [...prev, { date: normDate, tasks, status: { [studentId]: { [taskId]: checked } } }]
+      const log = prev.find(l => normalizeDate(l.date) === normDate)
+      return [...prev, { date: normDate, tasks: log?.tasks || [], status: { [studentId]: { [taskId]: checked } } }]
     })
+
     fetch(apiUrl, { method: 'POST', mode: 'no-cors', headers: {'Content-Type': 'text/plain'}, body: JSON.stringify({ action: 'update_status', classId, date: dateStr, studentId, taskId, checked }) }).catch(console.error)
-  }, [classId, currentDate, normalizeDate, tasks, apiUrl])
+  }, [classId, currentDate, normalizeDate, apiUrl])
 
   const checkOverdue = useCallback((studentId) => {
     const todayStr = getTodayStr()
@@ -1983,6 +2437,7 @@ function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onDis
         onOpenSettings={() => setShowSettings(true)}
         onOpenTeamManagement={() => setShowTeamManagement(true)}
         onOpenTaskOverview={() => setShowTaskOverview(true)}
+        onOpenGadgets={() => setShowGadgets(true)}
         onDisconnect={onDisconnect}
       />
       
@@ -2005,6 +2460,7 @@ function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onDis
               onTasksUpdate={handleTasksUpdate}
               taskTypes={settings.taskTypes}
               apiUrl={apiUrl}
+              onOpenFocus={() => setShowFocus(true)}
             />
           </div>
         </aside>
@@ -2106,6 +2562,8 @@ function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onDis
           apiUrl={apiUrl}
           settings={settings}
           hasOverdue={checkOverdue(selectedStudent.id)}
+          allLogs={allLogs}
+          currentDateStr={formatDate(currentDate)}
           onClose={() => setSelectedStudent(null)}
           onToggleStatus={toggleStatus}
           onStudentUpdate={(updated) => {
@@ -2145,6 +2603,21 @@ function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onDis
           settings={settings}
           onClose={() => setShowTaskOverview(false)}
           onNavigateToDate={setCurrentDate}
+        />
+      )}
+
+      {showFocus && (
+        <FocusView
+          tasks={tasks}
+          currentDateStr={formatDate(currentDate)}
+          onClose={() => setShowFocus(false)}
+        />
+      )}
+
+      {showGadgets && (
+        <GadgetsModal
+          students={students}
+          onClose={() => setShowGadgets(false)}
         />
       )}
     </div>

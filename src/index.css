@@ -128,6 +128,189 @@ body {
     animation: popIn 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
   }
 
+  .font-chalk {
+    font-family: 'Noto Sans TC', 'Comic Sans MS', 'Segoe Print', cursive;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-shadow: 0 2px 0 rgba(0, 0, 0, 0.25), 0 0 8px rgba(232, 245, 233, 0.25);
+  }
+
+  .focus-overlay {
+    background-color: #1f3327;
+    background-image:
+      radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.04) 0%, transparent 45%),
+      radial-gradient(circle at 80% 30%, rgba(255, 255, 255, 0.03) 0%, transparent 40%),
+      repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0.12) 1px, transparent 1px, transparent 6px),
+      repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.02) 1px, transparent 1px, transparent 8px);
+  }
+
+  .focus-checkbox {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    border: 3px solid rgba(232, 245, 233, 0.8);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    position: relative;
+  }
+
+  .focus-checkbox.is-checked::after {
+    content: "✓";
+    color: rgba(232, 245, 233, 0.9);
+    font-size: 22px;
+    line-height: 1;
+  }
+
+  .focus-strike {
+    text-decoration: line-through;
+    text-decoration-thickness: 0.18em;
+    text-decoration-color: rgba(232, 245, 233, 0.65);
+  }
+
+  .gadget-timer {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+
+  .timer-ring {
+    width: 220px;
+    height: 220px;
+    border-radius: 50%;
+    padding: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.15), 0 12px 24px rgba(0, 0, 0, 0.1);
+  }
+
+  .timer-center {
+    width: 100%;
+    height: 100%;
+    background: #fdfbf7;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.08);
+  }
+
+  .cat-track {
+    position: relative;
+    flex: 1 1 240px;
+    height: 80px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #e8f5e9, #fdfbf7);
+    border: 2px dashed rgba(125, 196, 150, 0.5);
+    overflow: hidden;
+  }
+
+  .cat-walker {
+    position: absolute;
+    top: 18px;
+    font-size: 32px;
+    animation: catWalk 1s ease-in-out infinite;
+    transition: left 0.4s ease-out;
+  }
+
+  .draw-stage {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .draw-reel {
+    background: #fff;
+    border-radius: 24px;
+    padding: 24px;
+    text-align: center;
+    border: 3px solid rgba(168, 216, 185, 0.5);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+  }
+
+  .draw-avatar {
+    width: 120px;
+    height: 120px;
+    margin: 0 auto;
+    border-radius: 24px;
+    overflow: hidden;
+    background: #fdfbf7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.08);
+  }
+
+  .draw-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .draw-avatar.empty {
+    font-size: 48px;
+  }
+
+  .winner-card {
+    position: relative;
+    background: #fff;
+    border-radius: 28px;
+    padding: 24px;
+    text-align: center;
+    border: 4px solid #ffd6a5;
+    box-shadow: 0 16px 32px rgba(0, 0, 0, 0.12);
+    overflow: hidden;
+  }
+
+  .winner-avatar {
+    width: 140px;
+    height: 140px;
+    margin: 0 auto;
+    border-radius: 28px;
+    overflow: hidden;
+    border: 4px solid #a8d8b9;
+  }
+
+  .winner-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .confetti-layer {
+    position: absolute;
+    inset: 0;
+    background-image:
+      radial-gradient(circle, rgba(255, 214, 165, 0.6) 0 2px, transparent 3px),
+      radial-gradient(circle, rgba(168, 216, 185, 0.6) 0 2px, transparent 3px),
+      radial-gradient(circle, rgba(255, 173, 173, 0.6) 0 2px, transparent 3px);
+    background-size: 20px 20px, 26px 26px, 22px 22px;
+    background-position: 0 0, 10px 20px, 5px 15px;
+    opacity: 0.6;
+    animation: sparkle 1.5s ease-in-out infinite;
+  }
+
+  .gadget-alert {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .gadget-alert-card {
+    background: #fff;
+    padding: 24px 32px;
+    border-radius: 24px;
+    text-align: center;
+    box-shadow: 0 16px 32px rgba(0, 0, 0, 0.18);
+  }
+
   /* 木板紋理 */
   .wood-texture {
     background-color: #8B7355;
