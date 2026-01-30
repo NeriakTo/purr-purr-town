@@ -551,86 +551,118 @@ function LoginView({ onSelectClass, loading, error, apiUrl, onDisconnect, localM
   }
 
   return (
-    <div className="min-h-screen bg-[#fdfbf7] p-6 md:p-10">
-      <div className="max-w-4xl mx-auto relative z-10">
-        {apiUrl && (
-          <div className="flex justify-end mb-4">
-            <button 
-              onClick={onDisconnect}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/50 text-[#8B8B8B] hover:bg-[#FFADAD]/20 hover:text-[#D64545] transition-colors text-sm font-medium"
-            >
-              <Unplug size={16} />
-              斷開資料庫連結
-            </button>
-          </div>
-        )}
-
-        <div className="text-center mb-12">
-          <div className="flex items-center justify-center gap-4 mb-4">
-            <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl shadow-xl bg-gradient-to-br from-[#A8D8B9] to-[#7BC496] flex items-center justify-center">
-              <PawPrint size={36} className="text-white" />
-            </div>
-            <h1 className="text-4xl md:text-5xl font-bold text-[#5D5D5D]">呼嚕嚕小鎮</h1>
-          </div>
-          <p className="text-[#8B8B8B] text-lg">選擇您要進入的村莊</p>
-        </div>
-
-        <div className="flex justify-center mb-8">
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="group flex items-center gap-3 px-6 py-4 rounded-2xl bg-gradient-to-r from-[#FFD6A5] to-[#FFBF69] text-white font-bold text-lg shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 transition-all"
-          >
-            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center group-hover:rotate-90 transition-transform">
-              <Plus size={24} />
-            </div>
-            🏠 建立新村莊
-          </button>
-        </div>
-
-        {error && (
-          <div className="mb-6 p-4 rounded-2xl bg-[#FFADAD]/20 text-[#D64545] flex items-center gap-3 justify-center">
-            <WifiOff size={20} /><span>{error}</span>
-          </div>
-        )}
-
-        {classes.length === 0 ? (
-          <div className="text-center py-16 bg-white/60 rounded-3xl shadow-lg">
-            <div className="text-6xl mb-4">🏚️</div>
-            <p className="text-[#8B8B8B] text-lg">目前沒有可用的村莊</p>
-            <p className="text-[#B8B8B8] text-sm mt-2">點擊上方按鈕建立你的第一個村莊吧！</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {classes.map((cls, index) => {
-              const displayName = cls.alias || cls.name || `班級 ${cls.id}`
-              const fullClassName = cls.year && cls.name ? `${cls.year}學年 ${cls.name}` : cls.name || ''
-
-              return (
-                <button
-                  key={cls.id}
-                  onClick={() => onSelectClass(cls.id, displayName, cls.alias)}
-                  disabled={loading}
-                  className="group bg-white rounded-3xl p-6 shadow-lg border-2 border-transparent hover:border-[#A8D8B9] hover:shadow-xl transition-all hover:-translate-y-2 disabled:opacity-50 text-left"
-                >
-                  <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform" style={{ background: `linear-gradient(135deg, ${index % 3 === 0 ? '#A8D8B9, #7BC496' : index % 3 === 1 ? '#FFD6A5, #FFBF69' : '#FFADAD, #FF8A8A'})` }}>
-                    <School size={32} className="text-white" />
-                  </div>
-                  <h3 className="text-xl font-bold text-[#5D5D5D] mb-1">{displayName}</h3>
-                  {cls.alias && fullClassName && <p className="text-[#A8D8B9] text-sm font-medium mb-2">{fullClassName}</p>}
-                  <p className="text-[#8B8B8B] text-sm mb-4">
-                    {cls.teacher && <span>村長：{cls.teacher}</span>}
-                    {cls.teacher && cls.studentCount !== undefined && <span> · </span>}
-                    {cls.studentCount !== undefined && <span>{cls.studentCount} 位村民</span>}
-                  </p>
-                  <div className="flex items-center gap-2 text-[#A8D8B9] font-medium group-hover:gap-3 transition-all">
-                    <span>進入村莊</span><ChevronRight size={18} />
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-        )}
+    <div className="min-h-screen bg-[#fdfbf7] flex flex-col">
+      {/* Decorative background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-32 -right-32 w-96 h-96 bg-[#A8D8B9]/8 rounded-full" />
+        <div className="absolute -bottom-24 -left-24 w-80 h-80 bg-[#FFD6A5]/8 rounded-full" />
+        <div className="absolute top-1/3 right-1/4 w-48 h-48 bg-[#FFADAD]/5 rounded-full" />
       </div>
+
+      <div className="flex-1 p-6 md:p-10 relative z-10">
+        <div className="max-w-4xl mx-auto">
+          {apiUrl && (
+            <div className="flex justify-end mb-4">
+              <button
+                onClick={onDisconnect}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/50 text-[#8B8B8B] hover:bg-[#FFADAD]/20 hover:text-[#D64545] transition-colors text-sm font-medium"
+              >
+                <Unplug size={16} />
+                斷開資料庫連結
+              </button>
+            </div>
+          )}
+
+          {/* Hero */}
+          <div className="text-center pt-6 md:pt-10 mb-10">
+            <div className="flex items-center justify-center gap-3 mb-3">
+              <div className="w-12 h-12 md:w-14 md:h-14 rounded-xl shadow-lg bg-gradient-to-br from-[#A8D8B9] to-[#7BC496] flex items-center justify-center">
+                <PawPrint size={28} className="text-white" />
+              </div>
+              <h1 className="text-3xl md:text-4xl font-bold text-[#5D5D5D]">呼嚕嚕小鎮</h1>
+            </div>
+            <p className="text-[#8B8B8B]">選擇您要進入的村莊</p>
+          </div>
+
+          {error && (
+            <div className="mb-6 p-4 rounded-2xl bg-[#FFADAD]/20 text-[#D64545] flex items-center gap-3 justify-center">
+              <WifiOff size={20} /><span>{error}</span>
+            </div>
+          )}
+
+          {classes.length === 0 ? (
+            <div className="max-w-sm mx-auto text-center py-16">
+              <div className="w-20 h-20 mx-auto rounded-2xl bg-[#FFD6A5]/15 flex items-center justify-center mb-6">
+                <Home size={36} className="text-[#FFBF69]" />
+              </div>
+              <h3 className="text-xl font-bold text-[#5D5D5D] mb-2">還沒有村莊</h3>
+              <p className="text-[#8B8B8B] text-sm mb-8">建立你的第一個村莊，開始班級管理之旅吧！</p>
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-[#A8D8B9] to-[#7BC496] text-white font-bold shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 transition-all"
+              >
+                <Plus size={20} />
+                建立新村莊
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {classes.map((cls, index) => {
+                const displayName = cls.alias || cls.name || `班級 ${cls.id}`
+                const fullClassName = cls.year && cls.name ? `${cls.year}學年 ${cls.name}` : cls.name || ''
+                const gradients = ['#A8D8B9, #7BC496', '#FFD6A5, #FFBF69', '#FFADAD, #FF8A8A', '#A0C4FF, #7EB0FF', '#BDB2FF, #9B8FFF']
+
+                return (
+                  <button
+                    key={cls.id}
+                    onClick={() => onSelectClass(cls.id, displayName, cls.alias)}
+                    disabled={loading}
+                    className="group bg-white rounded-2xl p-5 shadow-md border border-[#F0F0F0] hover:shadow-xl hover:border-[#A8D8B9] transition-all hover:-translate-y-1 disabled:opacity-50 text-left"
+                  >
+                    <div className="flex items-start gap-4 mb-4">
+                      <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform" style={{ background: `linear-gradient(135deg, ${gradients[index % gradients.length]})` }}>
+                        <School size={24} className="text-white" />
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="text-lg font-bold text-[#5D5D5D] truncate">{displayName}</h3>
+                        {cls.alias && fullClassName && <p className="text-[#A8D8B9] text-xs font-medium">{fullClassName}</p>}
+                      </div>
+                    </div>
+                    <p className="text-[#8B8B8B] text-sm mb-4">
+                      {cls.teacher && <span>村長：{cls.teacher}</span>}
+                      {cls.teacher && cls.studentCount !== undefined && <span> · </span>}
+                      {cls.studentCount !== undefined && <span>{cls.studentCount} 位村民</span>}
+                    </p>
+                    <div className="flex items-center gap-1 text-sm text-[#A8D8B9] font-medium group-hover:gap-2 transition-all">
+                      <span>進入村莊</span><ChevronRight size={16} />
+                    </div>
+                  </button>
+                )
+              })}
+
+              {/* Add village card */}
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="group border-2 border-dashed border-[#D8D8D8] rounded-2xl p-5 hover:border-[#A8D8B9] hover:bg-[#A8D8B9]/5 transition-all flex flex-col items-center justify-center min-h-[180px] gap-3"
+              >
+                <div className="w-12 h-12 rounded-xl bg-[#F0F0F0] group-hover:bg-[#A8D8B9]/20 flex items-center justify-center transition-colors">
+                  <Plus size={24} className="text-[#B8B8B8] group-hover:text-[#7BC496] transition-colors" />
+                </div>
+                <span className="text-sm text-[#8B8B8B] font-medium group-hover:text-[#5D5D5D] transition-colors">建立新村莊</span>
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Footer */}
+      <footer className="text-center py-6 relative z-10">
+        <p className="flex items-center justify-center gap-2 text-[#B8B8B8] text-xs">
+          <PawPrint size={12} />
+          Purr Purr Town v2.0.6
+          <PawPrint size={12} />
+        </p>
+      </footer>
 
       {showCreateModal && (
         <CreateClassModal
