@@ -247,36 +247,7 @@ function LoadingScreen({ message = '正在前往呼嚕嚕小鎮...' }) {
 // 歡迎連結頁面 (WelcomeView)
 // ============================================
 
-function WelcomeView({ onConnect, onLocalMode }) {
-  const [inputUrl, setInputUrl] = useState('')
-  const [checking, setChecking] = useState(false)
-  const [error, setError] = useState(null)
-
-  const handleConnect = async (e) => {
-    e.preventDefault()
-    if (!inputUrl.trim()) return
-
-    try {
-      setChecking(true)
-      setError(null)
-      
-      const testUrl = `${inputUrl.trim()}?action=get_classes`
-      const response = await fetch(testUrl)
-      
-      if (!response.ok) throw new Error('無法連線到此網址')
-
-      const data = await response.json()
-      if (!data || !data.classes) throw new Error('資料格式不符，請確認是否為呼嚕嚕小鎮專用範本')
-
-      onConnect(inputUrl.trim())
-    } catch (err) {
-      console.error(err)
-      setError('連線失敗：請檢查網址是否正確，或確認權限已設為「任何人」')
-    } finally {
-      setChecking(false)
-    }
-  }
-
+function WelcomeView({ onLocalMode }) {
   return (
     <div className="min-h-screen bg-[#fdfbf7] flex flex-col items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-3xl shadow-xl overflow-hidden border-2 border-white/50">
@@ -294,69 +265,30 @@ function WelcomeView({ onConnect, onLocalMode }) {
             </p>
           </div>
 
-          <form onSubmit={handleConnect} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-[#5D5D5D] mb-2 ml-1">
-                Google Apps Script 網址
-              </label>
-              <div className="relative">
-                <input
-                  type="url"
-                  value={inputUrl}
-                  onChange={(e) => setInputUrl(e.target.value)}
-                  placeholder="https://script.google.com/..."
-                  className="w-full pl-10 pr-4 py-3 rounded-xl border-2 border-[#E8E8E8] focus:border-[#A8D8B9] outline-none transition-all text-[#5D5D5D] bg-[#F9F9F9]"
-                  required
-                />
-                <Link size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#B8B8B8]" />
-              </div>
-              <p className="mt-2 text-xs text-[#8B8B8B]">
-                用於雲端備份/還原（單一班級），非必填。
-              </p>
-            </div>
-
-            {error && (
-              <div className="p-3 rounded-xl bg-[#FFADAD]/20 text-[#D64545] text-xs flex items-start gap-2">
-                <WifiOff size={14} className="shrink-0 mt-0.5" />
-                <span>{error}</span>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={checking || !inputUrl}
-              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-[#A8D8B9] to-[#7BC496] text-white font-bold shadow-md hover:shadow-lg active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {checking ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />}
-              開始連結村莊
-            </button>
-          </form>
-
-          <div className="mt-4">
-            <button
-              onClick={onLocalMode}
-              className="w-full py-3 rounded-xl bg-white border-2 border-[#E8E8E8] text-[#5D5D5D] font-bold hover:border-[#A8D8B9] hover:text-[#4A7C59] transition-all"
-            >
-              先用本地模式開始（可稍後設定備份）
-            </button>
-          </div>
+          <button
+            onClick={onLocalMode}
+            className="w-full py-3.5 rounded-xl bg-gradient-to-r from-[#A8D8B9] to-[#7BC496] text-white font-bold shadow-md hover:shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
+          >
+            <Sparkles size={20} />
+            開始使用（本地模式）
+          </button>
 
           <div className="mt-8 pt-6 border-t border-[#E8E8E8]">
             <h3 className="text-xs font-bold text-[#8B8B8B] mb-3 uppercase tracking-wider text-center">
-              還沒有資料庫嗎？
+              關於雲端備份
             </h3>
             <div className="space-y-3">
               <div className="flex items-start gap-3 text-sm text-[#5D5D5D]">
                 <div className="w-6 h-6 rounded-full bg-[#FFD6A5] text-white flex items-center justify-center shrink-0 font-bold text-xs">1</div>
-                <p>複製我們提供的 Google Sheet 範本</p>
+                <p>建立一個空的 Google Sheet</p>
               </div>
               <div className="flex items-start gap-3 text-sm text-[#5D5D5D]">
                 <div className="w-6 h-6 rounded-full bg-[#FFD6A5] text-white flex items-center justify-center shrink-0 font-bold text-xs">2</div>
-                <p>在擴充功能中部署 Apps Script</p>
+                <p>在擴充功能中貼上 Apps Script 並部署</p>
               </div>
               <div className="flex items-start gap-3 text-sm text-[#5D5D5D]">
                 <div className="w-6 h-6 rounded-full bg-[#FFD6A5] text-white flex items-center justify-center shrink-0 font-bold text-xs">3</div>
-                <p>將產生的網址貼到上方欄位</p>
+                <p>到「設定 → 備份中心」貼上 GAS 連結</p>
               </div>
             </div>
           </div>
@@ -629,15 +561,17 @@ function LoginView({ onSelectClass, loading, error, apiUrl, onDisconnect, localM
   return (
     <div className="min-h-screen bg-[#fdfbf7] p-6 md:p-10">
       <div className="max-w-4xl mx-auto relative z-10">
-        <div className="flex justify-end mb-4">
-          <button 
-            onClick={onDisconnect}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/50 text-[#8B8B8B] hover:bg-[#FFADAD]/20 hover:text-[#D64545] transition-colors text-sm font-medium"
-          >
-            <Unplug size={16} />
-            斷開資料庫連結
-          </button>
-        </div>
+        {apiUrl && (
+          <div className="flex justify-end mb-4">
+            <button 
+              onClick={onDisconnect}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/50 text-[#8B8B8B] hover:bg-[#FFADAD]/20 hover:text-[#D64545] transition-colors text-sm font-medium"
+            >
+              <Unplug size={16} />
+              斷開資料庫連結
+            </button>
+          </div>
+        )}
 
         <div className="text-center mb-12">
           <div className="inline-flex items-center justify-center w-24 h-24 rounded-3xl mb-6 shadow-xl bg-gradient-to-br from-[#A8D8B9] to-[#7BC496]">
@@ -2991,30 +2925,18 @@ function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onDis
 // ============================================
 
 function App() {
-  const [apiUrl, setApiUrl] = useState(() => localStorage.getItem('ppt_api_url'))
-  const [localMode, setLocalMode] = useState(() => localStorage.getItem('ppt_local_mode') === 'true')
+  const [apiUrl, setApiUrl] = useState(null)
+  const [localMode, setLocalMode] = useState(true)
   const [localClasses, setLocalClasses] = useState(() => loadLocalClasses())
   const [selectedClass, setSelectedClass] = useState(null)
-
-  const handleConnect = (url) => {
-    localStorage.setItem('ppt_api_url', url)
-    localStorage.setItem('ppt_local_mode', 'false')
-    setApiUrl(url)
-    setLocalMode(false)
-  }
+  const [hasStarted, setHasStarted] = useState(false)
 
   const handleDisconnect = () => {
-    if (window.confirm('確定要斷開資料庫連結嗎？您需要重新輸入網址才能進入。')) {
-      localStorage.removeItem('ppt_api_url')
-      localStorage.removeItem('ppt_local_mode')
-      setApiUrl(null)
-      setLocalMode(false)
-      setSelectedClass(null)
-    }
+    setSelectedClass(null)
   }
 
   const handleLocalMode = () => {
-    localStorage.setItem('ppt_local_mode', 'true')
+    setHasStarted(true)
     setLocalMode(true)
     setApiUrl(null)
     setSelectedClass(null)
@@ -3067,8 +2989,8 @@ function App() {
     }
   }
 
-  if (!apiUrl && !localMode) {
-    return <WelcomeView onConnect={handleConnect} onLocalMode={handleLocalMode} />
+  if (!hasStarted) {
+    return <WelcomeView onLocalMode={handleLocalMode} />
   }
 
   if (!selectedClass) {
