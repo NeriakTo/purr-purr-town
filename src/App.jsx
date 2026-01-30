@@ -177,7 +177,7 @@ function LoadingScreen({ message = '正在前往呼嚕嚕小鎮...' }) {
 
       <div className="absolute bottom-8 flex items-center gap-2 text-[#A8D8B9]">
         <PawPrint size={20} />
-        <span className="text-sm font-medium">Purr Purr Town v2.0</span>
+        <span className="text-sm font-medium">Purr Purr Town v2.0.5</span>
         <PawPrint size={20} />
       </div>
 
@@ -292,7 +292,7 @@ function WelcomeView({ onConnect }) {
           </div>
         </div>
       </div>
-      <p className="mt-6 text-[#B8B8B8] text-xs">Purr Purr Town v2.0 • BYOB Architecture</p>
+      <p className="mt-6 text-[#B8B8B8] text-xs">Purr Purr Town v2.0.5 • BYOB Architecture</p>
     </div>
   )
 }
@@ -2547,7 +2547,7 @@ function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onDis
       <footer className="mt-10 text-center text-[#8B8B8B] text-sm">
         <p className="flex items-center justify-center gap-2">
           <PawPrint size={16} className="text-[#A8D8B9]" />
-          呼嚕嚕小鎮 Purr Purr Town v2.0 © 2026
+          呼嚕嚕小鎮 Purr Purr Town v2.0.5 © 2026
           <PawPrint size={16} className="text-[#A8D8B9]" />
         </p>
       </footer>
