@@ -1468,7 +1468,7 @@ function TaskBoard({ tasks, students, studentStatus, classId, currentDateStr, on
     <div>
       <div className="mb-4 flex items-center justify-between gap-3">
         <h2 className="text-lg font-bold text-[#5D5D5D] flex items-center gap-2">
-          <ClipboardList size={20} className="text-[#A8D8B9]" />📝 今日任務
+          <ClipboardList size={20} className="text-[#A8D8B9]" />今日任務
         </h2>
         <button
           onClick={onOpenFocus}
@@ -1476,7 +1476,7 @@ function TaskBoard({ tasks, students, studentStatus, classId, currentDateStr, on
           title="投影模式"
         >
           <Projector size={16} />
-          🎥 投影模式
+          投影模式
         </button>
       </div>
       
@@ -2387,15 +2387,24 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
       <div className="relative bg-[#fdfbf7] rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden" onClick={e => e.stopPropagation()}>
-        <div className="h-3" style={{ background: 'repeating-linear-gradient(90deg, #A8D8B9, #A8D8B9 20px, #FFD6A5 20px, #FFD6A5 40px)' }} />
-        <button onClick={onClose} disabled={saving} className="absolute top-6 right-4 p-2 rounded-full bg-white/80 hover:bg-white shadow-md z-10">
-          <X size={20} className="text-[#5D5D5D]" />
-        </button>
-        
-        <div className="p-6 max-h-[80vh] overflow-y-auto">
-          <div className="text-center mb-6">
-            <h2 className="text-2xl font-bold text-[#5D5D5D]">⚙️ 村莊設定</h2>
+        <div className="h-3 bg-gradient-to-r from-[#A8D8B9] to-[#FFD6A5]" />
+
+        <div className="p-6 border-b border-[#E8E8E8] flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#A8D8B9] to-[#FFD6A5] flex items-center justify-center">
+              <Settings size={24} className="text-white" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-[#5D5D5D]">村莊設定</h2>
+              <p className="text-sm text-[#8B8B8B]">自訂任務類型與資料管理</p>
+            </div>
           </div>
+          <button onClick={onClose} disabled={saving} className="p-2 rounded-full hover:bg-[#E8E8E8] transition-colors">
+            <X size={24} className="text-[#5D5D5D]" />
+          </button>
+        </div>
+
+        <div className="p-6 max-h-[70vh] overflow-y-auto">
 
           {/* 任務類型設定 */}
           <div className="space-y-4 mb-6">
@@ -2546,7 +2555,7 @@ function Header({ todayStr, completionRate, className, classAlias, onLogout, onO
             <PawPrint size={28} className="text-white" />
           </div>
           <div>
-            <h1 className="text-xl md:text-2xl font-bold text-[#5D5D5D] flex items-center gap-2">🐾 {displayName || '呼嚕嚕小鎮'}</h1>
+            <h1 className="text-xl md:text-2xl font-bold text-[#5D5D5D] flex items-center gap-2">{displayName || '呼嚕嚕小鎮'}</h1>
             <p className="text-xs md:text-sm text-[#8B8B8B]">{formatDateDisplay(todayStr)}</p>
           </div>
         </div>
@@ -2845,10 +2854,10 @@ function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onDis
                       <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-2">
                           <Flag size={20} className="text-[#FF8A8A]" />
-                          <h3 className="text-lg font-bold text-[#5D5D5D]">🚩 {groupName}</h3>
+                          <h3 className="text-lg font-bold text-[#5D5D5D]">{groupName}</h3>
                           {isComplete && (
                             <span className="flex items-center gap-1 px-2 py-1 rounded-lg bg-yellow-400 text-yellow-900 text-xs font-bold">
-                              <Trophy size={14} />🏆 全員達成！
+                              <Trophy size={14} />全員達成！
                             </span>
                           )}
                         </div>
