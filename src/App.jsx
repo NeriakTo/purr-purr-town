@@ -2530,7 +2530,7 @@ function Header({ todayStr, completionRate, className, classAlias, onLogout, onO
 // 村莊儀表板 (Dashboard View)
 // ============================================
 
-function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onDisconnect }) {
+function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onDisconnect, onClearLocalClass }) {
   const [students, setStudents] = useState([])
   const [allLogs, setAllLogs] = useState([])
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
@@ -2874,7 +2874,7 @@ function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onDis
             }))
             setSettings(restored.settings || settings)
           }}
-          onClearLocalClass={handleClearLocalClass}
+          onClearLocalClass={onClearLocalClass}
           apiUrl={apiUrl}
         />
       )}
@@ -3014,6 +3014,7 @@ function App() {
       onLogout={() => setSelectedClass(null)}
       onDisconnect={handleDisconnect}
       apiUrl={apiUrl}
+      onClearLocalClass={handleClearLocalClass}
     />
   )
 }
