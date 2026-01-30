@@ -71,6 +71,64 @@ function formatDate(date) {
   return format(date, 'yyyy-MM-dd')
 }
 
+const DEFAULT_SETTINGS = { taskTypes: ['作業', '訂正', '攜帶物品', '考試', '通知單', '回條'], groupAliases: {} }
+
+function getClassCacheKey(classId) {
+  return `ppt_cache_class_${classId}`
+}
+
+function loadClassCache(classId) {
+  if (!classId) return null
+  try {
+    const raw = localStorage.getItem(getClassCacheKey(classId))
+    return raw ? JSON.parse(raw) : null
+  } catch (err) {
+    console.error('讀取本地快取失敗:', err)
+    return null
+  }
+}
+
+function saveClassCache(classId, payload) {
+  if (!classId || !payload) return
+  try {
+    localStorage.setItem(getClassCacheKey(classId), JSON.stringify(payload))
+  } catch (err) {
+    console.error('寫入本地快取失敗:', err)
+  }
+}
+
+function getLocalClassesKey() {
+  return 'ppt_local_classes'
+}
+
+function loadLocalClasses() {
+  try {
+    const raw = localStorage.getItem(getLocalClassesKey())
+    return raw ? JSON.parse(raw) : []
+  } catch (err) {
+    console.error('讀取本地班級清單失敗:', err)
+    return []
+  }
+}
+
+function saveLocalClasses(classes) {
+  try {
+    localStorage.setItem(getLocalClassesKey(), JSON.stringify(classes))
+  } catch (err) {
+    console.error('寫入本地班級清單失敗:', err)
+  }
+}
+
+function isDoneStatus(value) {
+  return value === true || value === 'leave' || value === 'exempt'
+}
+
+function getStatusLabel(value) {
+  if (value === 'leave') return '請假'
+  if (value === 'exempt') return '免交'
+  return ''
+}
+
 function getTaskIcon(title) {
   const lower = title?.toLowerCase() || ''
   if (lower.includes('習') || lower.includes('作業') || lower.includes('國') || lower.includes('數') || lower.includes('英')) {
@@ -189,7 +247,7 @@ function LoadingScreen({ message = '正在前往呼嚕嚕小鎮...' }) {
 // 歡迎連結頁面 (WelcomeView)
 // ============================================
 
-function WelcomeView({ onConnect }) {
+function WelcomeView({ onConnect, onLocalMode }) {
   const [inputUrl, setInputUrl] = useState('')
   const [checking, setChecking] = useState(false)
   const [error, setError] = useState(null)
@@ -232,7 +290,7 @@ function WelcomeView({ onConnect }) {
             <h1 className="text-3xl font-bold text-[#5D5D5D] mb-2">歡迎來到<br/>呼嚕嚕小鎮</h1>
             <p className="text-[#8B8B8B] text-sm">
               這裡是一個安全、去中心化的班級管理工具。<br/>
-              資料由您自行保管，請連結您的村莊資料庫。
+              資料以本機為主，雲端備份可選擇性連結。
             </p>
           </div>
 
@@ -252,6 +310,9 @@ function WelcomeView({ onConnect }) {
                 />
                 <Link size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#B8B8B8]" />
               </div>
+              <p className="mt-2 text-xs text-[#8B8B8B]">
+                用於雲端備份/還原（單一班級），非必填。
+              </p>
             </div>
 
             {error && (
@@ -270,6 +331,15 @@ function WelcomeView({ onConnect }) {
               開始連結村莊
             </button>
           </form>
+
+          <div className="mt-4">
+            <button
+              onClick={onLocalMode}
+              className="w-full py-3 rounded-xl bg-white border-2 border-[#E8E8E8] text-[#5D5D5D] font-bold hover:border-[#A8D8B9] hover:text-[#4A7C59] transition-all"
+            >
+              先用本地模式開始（可稍後設定備份）
+            </button>
+          </div>
 
           <div className="mt-8 pt-6 border-t border-[#E8E8E8]">
             <h3 className="text-xs font-bold text-[#8B8B8B] mb-3 uppercase tracking-wider text-center">
@@ -301,7 +371,7 @@ function WelcomeView({ onConnect }) {
 // 建立班級 Modal
 // ============================================
 
-function CreateClassModal({ onClose, onSuccess, apiUrl }) {
+function CreateClassModal({ onClose, onSuccess, apiUrl, isLocal, onCreateLocalClass }) {
   const [formData, setFormData] = useState({
     year: '',
     className: '',
@@ -346,6 +416,18 @@ function CreateClassModal({ onClose, onSuccess, apiUrl }) {
     try {
       setSubmitting(true)
       setSubmitError(null)
+
+      if (isLocal && onCreateLocalClass) {
+        onCreateLocalClass({
+          year: formData.year.trim(),
+          className: formData.className.trim(),
+          teacher: formData.teacher.trim(),
+          alias: formData.alias.trim(),
+          studentCount: parseInt(formData.studentCount.trim(), 10)
+        })
+        onSuccess()
+        return
+      }
 
       const payload = {
         action: 'create_class',
@@ -498,7 +580,7 @@ function CreateClassModal({ onClose, onSuccess, apiUrl }) {
 // 村莊入口 (Login View)
 // ============================================
 
-function LoginView({ onSelectClass, loading, error, apiUrl, onDisconnect }) {
+function LoginView({ onSelectClass, loading, error, apiUrl, onDisconnect, localMode, localClasses, onCreateLocalClass }) {
   const [classes, setClasses] = useState([])
   const [loadingClasses, setLoadingClasses] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -523,12 +605,21 @@ function LoginView({ onSelectClass, loading, error, apiUrl, onDisconnect }) {
   }, [apiUrl])
 
   useEffect(() => {
-    fetchClasses()
-  }, [fetchClasses])
+    if (localMode) {
+      setClasses(localClasses || [])
+      setLoadingClasses(false)
+    } else {
+      fetchClasses()
+    }
+  }, [fetchClasses, localMode, localClasses])
 
   const handleCreateSuccess = () => {
     setShowCreateModal(false)
-    fetchClasses()
+    if (localMode) {
+      setClasses(loadLocalClasses())
+    } else {
+      fetchClasses()
+    }
   }
 
   if (loadingClasses) {
@@ -618,6 +709,8 @@ function LoginView({ onSelectClass, loading, error, apiUrl, onDisconnect }) {
           onClose={() => setShowCreateModal(false)}
           onSuccess={handleCreateSuccess}
           apiUrl={apiUrl}
+          isLocal={localMode}
+          onCreateLocalClass={onCreateLocalClass}
         />
       )}
     </div>
@@ -718,22 +811,26 @@ function TeamManagementModal({ students, settings, classId, onClose, onSave, api
     try {
       setSaving(true)
       
-      // 1. 更新所有學生的小隊分配
-      const updates = students.map(s => ({
-        uuid: s.uuid || s.id,
-        group: assignments[s.id]
-      }))
-      
-      await fetch(apiUrl, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ 
-          action: 'batch_update_groups', 
-          classId, 
-          updates 
+      // 1. 逐一更新學生小隊（後端未支援 batch_update_groups）
+      if (apiUrl) {
+        const updateRequests = students.map(s => {
+          const uuid = s.uuid || s.id
+          return fetch(apiUrl, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'text/plain' },
+            body: JSON.stringify({
+              action: 'update_student',
+              classId,
+              uuid,
+              name: s.name,
+              group: assignments[s.id],
+              gender: s.gender || 'neutral'
+            })
+          })
         })
-      })
+        await Promise.all(updateRequests)
+      }
 
       // 2. 更新小隊名稱設定
       const newSettings = {
@@ -741,16 +838,18 @@ function TeamManagementModal({ students, settings, classId, onClose, onSave, api
         groupAliases: { ...settings?.groupAliases, ...groupNames }
       }
       
-      await fetch(apiUrl, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ 
-          action: 'save_settings', 
-          classId, 
-          settings: newSettings 
+      if (apiUrl) {
+        await fetch(apiUrl, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify({ 
+            action: 'save_settings', 
+            classId, 
+            settings: newSettings 
+          })
         })
-      })
+      }
 
       // 回傳更新
       onSave(assignments)
@@ -1052,8 +1151,8 @@ function TaskOverviewModal({ allLogs, students, classId, onClose, onNavigateToDa
       const logStatus = log.status || {}
       
       logTasks.forEach(task => {
-        const completedStudents = students.filter(s => logStatus[s.id]?.[task.id] === true)
-        const incompleteStudents = students.filter(s => logStatus[s.id]?.[task.id] !== true)
+        const completedStudents = students.filter(s => isDoneStatus(logStatus[s.id]?.[task.id]))
+        const incompleteStudents = students.filter(s => !isDoneStatus(logStatus[s.id]?.[task.id]))
         
         tasks.push({
           ...task,
@@ -1336,12 +1435,14 @@ function TaskBoard({ tasks, students, studentStatus, classId, currentDateStr, on
     
     if (onTasksUpdate) onTasksUpdate(updatedTasks)
 
-    fetch(apiUrl, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'save_tasks', classId, date: currentDateStr, tasks: updatedTasks })
-    }).catch(err => console.error('發布任務失敗:', err))
+    if (apiUrl) {
+      fetch(apiUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ action: 'save_tasks', classId, date: currentDateStr, tasks: updatedTasks })
+      }).catch(err => console.error('發布任務失敗:', err))
+    }
 
     setNewTaskTitle('')
     setNewTaskType(taskTypes?.[0] || '作業')
@@ -1352,16 +1453,18 @@ function TaskBoard({ tasks, students, studentStatus, classId, currentDateStr, on
     const updatedTasks = tasks.filter(t => t.id !== taskId)
     if (onTasksUpdate) onTasksUpdate(updatedTasks)
     
-    fetch(apiUrl, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'save_tasks', classId, date: currentDateStr, tasks: updatedTasks })
-    }).catch(err => console.error('刪除任務失敗:', err))
+    if (apiUrl) {
+      fetch(apiUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ action: 'save_tasks', classId, date: currentDateStr, tasks: updatedTasks })
+      }).catch(err => console.error('刪除任務失敗:', err))
+    }
   }
 
   const getTaskCompletion = (taskId) => {
-    const completed = students.filter(s => studentStatus[s.id]?.[taskId] === true).length
+    const completed = students.filter(s => isDoneStatus(studentStatus[s.id]?.[taskId])).length
     return { completed, total: students.length }
   }
 
@@ -1762,7 +1865,7 @@ function VillagerCard({ student, tasks, studentStatus, onClick, hasOverdue }) {
   const status = studentStatus[student.id] || {}
   const hasTasks = tasks.length > 0
   
-  const completedCount = tasks.filter(t => status[t.id] === true).length
+  const completedCount = tasks.filter(t => isDoneStatus(status[t.id])).length
   const totalTasks = tasks.length
   const allDone = hasTasks && completedCount === totalTasks
   const hasIncomplete = hasTasks && completedCount < totalTasks
@@ -1851,7 +1954,7 @@ function PassportModal({ student, tasks, studentStatus, classId, onClose, onTogg
   const [editData, setEditData] = useState({ name: student.name || '', gender: student.gender || 'male', group: student.group || 'A' })
   const status = studentStatus[student.id] || {}
   const hasTasks = tasks.length > 0
-  const completedCount = tasks.filter(t => status[t.id] === true).length
+  const completedCount = tasks.filter(t => isDoneStatus(status[t.id])).length
   const isAllDone = hasTasks && completedCount === tasks.length
 
   const overdueItems = useMemo(() => {
@@ -1865,7 +1968,7 @@ function PassportModal({ student, tasks, studentStatus, classId, onClose, onTogg
       const logTasks = log.tasks || []
       const logStatus = log.status?.[student.id] || {}
       logTasks.forEach(task => {
-        if (logStatus[task.id] !== true) {
+        if (!isDoneStatus(logStatus[task.id])) {
           items.push({ date: logDateStr, task })
         }
       })
@@ -1882,7 +1985,7 @@ function PassportModal({ student, tasks, studentStatus, classId, onClose, onTogg
       const logTasks = log.tasks || []
       const logStatus = log.status?.[student.id] || {}
       logTasks.forEach(task => {
-        items.push({ date: logDateStr, task, completed: logStatus[task.id] === true })
+        items.push({ date: logDateStr, task, completed: isDoneStatus(logStatus[task.id]) })
       })
     })
     return items.sort((a, b) => new Date(b.date) - new Date(a.date))
@@ -1893,12 +1996,14 @@ function PassportModal({ student, tasks, studentStatus, classId, onClose, onTogg
     const updatedStudent = { ...student, id: student.id || student.uuid, name: editData.name.trim(), group: editData.group, gender: editData.gender }
     if (onStudentUpdate) onStudentUpdate(updatedStudent)
     setIsEditMode(false)
-    fetch(apiUrl, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'update_student', classId, uuid: student.uuid || student.id, name: editData.name.trim(), group: editData.group, gender: editData.gender })
-    }).catch(console.error)
+    if (apiUrl) {
+      fetch(apiUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ action: 'update_student', classId, uuid: student.uuid || student.id, name: editData.name.trim(), group: editData.group, gender: editData.gender })
+      }).catch(console.error)
+    }
   }
 
   return (
@@ -1996,7 +2101,9 @@ function PassportModal({ student, tasks, studentStatus, classId, onClose, onTogg
             ) : (
               tasks.map(task => {
                 const IconComponent = getTaskIcon(task.title)
-                const isCompleted = status[task.id] === true
+                const statusValue = status[task.id]
+                const isCompleted = isDoneStatus(statusValue)
+                const statusLabel = getStatusLabel(statusValue)
                 
                 return (
                   <label
@@ -2021,10 +2128,24 @@ function PassportModal({ student, tasks, studentStatus, classId, onClose, onTogg
                     <span className={`flex-1 font-medium ${isCompleted ? 'text-[#7BC496] line-through' : 'text-[#5D5D5D]'}`}>
                       {task.title}
                     </span>
-                    <div className={`w-7 h-7 rounded-lg border-2 flex items-center justify-center ${
-                      isCompleted ? 'bg-[#7BC496] border-[#5AAF7A]' : 'bg-white border-[#E8E8E8]'
-                    }`}>
-                      {isCompleted && <Check size={18} className="text-white" />}
+                    {statusLabel && (
+                      <span className="text-xs px-2 py-1 rounded-full bg-[#FFD6A5]/40 text-[#8B6914] font-bold">
+                        {statusLabel}
+                      </span>
+                    )}
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onToggleStatus(student.id, task.id, 'leave'); }}
+                        className="px-2 py-1 text-xs rounded-lg bg-[#E8E8E8] text-[#5D5D5D] hover:bg-[#D8D8D8]"
+                      >
+                        請假
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onToggleStatus(student.id, task.id, 'exempt'); }}
+                        className="px-2 py-1 text-xs rounded-lg bg-[#FFD6A5]/60 text-[#8B6914] hover:bg-[#FFD6A5]"
+                      >
+                        免交
+                      </button>
                     </div>
                   </label>
                 )
@@ -2054,8 +2175,25 @@ function PassportModal({ student, tasks, studentStatus, classId, onClose, onTogg
                       <div className="text-sm font-bold text-[#D64545] truncate">{item.task.title}</div>
                       <div className="text-xs text-[#8B8B8B]">日期：{formatDateDisplay(item.date)}</div>
                     </div>
-                    <div className="w-7 h-7 rounded-lg border-2 border-[#FFADAD] flex items-center justify-center">
-                      <Check size={16} className="text-[#FFADAD]" />
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onToggleStatus(student.id, item.task.id, true, item.date); }}
+                        className="px-2 py-1 text-xs rounded-lg bg-[#FFADAD]/30 text-[#D64545] hover:bg-[#FFADAD]/50"
+                      >
+                        補交
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onToggleStatus(student.id, item.task.id, 'leave', item.date); }}
+                        className="px-2 py-1 text-xs rounded-lg bg-[#E8E8E8] text-[#5D5D5D] hover:bg-[#D8D8D8]"
+                      >
+                        請假
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onToggleStatus(student.id, item.task.id, 'exempt', item.date); }}
+                        className="px-2 py-1 text-xs rounded-lg bg-[#FFD6A5]/60 text-[#8B6914] hover:bg-[#FFD6A5]"
+                      >
+                        免交
+                      </button>
                     </div>
                   </label>
                 ))}
@@ -2088,8 +2226,25 @@ function PassportModal({ student, tasks, studentStatus, classId, onClose, onTogg
                         <div className="text-sm font-bold text-[#5D5D5D] truncate">{item.task.title}</div>
                         <div className="text-xs text-[#8B8B8B]">日期：{formatDateDisplay(item.date)}</div>
                       </div>
-                      <div className="text-xs font-medium text-[#8B8B8B]">
-                        {item.completed ? '已完成' : '未完成'}
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onToggleStatus(student.id, item.task.id, true, item.date); }}
+                          className="px-2 py-1 text-xs rounded-lg bg-[#A8D8B9]/30 text-[#4A7C59] hover:bg-[#A8D8B9]/50"
+                        >
+                          完成
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onToggleStatus(student.id, item.task.id, 'leave', item.date); }}
+                          className="px-2 py-1 text-xs rounded-lg bg-[#E8E8E8] text-[#5D5D5D] hover:bg-[#D8D8D8]"
+                        >
+                          請假
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onToggleStatus(student.id, item.task.id, 'exempt', item.date); }}
+                          className="px-2 py-1 text-xs rounded-lg bg-[#FFD6A5]/60 text-[#8B6914] hover:bg-[#FFD6A5]"
+                        >
+                          免交
+                        </button>
                       </div>
                     </label>
                   ))
@@ -2107,31 +2262,128 @@ function PassportModal({ student, tasks, studentStatus, classId, onClose, onTogg
 // 設定 Modal
 // ============================================
 
-function SettingsModal({ classId, settings, onClose, onSave, apiUrl }) {
+function SettingsModal({ classId, className, settings, students, allLogs, onClose, onSave, onRestoreFromBackup, onClearLocalClass, apiUrl }) {
   const [localSettings, setLocalSettings] = useState({
     taskTypes: settings?.taskTypes || ['作業', '訂正', '攜帶物品', '考試', '通知單', '回條'],
     groupAliases: settings?.groupAliases || {}
   })
   const [newTaskType, setNewTaskType] = useState('')
   const [saving, setSaving] = useState(false)
+  const [backupUrl, setBackupUrl] = useState(() => localStorage.getItem('ppt_backup_url') || '')
+  const [backupToken, setBackupToken] = useState(() => localStorage.getItem('ppt_backup_token') || 'meow1234')
+  const [backupBusy, setBackupBusy] = useState(false)
+  const [backupMsg, setBackupMsg] = useState(null)
+  const [backupMeta, setBackupMeta] = useState(null)
 
   const defaultGroups = ['A', 'B', 'C', 'D', 'E', 'F']
+
+  useEffect(() => {
+    if (!classId) return
+    try {
+      const raw = localStorage.getItem(`ppt_backup_meta_${classId}`)
+      setBackupMeta(raw ? JSON.parse(raw) : null)
+    } catch {
+      setBackupMeta(null)
+    }
+  }, [classId])
 
   const handleSave = async () => {
     try {
       setSaving(true)
-      fetch(apiUrl, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ action: 'save_settings', classId, settings: localSettings })
-      }).catch(err => console.error(err))
+      if (apiUrl) {
+        fetch(apiUrl, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify({ action: 'save_settings', classId, settings: localSettings })
+        }).catch(err => console.error(err))
+      }
       if (onSave) onSave(localSettings)
       onClose()
     } catch (err) {
       console.error(err)
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleBackupUpload = async () => {
+    if (!backupUrl.trim()) {
+      setBackupMsg('請先輸入 GAS 連結')
+      return
+    }
+    try {
+      setBackupBusy(true)
+      setBackupMsg(null)
+      const payload = {
+        action: 'backup_upload',
+        token: backupToken.trim() || 'meow1234',
+        classId,
+        className,
+        data: {
+          classId,
+          students,
+          logs: allLogs,
+          settings,
+          updatedAt: new Date().toISOString()
+        }
+      }
+      await fetch(backupUrl.trim(), {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify(payload)
+      })
+      localStorage.setItem('ppt_backup_url', backupUrl.trim())
+      localStorage.setItem('ppt_backup_token', backupToken.trim() || 'meow1234')
+      const meta = { updatedAt: payload.data.updatedAt, className: className || '', classId }
+      localStorage.setItem(`ppt_backup_meta_${classId}`, JSON.stringify(meta))
+      setBackupMeta(meta)
+      setBackupMsg('備份已送出（單一班級）')
+    } catch (err) {
+      console.error('備份上傳失敗:', err)
+      setBackupMsg('備份上傳失敗')
+    } finally {
+      setBackupBusy(false)
+    }
+  }
+
+  const handleBackupDownload = async () => {
+    if (!backupUrl.trim()) {
+      setBackupMsg('請先輸入 GAS 連結')
+      return
+    }
+    try {
+      setBackupBusy(true)
+      setBackupMsg(null)
+      const token = backupToken.trim() || 'meow1234'
+      const url = `${backupUrl.trim()}?action=backup_download&classId=${classId}&token=${encodeURIComponent(token)}`
+      const response = await fetch(url)
+      if (!response.ok) throw new Error('Download failed')
+      const data = await response.json()
+      if (!data?.data) throw new Error('Invalid data')
+      const restored = data.data
+      saveClassCache(classId, {
+        classId,
+        students: restored.students || [],
+        logs: restored.logs || [],
+        settings: restored.settings || settings,
+        updatedAt: restored.updatedAt || new Date().toISOString()
+      })
+      if (onRestoreFromBackup) {
+        onRestoreFromBackup(restored)
+      }
+      localStorage.setItem('ppt_backup_url', backupUrl.trim())
+      localStorage.setItem('ppt_backup_token', backupToken.trim() || 'meow1234')
+      const meta = { updatedAt: restored.updatedAt || new Date().toISOString(), className: className || '', classId }
+      localStorage.setItem(`ppt_backup_meta_${classId}`, JSON.stringify(meta))
+      setBackupMeta(meta)
+      setBackupMsg('已完成下載並覆蓋本地（單一班級）')
+    } catch (err) {
+      console.error('備份下載失敗:', err)
+      setBackupMsg('備份下載失敗')
+    } finally {
+      setBackupBusy(false)
     }
   }
 
@@ -2205,6 +2457,71 @@ function SettingsModal({ classId, settings, onClose, onSave, apiUrl }) {
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* 備份中心 */}
+          <div className="border-t border-[#E8E8E8] pt-6 space-y-3">
+            <h3 className="text-sm font-bold text-[#5D5D5D] flex items-center gap-2">
+              <Download size={16} className="text-[#A8D8B9]" />
+              備份中心
+            </h3>
+            <p className="text-xs text-[#8B8B8B]">
+              ⚠️ 目前備份/還原僅針對「單一班級」。請確認目前班級：{className || classId}
+            </p>
+            {backupMeta?.updatedAt && (
+              <p className="text-xs text-[#8B8B8B]">
+                上次備份時間：{new Date(backupMeta.updatedAt).toLocaleString()}
+              </p>
+            )}
+            <input
+              type="url"
+              value={backupUrl}
+              onChange={(e) => setBackupUrl(e.target.value)}
+              placeholder="https://script.google.com/macros/s/.../exec"
+              className="w-full px-3 py-2 rounded-xl border-2 border-[#E8E8E8] focus:border-[#A8D8B9] outline-none"
+            />
+            <input
+              type="text"
+              value={backupToken}
+              onChange={(e) => setBackupToken(e.target.value)}
+              placeholder="Token（預設 meow1234）"
+              className="w-full px-3 py-2 rounded-xl border-2 border-[#E8E8E8] focus:border-[#A8D8B9] outline-none"
+            />
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={handleBackupUpload}
+                disabled={backupBusy}
+                className="px-4 py-2 rounded-xl bg-[#A8D8B9] text-white font-bold hover:bg-[#7BC496] transition-all disabled:opacity-50"
+              >
+                ⬆️ 上傳備份
+              </button>
+              <button
+                onClick={handleBackupDownload}
+                disabled={backupBusy}
+                className="px-4 py-2 rounded-xl bg-[#FFD6A5] text-white font-bold hover:bg-[#FFBF69] transition-all disabled:opacity-50"
+              >
+                ⬇️ 下載備份
+              </button>
+            </div>
+            {backupMsg && (
+              <div className="text-xs text-[#5D5D5D] bg-[#F9F9F9] border border-[#E8E8E8] rounded-xl px-3 py-2">
+                {backupMsg}
+              </div>
+            )}
+          </div>
+
+          <div className="border-t border-[#E8E8E8] pt-6">
+            <button
+              onClick={() => {
+                if (window.confirm('確定要清除本機此班級資料嗎？此操作不會影響雲端備份。')) {
+                  onClearLocalClass?.(classId)
+                  onClose()
+                }
+              }}
+              className="w-full py-2.5 rounded-xl bg-[#FFADAD]/20 text-[#D64545] font-bold hover:bg-[#FFADAD]/30 transition-colors"
+            >
+              清除本機此班級資料
+            </button>
           </div>
 
           <div className="mt-6 flex gap-3">
@@ -2282,7 +2599,7 @@ function Header({ todayStr, completionRate, className, classAlias, onLogout, onO
 function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onDisconnect }) {
   const [students, setStudents] = useState([])
   const [allLogs, setAllLogs] = useState([])
-  const [settings, setSettings] = useState({ taskTypes: ['作業', '訂正', '攜帶物品', '考試', '通知單', '回條'], groupAliases: {} })
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [selectedStudent, setSelectedStudent] = useState(null)
@@ -2300,6 +2617,23 @@ function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onDis
     return formatDate(date)
   }, [])
 
+  useEffect(() => {
+    if (!classId) return
+    const cached = loadClassCache(classId)
+    if (cached) {
+      const normStudents = (cached.students || []).map((s, i) => ({ ...s, id: s.id || s.uuid || `student_${i}` }))
+      const normLogs = (cached.logs || []).map(log => {
+        const dateStr = normalizeDate(log.date)
+        const tasks = (log.tasks || []).map((t, i) => ({ ...t, id: t.id || makeTaskId(dateStr, t, i) }))
+        return { ...log, date: dateStr, tasks }
+      })
+      setStudents(normStudents)
+      setAllLogs(normLogs)
+      setSettings(cached.settings || settings)
+      setLoading(false)
+    }
+  }, [classId, normalizeDate])
+
   const { tasks, studentStatus } = useMemo(() => {
     const dateStr = formatDate(currentDate)
     const log = allLogs.find(log => normalizeDate(log.date) === dateStr)
@@ -2309,12 +2643,14 @@ function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onDis
   const completionRate = useMemo(() => {
     if (students.length === 0 || tasks.length === 0) return 0
     let completedChecks = 0
-    students.forEach(s => tasks.forEach(t => { if (studentStatus[s.id]?.[t.id] === true) completedChecks++ }))
+    students.forEach(s => tasks.forEach(t => { if (isDoneStatus(studentStatus[s.id]?.[t.id])) completedChecks++ }))
     return completedChecks / (students.length * tasks.length)
   }, [students, tasks, studentStatus])
 
   const fetchAllData = useCallback(async () => {
     if (!apiUrl || !classId) return
+    const cached = loadClassCache(classId)
+    if (cached) return
     try {
       setLoading(true)
       const response = await fetch(`${apiUrl}?action=get_class_data_all&classId=${classId}`)
@@ -2340,6 +2676,17 @@ function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onDis
   }, [classId, apiUrl, normalizeDate])
 
   useEffect(() => { fetchAllData() }, [fetchAllData])
+
+  useEffect(() => {
+    if (!classId) return
+    saveClassCache(classId, {
+      classId,
+      students,
+      logs: allLogs,
+      settings,
+      updatedAt: new Date().toISOString()
+    })
+  }, [classId, students, allLogs, settings])
 
   const handleTasksUpdate = useCallback((updatedTasks) => {
     const dateStr = formatDate(currentDate)
@@ -2372,7 +2719,9 @@ function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onDis
       return [...prev, { date: normDate, tasks: log?.tasks || [], status: { [studentId]: { [taskId]: checked } } }]
     })
 
-    fetch(apiUrl, { method: 'POST', mode: 'no-cors', headers: {'Content-Type': 'text/plain'}, body: JSON.stringify({ action: 'update_status', classId, date: dateStr, studentId, taskId, checked }) }).catch(console.error)
+    if (apiUrl) {
+      fetch(apiUrl, { method: 'POST', mode: 'no-cors', headers: {'Content-Type': 'text/plain'}, body: JSON.stringify({ action: 'update_status', classId, date: dateStr, studentId, taskId, checked }) }).catch(console.error)
+    }
   }, [classId, currentDate, normalizeDate, apiUrl])
 
   const checkOverdue = useCallback((studentId) => {
@@ -2387,7 +2736,7 @@ function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onDis
       const logStatus = log.status?.[studentId] || {}
 
       for (const task of logTasks) {
-        if (logStatus[task.id] !== true) {
+        if (!isDoneStatus(logStatus[task.id])) {
           return true
         }
       }
@@ -2408,12 +2757,12 @@ function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onDis
   const getGroupCompletionRate = (groupStudents) => {
     if (tasks.length === 0 || groupStudents.length === 0) return 0
     let completed = 0
-    groupStudents.forEach(s => tasks.forEach(t => { if (studentStatus[s.id]?.[t.id] === true) completed++ }))
+    groupStudents.forEach(s => tasks.forEach(t => { if (isDoneStatus(studentStatus[s.id]?.[t.id])) completed++ }))
     return completed / (groupStudents.length * tasks.length)
   }
 
-  const purrCount = students.filter(s => tasks.length > 0 && tasks.every(t => studentStatus[s.id]?.[t.id] === true)).length
-  const angryCount = students.filter(s => tasks.length > 0 && tasks.some(t => studentStatus[s.id]?.[t.id] !== true)).length
+  const purrCount = students.filter(s => tasks.length > 0 && tasks.every(t => isDoneStatus(studentStatus[s.id]?.[t.id]))).length
+  const angryCount = students.filter(s => tasks.length > 0 && tasks.some(t => !isDoneStatus(studentStatus[s.id]?.[t.id]))).length
 
   if (loading) return <LoadingScreen message="正在進入村莊..." />
   if (error) return (
@@ -2576,9 +2925,22 @@ function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onDis
       {showSettings && (
         <SettingsModal
           classId={classId}
+          className={className}
           settings={settings}
+          students={students}
+          allLogs={allLogs}
           onClose={() => setShowSettings(false)}
           onSave={setSettings}
+          onRestoreFromBackup={(restored) => {
+            setStudents((restored.students || []).map((s, i) => ({ ...s, id: s.id || s.uuid || `student_${i}` })))
+            setAllLogs((restored.logs || []).map(log => {
+              const dateStr = normalizeDate(log.date)
+              const tasks = (log.tasks || []).map((t, i) => ({ ...t, id: t.id || makeTaskId(dateStr, t, i) }))
+              return { ...log, date: dateStr, tasks }
+            }))
+            setSettings(restored.settings || settings)
+          }}
+          onClearLocalClass={handleClearLocalClass}
           apiUrl={apiUrl}
         />
       )}
@@ -2630,33 +2992,92 @@ function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onDis
 
 function App() {
   const [apiUrl, setApiUrl] = useState(() => localStorage.getItem('ppt_api_url'))
+  const [localMode, setLocalMode] = useState(() => localStorage.getItem('ppt_local_mode') === 'true')
+  const [localClasses, setLocalClasses] = useState(() => loadLocalClasses())
   const [selectedClass, setSelectedClass] = useState(null)
 
   const handleConnect = (url) => {
     localStorage.setItem('ppt_api_url', url)
+    localStorage.setItem('ppt_local_mode', 'false')
     setApiUrl(url)
+    setLocalMode(false)
   }
 
   const handleDisconnect = () => {
     if (window.confirm('確定要斷開資料庫連結嗎？您需要重新輸入網址才能進入。')) {
       localStorage.removeItem('ppt_api_url')
+      localStorage.removeItem('ppt_local_mode')
       setApiUrl(null)
+      setLocalMode(false)
       setSelectedClass(null)
     }
+  }
+
+  const handleLocalMode = () => {
+    localStorage.setItem('ppt_local_mode', 'true')
+    setLocalMode(true)
+    setApiUrl(null)
+    setSelectedClass(null)
+  }
+
+  const handleCreateLocalClass = (payload) => {
+    const classId = `${payload.year}_${Math.floor(Math.random() * 1000)}`
+    const studentCount = payload.studentCount || 10
+    const newClass = {
+      id: classId,
+      year: payload.year,
+      name: payload.className,
+      teacher: payload.teacher,
+      alias: payload.alias || '',
+      status: 'active',
+      studentCount
+    }
+    const nextClasses = [...localClasses, newClass]
+    setLocalClasses(nextClasses)
+    saveLocalClasses(nextClasses)
+
+    const students = Array.from({ length: studentCount }).map((_, i) => ({
+      uuid: `s_${classId}_${i + 1}`,
+      id: `s_${classId}_${i + 1}`,
+      number: i + 1,
+      name: `${i + 1}號村民`,
+      group: 'A',
+      gender: 'neutral'
+    }))
+    saveClassCache(classId, {
+      classId,
+      students,
+      logs: [],
+      settings: DEFAULT_SETTINGS,
+      updatedAt: new Date().toISOString()
+    })
   }
 
   const handleSelectClass = (classId, displayName, alias) => {
     setSelectedClass({ id: classId, name: displayName || `班級 ${classId}`, alias: alias || null })
   }
 
-  if (!apiUrl) {
-    return <WelcomeView onConnect={handleConnect} />
+  const handleClearLocalClass = (classId) => {
+    localStorage.removeItem(getClassCacheKey(classId))
+    const next = loadLocalClasses().filter(c => c.id !== classId)
+    setLocalClasses(next)
+    saveLocalClasses(next)
+    if (selectedClass?.id === classId) {
+      setSelectedClass(null)
+    }
+  }
+
+  if (!apiUrl && !localMode) {
+    return <WelcomeView onConnect={handleConnect} onLocalMode={handleLocalMode} />
   }
 
   if (!selectedClass) {
     return (
       <LoginView
         apiUrl={apiUrl}
+        localMode={localMode}
+        localClasses={localClasses}
+        onCreateLocalClass={handleCreateLocalClass}
         onSelectClass={handleSelectClass}
         onDisconnect={handleDisconnect}
       />
