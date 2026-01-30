@@ -235,7 +235,7 @@ function LoadingScreen({ message = '正在前往呼嚕嚕小鎮...' }) {
 
       <div className="absolute bottom-8 flex items-center gap-2 text-[#A8D8B9]">
         <PawPrint size={20} />
-        <span className="text-sm font-medium">Purr Purr Town v2.0.5</span>
+        <span className="text-sm font-medium">Purr Purr Town v2.0.6</span>
         <PawPrint size={20} />
       </div>
 
@@ -294,7 +294,7 @@ function WelcomeView({ onLocalMode }) {
           </div>
         </div>
       </div>
-      <p className="mt-6 text-[#B8B8B8] text-xs">Purr Purr Town v2.0.5 • BYOB Architecture</p>
+      <p className="mt-6 text-[#B8B8B8] text-xs">Purr Purr Town v2.0.6 • BYOB Architecture</p>
     </div>
   )
 }
@@ -399,19 +399,11 @@ function CreateClassModal({ onClose, onSuccess, apiUrl, isLocal, onCreateLocalCl
         </button>
 
         <div className="p-6">
-          <div className="flex justify-end mb-2">
-            <button
-              onClick={() => setShowHistory(prev => !prev)}
-              className="px-3 py-1.5 rounded-lg bg-[#E8E8E8] text-[#5D5D5D] text-xs font-medium hover:bg-[#D8D8D8] transition-colors"
-            >
-              📊 查看該生所有紀錄
-            </button>
-          </div>
           <div className="text-center mb-6">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4" style={{ background: 'linear-gradient(135deg, #FFD6A5 0%, #FFBF69 100%)' }}>
               <Home size={32} className="text-white" />
             </div>
-            <h2 className="text-2xl font-bold text-[#5D5D5D]">🏠 建立新村莊</h2>
+            <h2 className="text-2xl font-bold text-[#5D5D5D]">建立新村莊</h2>
           </div>
 
           {submitError && (
@@ -821,7 +813,7 @@ function TeamManagementModal({ students, settings, classId, onClose, onSave, api
               <Flag size={24} className="text-white" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-[#5D5D5D]">🚩 小隊管理</h2>
+              <h2 className="text-2xl font-bold text-[#5D5D5D]">小隊管理</h2>
               <p className="text-sm text-[#8B8B8B]">
                 {editingGroup 
                   ? `正在編輯：${getGroupDisplayName(editingGroup)}` 
@@ -1073,9 +1065,11 @@ function TeamManagementModal({ students, settings, classId, onClose, onSave, api
 // 任務總覽 Modal (新功能)
 // ============================================
 
-function TaskOverviewModal({ allLogs, students, classId, onClose, onNavigateToDate, settings }) {
+function TaskOverviewModal({ allLogs, students, classId, onClose, onNavigateToDate, settings, onToggleStatus }) {
   const [expandedTask, setExpandedTask] = useState(null)
   const [filterType, setFilterType] = useState('all')
+  const [batchTaskKey, setBatchTaskKey] = useState(null)
+  const [batchSelected, setBatchSelected] = useState({})
   
   // 整理所有任務資料
   const allTasks = useMemo(() => {
@@ -1101,8 +1095,11 @@ function TaskOverviewModal({ allLogs, students, classId, onClose, onNavigateToDa
       })
     })
     
-    // 按日期排序（最新在前）
-    return tasks.sort((a, b) => new Date(b.date) - new Date(a.date))
+    // 未完成排前面，再按日期排序（最新在前）
+    return tasks.sort((a, b) => {
+      if (a.isComplete !== b.isComplete) return a.isComplete ? 1 : -1
+      return new Date(b.date) - new Date(a.date)
+    })
   }, [allLogs, students])
 
   const filteredTasks = useMemo(() => {
@@ -1131,7 +1128,7 @@ function TaskOverviewModal({ allLogs, students, classId, onClose, onNavigateToDa
               <ListTodo size={24} className="text-white" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-[#5D5D5D]">📋 任務總覽</h2>
+              <h2 className="text-2xl font-bold text-[#5D5D5D]">任務總覽</h2>
               <p className="text-sm text-[#8B8B8B]">檢視所有任務的完成狀況</p>
             </div>
           </div>
@@ -1249,20 +1246,84 @@ function TaskOverviewModal({ allLogs, students, classId, onClose, onNavigateToDa
                   </div>
 
                   {/* Expanded Detail */}
-                  {isExpanded && (
+                  {isExpanded && (() => {
+                    const taskKey = `${task.date}-${task.id}`
+                    const isBatchMode = batchTaskKey === taskKey
+                    return (
                     <div className="px-4 pb-4 border-t border-[#E8E8E8]">
                       {task.incompleteCount > 0 && (
                         <div className="mt-4">
-                          <h5 className="text-sm font-bold text-[#D64545] mb-2 flex items-center gap-2">
-                            <AlertCircle size={16} />
-                            未完成 ({task.incompleteCount})
-                          </h5>
+                          <div className="flex items-center justify-between mb-2">
+                            <h5 className="text-sm font-bold text-[#D64545] flex items-center gap-2">
+                              <AlertCircle size={16} />
+                              未完成 ({task.incompleteCount})
+                            </h5>
+                            {onToggleStatus && !isBatchMode && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setBatchTaskKey(taskKey); setBatchSelected({}) }}
+                                className="px-3 py-1 rounded-lg bg-[#FFD6A5] text-white text-xs font-medium hover:bg-[#FFBF69] transition-colors flex items-center gap-1"
+                              >
+                                <CheckCircle size={14} />
+                                批次完成
+                              </button>
+                            )}
+                            {isBatchMode && (
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    const allSelected = task.incompleteStudents.every(s => batchSelected[s.id])
+                                    const next = {}
+                                    task.incompleteStudents.forEach(s => { next[s.id] = !allSelected })
+                                    setBatchSelected(next)
+                                  }}
+                                  className="px-2 py-1 rounded-lg bg-[#E8E8E8] text-[#5D5D5D] text-xs font-medium hover:bg-[#D8D8D8] transition-colors"
+                                >
+                                  {task.incompleteStudents.every(s => batchSelected[s.id]) ? '取消全選' : '全選'}
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    const selected = Object.entries(batchSelected).filter(([, v]) => v).map(([id]) => id)
+                                    selected.forEach(studentId => onToggleStatus(studentId, task.id, true, task.date))
+                                    setBatchTaskKey(null)
+                                    setBatchSelected({})
+                                  }}
+                                  disabled={!Object.values(batchSelected).some(v => v)}
+                                  className="px-3 py-1 rounded-lg bg-[#7BC496] text-white text-xs font-medium hover:bg-[#5DAF7E] transition-colors disabled:opacity-40 flex items-center gap-1"
+                                >
+                                  <Check size={14} />
+                                  確認完成
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setBatchTaskKey(null); setBatchSelected({}) }}
+                                  className="px-2 py-1 rounded-lg bg-[#FFADAD] text-white text-xs font-medium hover:bg-[#FF8A8A] transition-colors"
+                                >
+                                  取消
+                                </button>
+                              </div>
+                            )}
+                          </div>
                           <div className="flex flex-wrap gap-2">
                             {task.incompleteStudents.map(s => (
                               <div
                                 key={s.id}
-                                className="flex items-center gap-2 px-3 py-1.5 bg-[#FFADAD]/20 rounded-lg text-sm border border-[#FFADAD]/30"
+                                onClick={isBatchMode ? (e) => { e.stopPropagation(); setBatchSelected(prev => ({ ...prev, [s.id]: !prev[s.id] })) } : undefined}
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm border transition-all ${
+                                  isBatchMode
+                                    ? batchSelected[s.id]
+                                      ? 'bg-[#7BC496]/20 border-[#7BC496] cursor-pointer'
+                                      : 'bg-[#FFADAD]/20 border-[#FFADAD]/30 cursor-pointer hover:border-[#7BC496]/50'
+                                    : 'bg-[#FFADAD]/20 border-[#FFADAD]/30'
+                                }`}
                               >
+                                {isBatchMode && (
+                                  <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 ${
+                                    batchSelected[s.id] ? 'bg-[#7BC496] border-[#7BC496]' : 'border-[#D8D8D8]'
+                                  }`}>
+                                    {batchSelected[s.id] && <Check size={10} className="text-white" />}
+                                  </div>
+                                )}
                                 <div className="w-6 h-6 rounded-full overflow-hidden">
                                   <AvatarEmoji seed={s.uuid || s.id} className="w-full h-full rounded-full text-xs" />
                                 </div>
@@ -1272,7 +1333,7 @@ function TaskOverviewModal({ allLogs, students, classId, onClose, onNavigateToDa
                           </div>
                         </div>
                       )}
-                      
+
                       {task.completedCount > 0 && (
                         <div className="mt-4">
                           <h5 className="text-sm font-bold text-[#7BC496] mb-2 flex items-center gap-2">
@@ -1294,7 +1355,7 @@ function TaskOverviewModal({ allLogs, students, classId, onClose, onNavigateToDa
                           </div>
                         </div>
                       )}
-                      
+
                       <button
                         onClick={() => { onNavigateToDate(parseDate(task.date)); onClose() }}
                         className="mt-4 w-full py-2 rounded-xl border-2 border-[#A8D8B9] text-[#A8D8B9] font-medium hover:bg-[#A8D8B9] hover:text-white transition-all flex items-center justify-center gap-2"
@@ -1303,7 +1364,8 @@ function TaskOverviewModal({ allLogs, students, classId, onClose, onNavigateToDa
                         前往該日期
                       </button>
                     </div>
-                  )}
+                    )
+                  })()}
                 </div>
               )
             })
@@ -1560,7 +1622,7 @@ function FocusView({ tasks, currentDateStr, onClose }) {
                     className="w-full flex items-center gap-4 md:gap-6 text-left"
                   >
                     <span className={`focus-checkbox ${isChecked ? 'is-checked' : ''}`} />
-                    <span className={`font-chalk text-3xl md:text-5xl lg:text-6xl ${isChecked ? 'focus-strike' : ''}`}>
+                    <span className={`font-chalk text-3xl md:text-5xl lg:text-6xl text-[#E8F5E9] ${isChecked ? 'focus-strike' : ''}`}>
                       {task.title}
                     </span>
                   </button>
@@ -1675,7 +1737,7 @@ function GadgetsModal({ students, onClose }) {
               <Sparkles size={24} />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-[#5D5D5D]">🧰 課堂法寶</h2>
+              <h2 className="text-2xl font-bold text-[#5D5D5D]">課堂法寶</h2>
               <p className="text-sm text-[#8B8B8B]">上課小工具，讓課堂更順暢</p>
             </div>
           </div>
@@ -2729,7 +2791,7 @@ function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onDis
           <div className="bg-white/60 backdrop-blur-sm rounded-3xl p-4 shadow-lg border border-white/50 space-y-6">
             <div>
               <h2 className="text-lg font-bold text-[#5D5D5D] mb-4 flex items-center gap-2">
-                <CalendarIcon size={20} className="text-[#A8D8B9]" />📅 村莊日誌
+                <CalendarIcon size={20} className="text-[#A8D8B9]" />村莊日誌
               </h2>
               <CalendarNav currentDate={currentDate} onDateChange={setCurrentDate} />
             </div>
@@ -2752,7 +2814,7 @@ function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onDis
           <div className="bg-white/60 backdrop-blur-sm rounded-3xl p-6 shadow-lg border border-white/50">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-[#5D5D5D] flex items-center gap-2">
-                <Users size={24} className="text-[#A8D8B9]" />🏘️ 村民廣場
+                <Users size={24} className="text-[#A8D8B9]" />村民廣場
               </h2>
               <div className="flex items-center gap-3">
                 <span className="px-3 py-1 rounded-full text-xs font-medium bg-[#A8D8B9]/30 text-[#4A7C59]">✨ {purrCount} 已完成</span>
@@ -2830,7 +2892,7 @@ function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onDis
       <footer className="mt-10 text-center text-[#8B8B8B] text-sm">
         <p className="flex items-center justify-center gap-2">
           <PawPrint size={16} className="text-[#A8D8B9]" />
-          呼嚕嚕小鎮 Purr Purr Town v2.0.5 © 2026
+          呼嚕嚕小鎮 Purr Purr Town v2.0.6 © 2026
           <PawPrint size={16} className="text-[#A8D8B9]" />
         </p>
       </footer>
@@ -2899,6 +2961,7 @@ function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onDis
           settings={settings}
           onClose={() => setShowTaskOverview(false)}
           onNavigateToDate={setCurrentDate}
+          onToggleStatus={toggleStatus}
         />
       )}
 
