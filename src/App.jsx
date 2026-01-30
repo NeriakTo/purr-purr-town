@@ -566,10 +566,12 @@ function LoginView({ onSelectClass, loading, error, apiUrl, onDisconnect, localM
         )}
 
         <div className="text-center mb-12">
-          <div className="inline-flex items-center justify-center w-24 h-24 rounded-3xl mb-6 shadow-xl bg-gradient-to-br from-[#A8D8B9] to-[#7BC496]">
-            <PawPrint size={48} className="text-white" />
+          <div className="flex items-center justify-center gap-4 mb-4">
+            <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl shadow-xl bg-gradient-to-br from-[#A8D8B9] to-[#7BC496] flex items-center justify-center">
+              <PawPrint size={36} className="text-white" />
+            </div>
+            <h1 className="text-4xl md:text-5xl font-bold text-[#5D5D5D]">呼嚕嚕小鎮</h1>
           </div>
-          <h1 className="text-4xl md:text-5xl font-bold text-[#5D5D5D] mb-4">🐾 呼嚕嚕小鎮</h1>
           <p className="text-[#8B8B8B] text-lg">選擇您要進入的村莊</p>
         </div>
 
