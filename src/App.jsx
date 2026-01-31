@@ -1634,6 +1634,8 @@ function GadgetsModal({ students, onClose }) {
   const [remaining, setRemaining] = useState(0)
   const [running, setRunning] = useState(false)
   const [timeUp, setTimeUp] = useState(false)
+  const [customMin, setCustomMin] = useState(0)
+  const [customSec, setCustomSec] = useState(0)
   const [drawRunning, setDrawRunning] = useState(false)
   const [drawIndex, setDrawIndex] = useState(0)
   const [winner, setWinner] = useState(null)
@@ -1694,6 +1696,16 @@ function GadgetsModal({ students, onClose }) {
     setRunning(false)
     setRemaining(0)
     setTimeUp(false)
+  }
+
+  const applyCustomTime = () => {
+    const total = (parseInt(customMin, 10) || 0) * 60 + (parseInt(customSec, 10) || 0)
+    if (total > 0) {
+      setDuration(total)
+      setRemaining(total)
+      setTimeUp(false)
+      setRunning(false)
+    }
   }
 
   const startDraw = () => {
@@ -1776,6 +1788,35 @@ function GadgetsModal({ students, onClose }) {
                 ))}
               </div>
 
+              {/* 自訂時間 */}
+              <div className="flex items-center gap-2 w-full max-w-md justify-center">
+                <span className="text-sm font-bold text-[#8B8B8B]">自訂</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="99"
+                  value={customMin}
+                  onChange={e => setCustomMin(e.target.value)}
+                  className="w-16 px-2 py-1.5 rounded-lg border-2 border-[#E8E8E8] text-center font-bold text-[#5D5D5D] focus:border-[#A8D8B9] focus:outline-none transition-colors"
+                />
+                <span className="text-sm font-bold text-[#5D5D5D]">分</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="59"
+                  value={customSec}
+                  onChange={e => setCustomSec(e.target.value)}
+                  className="w-16 px-2 py-1.5 rounded-lg border-2 border-[#E8E8E8] text-center font-bold text-[#5D5D5D] focus:border-[#A8D8B9] focus:outline-none transition-colors"
+                />
+                <span className="text-sm font-bold text-[#5D5D5D]">秒</span>
+                <button
+                  onClick={applyCustomTime}
+                  className="px-4 py-1.5 rounded-xl bg-[#A8D8B9] text-white font-bold text-sm hover:bg-[#7BC496] transition-all"
+                >
+                  設定
+                </button>
+              </div>
+
               <div className="flex flex-wrap items-center justify-center gap-3 w-full">
                 <button
                   onClick={() => (running ? stopTimer() : startTimer(remaining || duration || 180))}
@@ -1793,21 +1834,23 @@ function GadgetsModal({ students, onClose }) {
           {activeTab === 'draw' && (
             <div className="flex flex-col items-center justify-center gap-6">
               <div className={`relative w-full max-w-md transition-all duration-500 ${winner ? 'scale-105' : ''}`}>
-                <div className={`draw-reel transition-all duration-500 ${winner ? 'border-4 border-[#FFBF69] shadow-2xl' : ''}`}>
+                <div className={`draw-reel relative transition-all duration-500 ${winner ? 'border-4 border-[#FFBF69] shadow-2xl' : ''}`}>
                   {winner && <div className="confetti-layer" />}
-                  {currentStudent ? (
-                    <div className="draw-avatar">
-                      <AvatarEmoji seed={currentStudent.uuid || currentStudent.id} className="w-full h-full rounded-2xl text-5xl" />
+                  <div className="relative z-10">
+                    {currentStudent ? (
+                      <div className="draw-avatar">
+                        <AvatarEmoji seed={currentStudent.uuid || currentStudent.id} className="w-full h-full rounded-2xl text-5xl" />
+                      </div>
+                    ) : (
+                      <div className="draw-avatar empty">🎁</div>
+                    )}
+                    <div className="text-lg font-bold text-[#5D5D5D] mt-3">
+                      {drawRunning ? '抽籤中...' : currentStudent?.name || '等待抽籤'}
                     </div>
-                  ) : (
-                    <div className="draw-avatar empty">🎁</div>
-                  )}
-                  <div className="text-lg font-bold text-[#5D5D5D] mt-3">
-                    {drawRunning ? '抽籤中...' : currentStudent?.name || '等待抽籤'}
+                    {winner && (
+                      <div className="mt-2 text-xl font-bold text-[#7BC496]">🎉 幸運兒：{winner.name}</div>
+                    )}
                   </div>
-                  {winner && (
-                    <div className="mt-2 text-xl font-bold text-[#7BC496]">🎉 幸運兒：{winner.name}</div>
-                  )}
                 </div>
               </div>
               <button
@@ -1865,10 +1908,10 @@ function VillagerCard({ student, tasks, studentStatus, onClick, hasOverdue }) {
   return (
     <div
       onClick={onClick}
-      className={`relative ${getBgStyle()} rounded-xl p-2.5 cursor-pointer group transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md border`}
+      className={`relative ${getBgStyle()} rounded-xl 2xl:rounded-lg p-2.5 2xl:p-1.5 cursor-pointer group transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md border`}
     >
       {/* 座號標籤 */}
-      <div className={`absolute -top-1.5 -left-1.5 w-6 h-6 rounded-md flex items-center justify-center text-white font-bold text-[10px] shadow-sm z-10 ${
+      <div className={`absolute -top-1.5 -left-1.5 w-6 h-6 2xl:w-5 2xl:h-5 rounded-md flex items-center justify-center text-white font-bold text-[10px] 2xl:text-[8px] shadow-sm z-10 ${
         allDone ? 'bg-[#7BC496]' : hasIncomplete ? 'bg-[#FFBF69]' : 'bg-[#C8C8C8]'
       }`}>
         {studentNumber || '?'}
@@ -1876,16 +1919,16 @@ function VillagerCard({ student, tasks, studentStatus, onClick, hasOverdue }) {
 
       {/* 欠交警示 */}
       {hasOverdue && (
-        <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-[#D64545] flex items-center justify-center z-20 animate-pulse shadow-sm">
+        <div className="absolute -top-1 -right-1 w-5 h-5 2xl:w-4 2xl:h-4 rounded-full bg-[#D64545] flex items-center justify-center z-20 animate-pulse shadow-sm">
           <AlertCircle size={12} className="text-white" />
         </div>
       )}
 
       {/* 頭像區 */}
-      <div className="relative w-full aspect-square mb-1.5 rounded-lg overflow-hidden bg-white/60">
+      <div className="relative w-full aspect-square mb-1.5 2xl:mb-1 rounded-lg overflow-hidden bg-white/60">
         <AvatarEmoji
           seed={student.uuid || student.id}
-          className="w-full h-full rounded-lg text-5xl transition-transform duration-200 group-hover:scale-105"
+          className="w-full h-full rounded-lg text-5xl 2xl:text-3xl transition-transform duration-200 group-hover:scale-105"
         />
 
         {/* 完成狀態指示器 */}
@@ -1906,14 +1949,14 @@ function VillagerCard({ student, tasks, studentStatus, onClick, hasOverdue }) {
 
       {/* 名字 */}
       <div className="text-center">
-        <h3 className={`text-xs font-bold truncate ${hasDefaultName ? 'text-[#C0C0C0] italic' : 'text-[#5D5D5D]'}`}>
+        <h3 className={`text-xs 2xl:text-[10px] font-bold truncate ${hasDefaultName ? 'text-[#C0C0C0] italic' : 'text-[#5D5D5D]'}`}>
           {student.name || '未命名'}
         </h3>
       </div>
 
       {/* 任務進度條 */}
       {hasTasks && !allDone && (
-        <div className="mt-1.5 h-1 bg-black/5 rounded-full overflow-hidden">
+        <div className="mt-1.5 2xl:mt-1 h-1 bg-black/5 rounded-full overflow-hidden">
           <div
             className="h-full rounded-full bg-[#7BC496] transition-all duration-500"
             style={{ width: `${(completedCount / totalTasks) * 100}%` }}
@@ -2818,7 +2861,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
   if (loading) return <LoadingScreen message="正在進入村莊..." />
 
   return (
-    <div className="min-h-screen p-4 md:p-6 lg:p-8 bg-[#fdfbf7]">
+    <div className="min-h-screen p-4 md:p-6 lg:p-8 2xl:p-4 bg-[#fdfbf7]">
       <Header
         todayStr={formatDate(currentDate)}
         completionRate={completionRate}
@@ -2831,7 +2874,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
         onOpenGadgets={() => setShowGadgets(true)}
       />
       
-      <div className="flex flex-col lg:flex-row gap-6">
+      <div className="flex flex-col lg:flex-row gap-6 2xl:gap-4">
         <aside className="w-full lg:w-[350px] lg:shrink-0 space-y-4">
           <div className="bg-white/60 backdrop-blur-sm rounded-3xl p-4 shadow-lg border border-white/50 space-y-6">
             <div>
@@ -2853,8 +2896,8 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
         </aside>
 
         <main className="flex-1 min-w-0">
-          <div className="bg-white/60 backdrop-blur-sm rounded-3xl p-6 shadow-lg border border-white/50">
-            <div className="flex items-center justify-between mb-6">
+          <div className="bg-white/60 backdrop-blur-sm rounded-3xl p-6 2xl:p-4 shadow-lg border border-white/50">
+            <div className="flex items-center justify-between mb-6 2xl:mb-3">
               <h2 className="text-xl font-bold text-[#5D5D5D] flex items-center gap-2">
                 <Users size={24} className="text-[#A8D8B9]" />村民廣場
               </h2>
@@ -2875,7 +2918,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
                 <p className="text-[#8B8B8B]">目前沒有村民資料</p>
               </div>
             ) : (
-              <div className="space-y-5">
+              <div className="space-y-5 2xl:space-y-3">
                 {Object.entries(groupedStudents).map(([group, groupStudents], gi) => {
                   const rate = getGroupCompletionRate(groupStudents)
                   const isComplete = rate === 1 && tasks.length > 0
@@ -2893,7 +2936,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
                       }`}
                     >
                       {/* Group header bar */}
-                      <div className={`px-4 py-3 flex items-center justify-between ${
+                      <div className={`px-4 py-3 2xl:px-3 2xl:py-2 flex items-center justify-between ${
                         isComplete
                           ? 'bg-gradient-to-r from-yellow-50 to-amber-50'
                           : 'bg-[#fdfbf7]'
@@ -2929,8 +2972,8 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
                       </div>
 
                       {/* Student grid */}
-                      <div className={`px-4 pb-4 pt-3 ${isComplete ? 'bg-gradient-to-b from-amber-50/50 to-white' : 'bg-white/40'}`}>
-                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-3">
+                      <div className={`px-4 pb-4 pt-3 2xl:px-3 2xl:pb-3 2xl:pt-2 ${isComplete ? 'bg-gradient-to-b from-amber-50/50 to-white' : 'bg-white/40'}`}>
+                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-10 3xl:grid-cols-12 gap-3 2xl:gap-2">
                           {groupStudents.map((student) => (
                             <VillagerCard
                               key={student.id}

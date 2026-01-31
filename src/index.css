@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+@theme {
+  --breakpoint-3xl: 1920px;
+}
+
 @layer base {
   :root {
     --color-primary: #A8D8B9;
@@ -284,6 +288,7 @@ body {
   .confetti-layer {
     position: absolute;
     inset: 0;
+    z-index: 0;
     background-image:
       radial-gradient(circle, rgba(255, 214, 165, 0.6) 0 2px, transparent 3px),
       radial-gradient(circle, rgba(168, 216, 185, 0.6) 0 2px, transparent 3px),
