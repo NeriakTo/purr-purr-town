@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import Calendar from 'react-calendar'
 import 'react-calendar/dist/Calendar.css'
 import { format } from 'date-fns'
@@ -233,7 +233,7 @@ function LoadingScreen({ message = '正在前往呼嚕嚕小鎮...' }) {
 
       <div className="absolute bottom-8 flex items-center gap-2 text-[#A8D8B9]">
         <PawPrint size={20} />
-        <span className="text-sm font-medium">Purr Purr Town v2.0.6</span>
+        <span className="text-sm font-medium">Purr Purr Town v2.1.0</span>
         <PawPrint size={20} />
       </div>
 
@@ -292,7 +292,7 @@ function WelcomeView({ onLocalMode }) {
           </div>
         </div>
       </div>
-      <p className="mt-6 text-[#B8B8B8] text-xs">Purr Purr Town v2.0.6 • BYOB Architecture</p>
+      <p className="mt-6 text-[#B8B8B8] text-xs">Purr Purr Town v2.1.0 • BYOB Architecture</p>
     </div>
   )
 }
@@ -364,7 +364,7 @@ function CreateClassModal({ onClose, onSuccess, onCreateLocalClass }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
       <div
         className="relative bg-[#fdfbf7] rounded-3xl shadow-2xl max-w-md w-full overflow-hidden"
@@ -580,7 +580,7 @@ function LoginView({ onSelectClass, localClasses, onCreateLocalClass }) {
       <footer className="text-center py-6 relative z-10">
         <p className="flex items-center justify-center gap-2 text-[#B8B8B8] text-xs">
           <PawPrint size={12} />
-          Purr Purr Town v2.0.6
+          Purr Purr Town v2.1.0
           <PawPrint size={12} />
         </p>
       </footer>
@@ -721,7 +721,7 @@ function TeamManagementModal({ students, settings, onClose, onSave, onSettingsUp
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
       <div className="relative bg-[#fdfbf7] rounded-3xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         <div className="h-3 bg-gradient-to-r from-[#FFD6A5] to-[#FF8A8A]" />
         
@@ -1041,7 +1041,7 @@ function TaskOverviewModal({ allLogs, students, onClose, onNavigateToDate, setti
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
       <div className="relative bg-[#fdfbf7] rounded-3xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         <div className="h-3 bg-gradient-to-r from-[#A8D8B9] to-[#7BC496]" />
         
@@ -1711,7 +1711,7 @@ function GadgetsModal({ students, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
       <div className="relative bg-[#fdfbf7] rounded-3xl shadow-2xl max-w-3xl w-full overflow-hidden">
         <div className="h-3 bg-gradient-to-r from-[#A8D8B9] to-[#FFD6A5]" />
         <button onClick={onClose} className="absolute top-5 right-5 p-2 rounded-full bg-white/80 hover:bg-white shadow-md">
@@ -1979,7 +1979,7 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
       <div className="relative bg-[#fdfbf7] rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden" onClick={e => e.stopPropagation()}>
         <div className="h-3" style={{ background: 'repeating-linear-gradient(90deg, #A8D8B9, #A8D8B9 20px, #FFD6A5 20px, #FFD6A5 40px)' }} />
@@ -2236,7 +2236,7 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
 
 function SettingsModal({ classId, className, settings, students, allLogs, onClose, onSave, onRestoreFromBackup, onClearLocalClass }) {
   const [localSettings, setLocalSettings] = useState({
-    taskTypes: settings?.taskTypes || ['作業', '訂正', '攜帶物品', '考試', '通知單', '回條'],
+    taskTypes: settings?.taskTypes || DEFAULT_SETTINGS.taskTypes,
     groupAliases: settings?.groupAliases || {}
   })
   const [newTaskType, setNewTaskType] = useState('')
@@ -2245,8 +2245,8 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
   const [backupBusy, setBackupBusy] = useState(false)
   const [backupMsg, setBackupMsg] = useState(null)
   const [backupMeta, setBackupMeta] = useState(null)
-
-  const defaultGroups = ['A', 'B', 'C', 'D', 'E', 'F']
+  const [fileMsg, setFileMsg] = useState(null)
+  const fileInputRef = useRef(null)
 
   useEffect(() => {
     if (!classId) return
@@ -2265,7 +2265,7 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
 
   const handleBackupUpload = async () => {
     if (!backupUrl.trim()) {
-      setBackupMsg('請先輸入 GAS 連結')
+      setBackupMsg('???? GAS ????')
       return
     }
     try {
@@ -2280,7 +2280,7 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
           classId,
           students,
           logs: allLogs,
-          settings,
+          settings: localSettings,
           updatedAt: new Date().toISOString()
         }
       }
@@ -2295,10 +2295,10 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
       const meta = { updatedAt: payload.data.updatedAt, className: className || '', classId }
       localStorage.setItem(`ppt_backup_meta_${classId}`, JSON.stringify(meta))
       setBackupMeta(meta)
-      setBackupMsg('備份已送出（單一班級）')
+      setBackupMsg('?????????????')
     } catch (err) {
-      console.error('備份上傳失敗:', err)
-      setBackupMsg('備份上傳失敗')
+      console.error('??????:', err)
+      setBackupMsg('??????')
     } finally {
       setBackupBusy(false)
     }
@@ -2306,7 +2306,7 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
 
   const handleBackupDownload = async () => {
     if (!backupUrl.trim()) {
-      setBackupMsg('請先輸入 GAS 連結')
+      setBackupMsg('???? GAS ????')
       return
     }
     try {
@@ -2323,30 +2323,119 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
         classId,
         students: restored.students || [],
         logs: restored.logs || [],
-        settings: restored.settings || settings,
+        settings: restored.settings || localSettings,
         updatedAt: restored.updatedAt || new Date().toISOString()
       })
       if (onRestoreFromBackup) {
         onRestoreFromBackup(restored)
       }
+      setLocalSettings(prev => ({
+        taskTypes: restored.settings?.taskTypes || prev.taskTypes,
+        groupAliases: restored.settings?.groupAliases || prev.groupAliases
+      }))
       localStorage.setItem('ppt_backup_url', backupUrl.trim())
       localStorage.setItem('ppt_backup_token', backupToken.trim() || 'meow1234')
       const meta = { updatedAt: restored.updatedAt || new Date().toISOString(), className: className || '', classId }
       localStorage.setItem(`ppt_backup_meta_${classId}`, JSON.stringify(meta))
       setBackupMeta(meta)
-      setBackupMsg('已完成下載並覆蓋本地（單一班級）')
+      setBackupMsg('????????????')
     } catch (err) {
-      console.error('備份下載失敗:', err)
-      setBackupMsg('備份下載失敗')
+      console.error('??????:', err)
+      setBackupMsg('??????')
     } finally {
       setBackupBusy(false)
     }
   }
 
+  const makeBackupFileName = () => {
+    const safeName = (className || classId || 'class')
+      .toString()
+      .trim()
+      .replace(/[\\/:*?"<>|]/g, '_')
+      .replace(/\s+/g, '_')
+    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '')
+    return `ppt_backup_${safeName}_${dateStr}.json`
+  }
+
+  const handleExportBackup = () => {
+    try {
+      const payload = {
+        classId,
+        className,
+        data: {
+          classId,
+          students,
+          logs: allLogs,
+          settings: localSettings,
+          updatedAt: new Date().toISOString()
+        }
+      }
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = makeBackupFileName()
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+      setFileMsg('???????')
+    } catch (err) {
+      console.error('??????:', err)
+      setFileMsg('??????')
+    }
+  }
+
+  const handleImportBackup = (event) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    if (!window.confirm('?????????????????????')) {
+      event.target.value = ''
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      try {
+        const raw = typeof reader.result === 'string' ? reader.result : ''
+        const payload = JSON.parse(raw)
+        const restored = payload?.data || payload
+        if (!restored || !restored.students || !restored.logs || !restored.settings) {
+          throw new Error('Invalid backup file')
+        }
+        saveClassCache(classId, {
+          classId,
+          students: restored.students || [],
+          logs: restored.logs || [],
+          settings: restored.settings || localSettings,
+          updatedAt: restored.updatedAt || new Date().toISOString()
+        })
+        if (onRestoreFromBackup) {
+          onRestoreFromBackup(restored)
+        }
+        setLocalSettings({
+          taskTypes: restored.settings?.taskTypes || localSettings.taskTypes,
+          groupAliases: restored.settings?.groupAliases || localSettings.groupAliases
+        })
+        setFileMsg('??????????')
+      } catch (err) {
+        console.error('??????:', err)
+        setFileMsg('??????????????')
+      } finally {
+        event.target.value = ''
+      }
+    }
+    reader.onerror = () => {
+      setFileMsg('?????????????')
+      event.target.value = ''
+    }
+    reader.readAsText(file)
+  }
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-      <div className="relative bg-[#fdfbf7] rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden" onClick={e => e.stopPropagation()}>
+      <div className="relative bg-[#fdfbf7] rounded-3xl shadow-2xl max-w-3xl w-full overflow-hidden" onClick={e => e.stopPropagation()}>
         <div className="h-3 bg-gradient-to-r from-[#A8D8B9] to-[#FFD6A5]" />
 
         <div className="p-6 border-b border-[#E8E8E8] flex items-center justify-between">
@@ -2355,8 +2444,8 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
               <Settings size={24} className="text-white" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-[#5D5D5D]">村莊設定</h2>
-              <p className="text-sm text-[#8B8B8B]">自訂任務類型與資料管理</p>
+              <h2 className="text-2xl font-bold text-[#5D5D5D]">????</h2>
+              <p className="text-sm text-[#8B8B8B]">???????????</p>
             </div>
           </div>
           <button onClick={onClose} className="p-2 rounded-full hover:bg-[#E8E8E8] transition-colors">
@@ -2364,13 +2453,12 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
           </button>
         </div>
 
-        <div className="p-6 max-h-[70vh] overflow-y-auto">
-
-          {/* 任務類型設定 */}
-          <div className="space-y-4 mb-6">
+        <div className="p-6 max-h-[75vh] overflow-y-auto space-y-8">
+          {/* ?????? */}
+          <div className="space-y-4">
             <h3 className="text-sm font-bold text-[#5D5D5D] flex items-center gap-2">
               <ClipboardList size={16} className="text-[#A8D8B9]" />
-              任務類型標籤
+              ??????
             </h3>
             <div className="flex flex-wrap gap-2">
               {localSettings.taskTypes.map(type => (
@@ -2382,13 +2470,13 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
                 </div>
               ))}
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <input
                 type="text"
                 value={newTaskType}
                 onChange={e => setNewTaskType(e.target.value)}
                 className="flex-1 px-4 py-2 rounded-xl border-2 border-[#E8E8E8] focus:border-[#A8D8B9] outline-none"
-                placeholder="新標籤..."
+                placeholder="??????"
               />
               <button
                 onClick={() => { if(newTaskType.trim()) { setLocalSettings(p => ({...p, taskTypes: [...p.taskTypes, newTaskType.trim()]})); setNewTaskType('') } }}
@@ -2399,101 +2487,123 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
             </div>
           </div>
 
-          {/* 小隊名稱設定 */}
-          <div className="border-t border-[#E8E8E8] pt-6 space-y-4">
-            <h3 className="text-sm font-bold text-[#5D5D5D] flex items-center gap-2">
-              <Flag size={16} className="text-[#FFD6A5]" />
-              小隊名稱設定
-            </h3>
-            <div className="grid grid-cols-2 gap-3">
-              {defaultGroups.map(group => (
-                <div key={group} className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-[#8B8B8B] w-6">{group}</span>
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* ?????? */}
+            <div className="border border-[#E8E8E8] rounded-2xl p-5 bg-white/60 space-y-4">
+              <h3 className="text-sm font-bold text-[#5D5D5D] flex items-center gap-2">
+                <Download size={16} className="text-[#A8D8B9]" />
+                ??????
+              </h3>
+              <p className="text-xs text-[#8B8B8B]">
+                ????/??????????????????{className || classId}
+              </p>
+              {backupMeta?.updatedAt && (
+                <p className="text-xs text-[#8B8B8B]">
+                  ???????{new Date(backupMeta.updatedAt).toLocaleString()}
+                </p>
+              )}
+              <div className="grid gap-3">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-[#5D5D5D]">GAS ????</label>
                   <input
-                    type="text"
-                    value={localSettings.groupAliases[group] || ''}
-                    onChange={e => setLocalSettings(p => ({
-                      ...p,
-                      groupAliases: { ...p.groupAliases, [group]: e.target.value }
-                    }))}
-                    placeholder={`${group} 小隊`}
-                    className="flex-1 px-3 py-2 text-sm rounded-xl border-2 border-[#E8E8E8] focus:border-[#FFD6A5] outline-none"
+                    type="url"
+                    value={backupUrl}
+                    onChange={(e) => setBackupUrl(e.target.value)}
+                    placeholder="https://script.google.com/macros/s/.../exec"
+                    className="w-full px-3 py-2 rounded-xl border-2 border-[#E8E8E8] focus:border-[#A8D8B9] outline-none"
                   />
                 </div>
-              ))}
-            </div>
-          </div>
-
-          {/* 備份中心 */}
-          <div className="border-t border-[#E8E8E8] pt-6 space-y-3">
-            <h3 className="text-sm font-bold text-[#5D5D5D] flex items-center gap-2">
-              <Download size={16} className="text-[#A8D8B9]" />
-              備份中心
-            </h3>
-            <p className="text-xs text-[#8B8B8B]">
-              ⚠️ 目前備份/還原僅針對「單一班級」。請確認目前班級：{className || classId}
-            </p>
-            {backupMeta?.updatedAt && (
-              <p className="text-xs text-[#8B8B8B]">
-                上次備份時間：{new Date(backupMeta.updatedAt).toLocaleString()}
-              </p>
-            )}
-            <input
-              type="url"
-              value={backupUrl}
-              onChange={(e) => setBackupUrl(e.target.value)}
-              placeholder="https://script.google.com/macros/s/.../exec"
-              className="w-full px-3 py-2 rounded-xl border-2 border-[#E8E8E8] focus:border-[#A8D8B9] outline-none"
-            />
-            <input
-              type="text"
-              value={backupToken}
-              onChange={(e) => setBackupToken(e.target.value)}
-              placeholder="Token（預設 meow1234）"
-              className="w-full px-3 py-2 rounded-xl border-2 border-[#E8E8E8] focus:border-[#A8D8B9] outline-none"
-            />
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={handleBackupUpload}
-                disabled={backupBusy}
-                className="px-4 py-2 rounded-xl bg-[#A8D8B9] text-white font-bold hover:bg-[#7BC496] transition-all disabled:opacity-50"
-              >
-                ⬆️ 上傳備份
-              </button>
-              <button
-                onClick={handleBackupDownload}
-                disabled={backupBusy}
-                className="px-4 py-2 rounded-xl bg-[#FFD6A5] text-white font-bold hover:bg-[#FFBF69] transition-all disabled:opacity-50"
-              >
-                ⬇️ 下載備份
-              </button>
-            </div>
-            {backupMsg && (
-              <div className="text-xs text-[#5D5D5D] bg-[#F9F9F9] border border-[#E8E8E8] rounded-xl px-3 py-2">
-                {backupMsg}
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-[#5D5D5D]">?? Token</label>
+                  <input
+                    type="text"
+                    value={backupToken}
+                    onChange={(e) => setBackupToken(e.target.value)}
+                    placeholder="?? meow1234"
+                    className="w-full px-3 py-2 rounded-xl border-2 border-[#E8E8E8] focus:border-[#A8D8B9] outline-none"
+                  />
+                </div>
               </div>
-            )}
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={handleBackupUpload}
+                  disabled={backupBusy}
+                  className="px-4 py-2 rounded-xl bg-[#A8D8B9] text-white font-bold hover:bg-[#7BC496] transition-all disabled:opacity-50"
+                >
+                  ?? ????
+                </button>
+                <button
+                  onClick={handleBackupDownload}
+                  disabled={backupBusy}
+                  className="px-4 py-2 rounded-xl bg-[#FFD6A5] text-white font-bold hover:bg-[#FFBF69] transition-all disabled:opacity-50"
+                >
+                  ?? ????
+                </button>
+              </div>
+              {backupMsg && (
+                <div className="text-xs text-[#5D5D5D] bg-[#F9F9F9] border border-[#E8E8E8] rounded-xl px-3 py-2">
+                  {backupMsg}
+                </div>
+              )}
+            </div>
+
+            {/* ??????? */}
+            <div className="border border-[#E8E8E8] rounded-2xl p-5 bg-white/60 space-y-4">
+              <h3 className="text-sm font-bold text-[#5D5D5D] flex items-center gap-2">
+                <Download size={16} className="text-[#FFD6A5]" />
+                ???????
+              </h3>
+              <p className="text-xs text-[#8B8B8B]">
+                ????? JSON ??????????????
+              </p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".json,application/json"
+                className="hidden"
+                onChange={handleImportBackup}
+              />
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={handleExportBackup}
+                  className="px-4 py-2 rounded-xl bg-[#A0C4FF] text-white font-bold hover:bg-[#7EB0FF] transition-all"
+                >
+                  ?? ??????
+                </button>
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="px-4 py-2 rounded-xl bg-[#BDB2FF] text-white font-bold hover:bg-[#9B8FFF] transition-all"
+                >
+                  ?? ??????
+                </button>
+              </div>
+              {fileMsg && (
+                <div className="text-xs text-[#5D5D5D] bg-[#F9F9F9] border border-[#E8E8E8] rounded-xl px-3 py-2">
+                  {fileMsg}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="border-t border-[#E8E8E8] pt-6">
             <button
               onClick={() => {
-                if (window.confirm('確定要清除本機此班級資料嗎？此操作不會影響雲端備份。')) {
+                if (window.confirm('??????????????????????????')) {
                   onClearLocalClass?.(classId)
                   onClose()
                 }
               }}
               className="w-full py-2.5 rounded-xl bg-[#FFADAD]/20 text-[#D64545] font-bold hover:bg-[#FFADAD]/30 transition-colors"
             >
-              清除本機此班級資料
+              ?????????
             </button>
           </div>
 
           <div className="mt-6 flex gap-3">
             <button onClick={handleSave} className="flex-1 py-3 rounded-xl bg-gradient-to-r from-[#A8D8B9] to-[#7BC496] text-white font-medium">
-              儲存設定
+              ????
             </button>
-            <button onClick={onClose} className="px-4 py-3 rounded-xl bg-[#E8E8E8] text-[#5D5D5D]">取消</button>
+            <button onClick={onClose} className="px-4 py-3 rounded-xl bg-[#E8E8E8] text-[#5D5D5D]">??</button>
           </div>
         </div>
       </div>
@@ -2533,17 +2643,17 @@ function Header({ todayStr, completionRate, className, classAlias, onLogout, onO
               />
             </div>
           </div>
-          <button onClick={onOpenTeamManagement} className="p-3 rounded-2xl bg-[#fdfbf7] hover:bg-[#FFD6A5]/20 transition-colors" title="小隊管理">
-            <Flag size={22} className="text-[#5D5D5D]" />
-          </button>
           <button onClick={onOpenTaskOverview} className="p-3 rounded-2xl bg-[#fdfbf7] hover:bg-[#A8D8B9]/20 transition-colors" title="任務總覽">
             <ListTodo size={22} className="text-[#5D5D5D]" />
           </button>
-          <button onClick={onOpenSettings} className="p-3 rounded-2xl bg-[#fdfbf7] hover:bg-[#FFD6A5]/20 transition-colors" title="村莊設定">
-            <Settings size={22} className="text-[#5D5D5D]" />
-          </button>
           <button onClick={onOpenGadgets} className="p-3 rounded-2xl bg-[#fdfbf7] hover:bg-[#A8D8B9]/20 transition-colors" title="課堂法寶">
             <Sparkles size={22} className="text-[#5D5D5D]" />
+          </button>
+          <button onClick={onOpenTeamManagement} className="p-3 rounded-2xl bg-[#fdfbf7] hover:bg-[#FFD6A5]/20 transition-colors" title="小隊管理">
+            <Flag size={22} className="text-[#5D5D5D]" />
+          </button>
+          <button onClick={onOpenSettings} className="p-3 rounded-2xl bg-[#fdfbf7] hover:bg-[#FFD6A5]/20 transition-colors" title="村莊設定">
+            <Settings size={22} className="text-[#5D5D5D]" />
           </button>
           <button onClick={onLogout} className="p-3 rounded-2xl bg-[#fdfbf7] hover:bg-[#FFADAD]/20 transition-colors" title="返回村莊列表">
             <LogOut size={22} className="text-[#5D5D5D]" />
@@ -2840,7 +2950,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
       <footer className="mt-10 text-center text-[#8B8B8B] text-sm">
         <p className="flex items-center justify-center gap-2">
           <PawPrint size={16} className="text-[#A8D8B9]" />
-          呼嚕嚕小鎮 Purr Purr Town v2.0.6 © 2026
+          呼嚕嚕小鎮 Purr Purr Town v2.1.0 © 2026
           <PawPrint size={16} className="text-[#A8D8B9]" />
         </p>
       </footer>
