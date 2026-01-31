@@ -11,7 +11,6 @@ import {
   X,
   Sparkles,
   Bell,
-  WifiOff,
   Loader2,
   ClipboardList,
   Palette,
@@ -302,7 +301,7 @@ function WelcomeView({ onLocalMode }) {
 // 建立班級 Modal
 // ============================================
 
-function CreateClassModal({ onClose, onSuccess, apiUrl, isLocal, onCreateLocalClass }) {
+function CreateClassModal({ onClose, onSuccess, onCreateLocalClass }) {
   const [formData, setFormData] = useState({
     year: '',
     className: '',
@@ -348,34 +347,13 @@ function CreateClassModal({ onClose, onSuccess, apiUrl, isLocal, onCreateLocalCl
       setSubmitting(true)
       setSubmitError(null)
 
-      if (isLocal && onCreateLocalClass) {
-        onCreateLocalClass({
-          year: formData.year.trim(),
-          className: formData.className.trim(),
-          teacher: formData.teacher.trim(),
-          alias: formData.alias.trim(),
-          studentCount: parseInt(formData.studentCount.trim(), 10)
-        })
-        onSuccess()
-        return
-      }
-
-      const payload = {
-        action: 'create_class',
+      onCreateLocalClass({
         year: formData.year.trim(),
         className: formData.className.trim(),
         teacher: formData.teacher.trim(),
+        alias: formData.alias.trim(),
         studentCount: parseInt(formData.studentCount.trim(), 10)
-      }
-      if (formData.alias.trim()) payload.alias = formData.alias.trim()
-      
-      await fetch(apiUrl, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify(payload)
       })
-
       onSuccess()
     } catch (err) {
       console.error('建立班級失敗:', err)
@@ -503,50 +481,13 @@ function CreateClassModal({ onClose, onSuccess, apiUrl, isLocal, onCreateLocalCl
 // 村莊入口 (Login View)
 // ============================================
 
-function LoginView({ onSelectClass, loading, error, apiUrl, localMode, localClasses, onCreateLocalClass }) {
-  const [classes, setClasses] = useState([])
-  const [loadingClasses, setLoadingClasses] = useState(true)
+function LoginView({ onSelectClass, localClasses, onCreateLocalClass }) {
   const [showCreateModal, setShowCreateModal] = useState(false)
 
-  const fetchClasses = useCallback(async () => {
-    if (!apiUrl) {
-      setLoadingClasses(false)
-      return
-    }
-
-    try {
-      setLoadingClasses(true)
-      const response = await fetch(`${apiUrl}?action=get_classes`)
-      if (!response.ok) throw new Error('Failed to fetch classes')
-      const data = await response.json()
-      setClasses(data.classes || [])
-    } catch (err) {
-      console.error('載入班級列表失敗:', err)
-    } finally {
-      setLoadingClasses(false)
-    }
-  }, [apiUrl])
-
-  useEffect(() => {
-    if (localMode) {
-      setClasses(localClasses || [])
-      setLoadingClasses(false)
-    } else {
-      fetchClasses()
-    }
-  }, [fetchClasses, localMode, localClasses])
+  const classes = localClasses || []
 
   const handleCreateSuccess = () => {
     setShowCreateModal(false)
-    if (localMode) {
-      setClasses(loadLocalClasses())
-    } else {
-      fetchClasses()
-    }
-  }
-
-  if (loadingClasses) {
-    return <LoadingScreen message="正在載入村莊列表..." />
   }
 
   return (
@@ -570,12 +511,6 @@ function LoginView({ onSelectClass, loading, error, apiUrl, localMode, localClas
             </div>
             <p className="text-[#8B8B8B]">選擇您要進入的村莊</p>
           </div>
-
-          {error && (
-            <div className="mb-6 p-4 rounded-2xl bg-[#FFADAD]/20 text-[#D64545] flex items-center gap-3 justify-center">
-              <WifiOff size={20} /><span>{error}</span>
-            </div>
-          )}
 
           {classes.length === 0 ? (
             <div className="max-w-sm mx-auto text-center py-16">
@@ -603,8 +538,7 @@ function LoginView({ onSelectClass, loading, error, apiUrl, localMode, localClas
                   <button
                     key={cls.id}
                     onClick={() => onSelectClass(cls.id, displayName, cls.alias)}
-                    disabled={loading}
-                    className="group bg-white rounded-2xl p-5 shadow-md border border-[#F0F0F0] hover:shadow-xl hover:border-[#A8D8B9] transition-all hover:-translate-y-1 disabled:opacity-50 text-left"
+                    className="group bg-white rounded-2xl p-5 shadow-md border border-[#F0F0F0] hover:shadow-xl hover:border-[#A8D8B9] transition-all hover:-translate-y-1 text-left"
                   >
                     <div className="flex items-start gap-4 mb-4">
                       <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform" style={{ background: `linear-gradient(135deg, ${gradients[index % gradients.length]})` }}>
@@ -655,8 +589,6 @@ function LoginView({ onSelectClass, loading, error, apiUrl, localMode, localClas
         <CreateClassModal
           onClose={() => setShowCreateModal(false)}
           onSuccess={handleCreateSuccess}
-          apiUrl={apiUrl}
-          isLocal={localMode}
           onCreateLocalClass={onCreateLocalClass}
         />
       )}
@@ -668,7 +600,7 @@ function LoginView({ onSelectClass, loading, error, apiUrl, localMode, localClas
 // 小隊管理 Modal (v2.0 - 以小隊為中心的操作邏輯)
 // ============================================
 
-function TeamManagementModal({ students, settings, classId, onClose, onSave, apiUrl, onSettingsUpdate }) {
+function TeamManagementModal({ students, settings, onClose, onSave, onSettingsUpdate }) {
   const defaultGroups = ['A', 'B', 'C', 'D', 'E', 'F']
   
   // 鎖定背景捲軸
@@ -758,44 +690,10 @@ function TeamManagementModal({ students, settings, classId, onClose, onSave, api
     try {
       setSaving(true)
       
-      // 1. 逐一更新學生小隊（後端未支援 batch_update_groups）
-      if (apiUrl) {
-        const updateRequests = students.map(s => {
-          const uuid = s.uuid || s.id
-          return fetch(apiUrl, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'text/plain' },
-            body: JSON.stringify({
-              action: 'update_student',
-              classId,
-              uuid,
-              name: s.name,
-              group: assignments[s.id],
-              gender: s.gender || 'neutral'
-            })
-          })
-        })
-        await Promise.all(updateRequests)
-      }
-
-      // 2. 更新小隊名稱設定
+      // 更新小隊名稱設定
       const newSettings = {
         ...settings,
         groupAliases: { ...settings?.groupAliases, ...groupNames }
-      }
-      
-      if (apiUrl) {
-        await fetch(apiUrl, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'text/plain' },
-          body: JSON.stringify({ 
-            action: 'save_settings', 
-            classId, 
-            settings: newSettings 
-          })
-        })
       }
 
       // 回傳更新
@@ -1086,7 +984,7 @@ function TeamManagementModal({ students, settings, classId, onClose, onSave, api
 // 任務總覽 Modal (新功能)
 // ============================================
 
-function TaskOverviewModal({ allLogs, students, classId, onClose, onNavigateToDate, settings, onToggleStatus }) {
+function TaskOverviewModal({ allLogs, students, onClose, onNavigateToDate, settings, onToggleStatus }) {
   const [expandedTask, setExpandedTask] = useState(null)
   const [filterType, setFilterType] = useState('all')
   const [batchTaskKey, setBatchTaskKey] = useState(null)
@@ -1440,7 +1338,7 @@ function CalendarNav({ currentDate, onDateChange }) {
 // 任務板
 // ============================================
 
-function TaskBoard({ tasks, students, studentStatus, classId, currentDateStr, onTasksUpdate, taskTypes, apiUrl, onOpenFocus }) {
+function TaskBoard({ tasks, students, studentStatus, onTasksUpdate, taskTypes, onOpenFocus }) {
   const [showAddTask, setShowAddTask] = useState(false)
   const [newTaskTitle, setNewTaskTitle] = useState('')
   const [newTaskType, setNewTaskType] = useState(taskTypes?.[0] || '作業')
@@ -1452,15 +1350,6 @@ function TaskBoard({ tasks, students, studentStatus, classId, currentDateStr, on
     
     if (onTasksUpdate) onTasksUpdate(updatedTasks)
 
-    if (apiUrl) {
-      fetch(apiUrl, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ action: 'save_tasks', classId, date: currentDateStr, tasks: updatedTasks })
-      }).catch(err => console.error('發布任務失敗:', err))
-    }
-
     setNewTaskTitle('')
     setNewTaskType(taskTypes?.[0] || '作業')
     setShowAddTask(false)
@@ -1469,15 +1358,6 @@ function TaskBoard({ tasks, students, studentStatus, classId, currentDateStr, on
   const handleDeleteTask = (taskId) => {
     const updatedTasks = tasks.filter(t => t.id !== taskId)
     if (onTasksUpdate) onTasksUpdate(updatedTasks)
-    
-    if (apiUrl) {
-      fetch(apiUrl, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ action: 'save_tasks', classId, date: currentDateStr, tasks: updatedTasks })
-      }).catch(err => console.error('刪除任務失敗:', err))
-    }
   }
 
   const getTaskCompletion = (taskId) => {
@@ -1962,7 +1842,7 @@ function VillagerCard({ student, tasks, studentStatus, onClick, hasOverdue }) {
 // 村民護照 Modal
 // ============================================
 
-function PassportModal({ student, tasks, studentStatus, classId, onClose, onToggleStatus, onStudentUpdate, apiUrl, hasOverdue, settings, allLogs, currentDateStr }) {
+function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus, onStudentUpdate, hasOverdue, settings, allLogs, currentDateStr }) {
   const [isEditMode, setIsEditMode] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
   const [editData, setEditData] = useState({ name: student.name || '', gender: student.gender || 'male', group: student.group || 'A' })
@@ -2010,14 +1890,6 @@ function PassportModal({ student, tasks, studentStatus, classId, onClose, onTogg
     const updatedStudent = { ...student, id: student.id || student.uuid, name: editData.name.trim(), group: editData.group, gender: editData.gender }
     if (onStudentUpdate) onStudentUpdate(updatedStudent)
     setIsEditMode(false)
-    if (apiUrl) {
-      fetch(apiUrl, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ action: 'update_student', classId, uuid: student.uuid || student.id, name: editData.name.trim(), group: editData.group, gender: editData.gender })
-      }).catch(console.error)
-    }
   }
 
   return (
@@ -2276,13 +2148,12 @@ function PassportModal({ student, tasks, studentStatus, classId, onClose, onTogg
 // 設定 Modal
 // ============================================
 
-function SettingsModal({ classId, className, settings, students, allLogs, onClose, onSave, onRestoreFromBackup, onClearLocalClass, apiUrl }) {
+function SettingsModal({ classId, className, settings, students, allLogs, onClose, onSave, onRestoreFromBackup, onClearLocalClass }) {
   const [localSettings, setLocalSettings] = useState({
     taskTypes: settings?.taskTypes || ['作業', '訂正', '攜帶物品', '考試', '通知單', '回條'],
     groupAliases: settings?.groupAliases || {}
   })
   const [newTaskType, setNewTaskType] = useState('')
-  const [saving, setSaving] = useState(false)
   const [backupUrl, setBackupUrl] = useState(() => localStorage.getItem('ppt_backup_url') || '')
   const [backupToken, setBackupToken] = useState(() => localStorage.getItem('ppt_backup_token') || 'meow1234')
   const [backupBusy, setBackupBusy] = useState(false)
@@ -2301,24 +2172,9 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
     }
   }, [classId])
 
-  const handleSave = async () => {
-    try {
-      setSaving(true)
-      if (apiUrl) {
-        fetch(apiUrl, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'text/plain' },
-          body: JSON.stringify({ action: 'save_settings', classId, settings: localSettings })
-        }).catch(err => console.error(err))
-      }
-      if (onSave) onSave(localSettings)
-      onClose()
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setSaving(false)
-    }
+  const handleSave = () => {
+    if (onSave) onSave(localSettings)
+    onClose()
   }
 
   const handleBackupUpload = async () => {
@@ -2417,7 +2273,7 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
               <p className="text-sm text-[#8B8B8B]">自訂任務類型與資料管理</p>
             </div>
           </div>
-          <button onClick={onClose} disabled={saving} className="p-2 rounded-full hover:bg-[#E8E8E8] transition-colors">
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-[#E8E8E8] transition-colors">
             <X size={24} className="text-[#5D5D5D]" />
           </button>
         </div>
@@ -2548,10 +2404,10 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
           </div>
 
           <div className="mt-6 flex gap-3">
-            <button onClick={handleSave} disabled={saving} className="flex-1 py-3 rounded-xl bg-gradient-to-r from-[#A8D8B9] to-[#7BC496] text-white font-medium">
-              {saving ? '儲存中...' : '儲存設定'}
+            <button onClick={handleSave} className="flex-1 py-3 rounded-xl bg-gradient-to-r from-[#A8D8B9] to-[#7BC496] text-white font-medium">
+              儲存設定
             </button>
-            <button onClick={onClose} disabled={saving} className="px-4 py-3 rounded-xl bg-[#E8E8E8] text-[#5D5D5D]">取消</button>
+            <button onClick={onClose} className="px-4 py-3 rounded-xl bg-[#E8E8E8] text-[#5D5D5D]">取消</button>
           </div>
         </div>
       </div>
@@ -2616,12 +2472,11 @@ function Header({ todayStr, completionRate, className, classAlias, onLogout, onO
 // 村莊儀表板 (Dashboard View)
 // ============================================
 
-function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onClearLocalClass }) {
+function DashboardView({ classId, className, classAlias, onLogout, onClearLocalClass }) {
   const [students, setStudents] = useState([])
   const [allLogs, setAllLogs] = useState([])
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
   const [selectedStudent, setSelectedStudent] = useState(null)
   const [currentDate, setCurrentDate] = useState(new Date())
   const [showSettings, setShowSettings] = useState(false)
@@ -2667,36 +2522,6 @@ function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onCle
     return completedChecks / (students.length * tasks.length)
   }, [students, tasks, studentStatus])
 
-  const fetchAllData = useCallback(async () => {
-    if (!apiUrl || !classId) return
-    const cached = loadClassCache(classId)
-    if (cached) return
-    try {
-      setLoading(true)
-      const response = await fetch(`${apiUrl}?action=get_class_data_all&classId=${classId}`)
-      if (!response.ok) throw new Error('API Error')
-      const data = await response.json()
-      
-      const normStudents = (data.students || []).map((s, i) => ({...s, id: s.id || s.uuid || `student_${i}`}))
-      const normLogs = (data.logs || []).map(log => {
-        const dateStr = normalizeDate(log.date)
-        const tasks = (log.tasks || []).map((t, i) => ({ ...t, id: t.id || makeTaskId(dateStr, t, i) }))
-        return { ...log, date: dateStr, tasks }
-      })
-      const normSettings = data.settings || settings
-
-      setStudents(normStudents)
-      setAllLogs(normLogs)
-      setSettings(normSettings)
-    } catch (err) {
-      setError(`連線錯誤: ${err.message}`)
-    } finally {
-      setLoading(false)
-    }
-  }, [classId, apiUrl, normalizeDate])
-
-  useEffect(() => { fetchAllData() }, [fetchAllData])
-
   useEffect(() => {
     if (!classId) return
     saveClassCache(classId, {
@@ -2738,11 +2563,7 @@ function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onCle
       const log = prev.find(l => normalizeDate(l.date) === normDate)
       return [...prev, { date: normDate, tasks: log?.tasks || [], status: { [studentId]: { [taskId]: checked } } }]
     })
-
-    if (apiUrl) {
-      fetch(apiUrl, { method: 'POST', mode: 'no-cors', headers: {'Content-Type': 'text/plain'}, body: JSON.stringify({ action: 'update_status', classId, date: dateStr, studentId, taskId, checked }) }).catch(console.error)
-    }
-  }, [classId, currentDate, normalizeDate, apiUrl])
+  }, [currentDate, normalizeDate])
 
   const checkOverdue = useCallback((studentId) => {
     const todayStr = getTodayStr()
@@ -2785,15 +2606,6 @@ function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onCle
   const angryCount = students.filter(s => tasks.length > 0 && tasks.some(t => !isDoneStatus(studentStatus[s.id]?.[t.id]))).length
 
   if (loading) return <LoadingScreen message="正在進入村莊..." />
-  if (error) return (
-    <div className="min-h-screen flex items-center justify-center p-8">
-      <div className="text-center">
-        <h2 className="text-xl font-bold text-[#D64545] mb-2">載入失敗</h2>
-        <p className="text-[#8B8B8B] mb-4">{error}</p>
-        <button onClick={onLogout} className="px-4 py-2 bg-[#E8E8E8] rounded-xl">返回村莊列表</button>
-      </div>
-    </div>
-  )
 
   return (
     <div className="min-h-screen p-4 md:p-6 lg:p-8 bg-[#fdfbf7]">
@@ -2823,11 +2635,8 @@ function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onCle
               tasks={tasks}
               students={students}
               studentStatus={studentStatus}
-              classId={classId}
-              currentDateStr={formatDate(currentDate)}
               onTasksUpdate={handleTasksUpdate}
               taskTypes={settings.taskTypes}
-              apiUrl={apiUrl}
               onOpenFocus={() => setShowFocus(true)}
             />
           </div>
@@ -2947,8 +2756,6 @@ function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onCle
           student={selectedStudent}
           tasks={tasks}
           studentStatus={studentStatus}
-          classId={classId}
-          apiUrl={apiUrl}
           settings={settings}
           hasOverdue={checkOverdue(selectedStudent.id)}
           allLogs={allLogs}
@@ -2981,7 +2788,6 @@ function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onCle
             setSettings(restored.settings || settings)
           }}
           onClearLocalClass={onClearLocalClass}
-          apiUrl={apiUrl}
         />
       )}
       
@@ -2989,11 +2795,9 @@ function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onCle
         <TeamManagementModal
           students={students}
           settings={settings}
-          classId={classId}
           onClose={() => setShowTeamManagement(false)}
           onSave={handleTeamSave}
           onSettingsUpdate={setSettings}
-          apiUrl={apiUrl}
         />
       )}
       
@@ -3001,7 +2805,6 @@ function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onCle
         <TaskOverviewModal
           allLogs={allLogs}
           students={students}
-          classId={classId}
           settings={settings}
           onClose={() => setShowTaskOverview(false)}
           onNavigateToDate={setCurrentDate}
@@ -3032,16 +2835,12 @@ function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onCle
 // ============================================
 
 function App() {
-  const [apiUrl, setApiUrl] = useState(null)
-  const [localMode, setLocalMode] = useState(true)
   const [localClasses, setLocalClasses] = useState(() => loadLocalClasses())
   const [selectedClass, setSelectedClass] = useState(null)
   const [hasStarted, setHasStarted] = useState(false)
 
   const handleLocalMode = () => {
     setHasStarted(true)
-    setLocalMode(true)
-    setApiUrl(null)
     setSelectedClass(null)
   }
 
@@ -3099,8 +2898,6 @@ function App() {
   if (!selectedClass) {
     return (
       <LoginView
-        apiUrl={apiUrl}
-        localMode={localMode}
         localClasses={localClasses}
         onCreateLocalClass={handleCreateLocalClass}
         onSelectClass={handleSelectClass}
@@ -3114,7 +2911,6 @@ function App() {
       className={selectedClass.name}
       classAlias={selectedClass.alias}
       onLogout={() => setSelectedClass(null)}
-      apiUrl={apiUrl}
       onClearLocalClass={handleClearLocalClass}
     />
   )
