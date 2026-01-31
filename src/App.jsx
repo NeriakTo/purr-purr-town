@@ -36,7 +36,6 @@ import {
   Trophy,
   Link,
   Download,
-  Unplug,
   Eye,
   UserPlus,
   GripVertical,
@@ -504,7 +503,7 @@ function CreateClassModal({ onClose, onSuccess, apiUrl, isLocal, onCreateLocalCl
 // 村莊入口 (Login View)
 // ============================================
 
-function LoginView({ onSelectClass, loading, error, apiUrl, onDisconnect, localMode, localClasses, onCreateLocalClass }) {
+function LoginView({ onSelectClass, loading, error, apiUrl, localMode, localClasses, onCreateLocalClass }) {
   const [classes, setClasses] = useState([])
   const [loadingClasses, setLoadingClasses] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -561,18 +560,6 @@ function LoginView({ onSelectClass, loading, error, apiUrl, onDisconnect, localM
 
       <div className="flex-1 p-6 md:p-10 relative z-10">
         <div className="max-w-4xl mx-auto">
-          {apiUrl && (
-            <div className="flex justify-end mb-4">
-              <button
-                onClick={onDisconnect}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/50 text-[#8B8B8B] hover:bg-[#FFADAD]/20 hover:text-[#D64545] transition-colors text-sm font-medium"
-              >
-                <Unplug size={16} />
-                斷開資料庫連結
-              </button>
-            </div>
-          )}
-
           {/* Hero */}
           <div className="text-center pt-6 md:pt-10 mb-10">
             <div className="flex items-center justify-center gap-3 mb-3">
@@ -1903,51 +1890,48 @@ function VillagerCard({ student, tasks, studentStatus, onClick, hasOverdue }) {
   const studentNumber = student.number || student.seatNumber
   const hasDefaultName = isDefaultName(student.name, studentNumber)
 
-  // 根據完成狀態決定背景色
   const getBgStyle = () => {
-    if (!hasTasks) return 'from-[#F5F5F5] to-[#EBEBEB] border-[#E0E0E0]'
-    if (allDone) return 'from-[#E8F5E9] to-[#C8E6C9] border-[#A8D8B9]'
-    return 'from-[#FFF3E0] to-[#FFE0B2] border-[#FFD6A5]'
+    if (!hasTasks) return 'bg-[#F7F7F7] border-[#EBEBEB]'
+    if (allDone) return 'bg-gradient-to-br from-[#EDF7EF] to-[#DFF0E3] border-[#B5DFBF]'
+    return 'bg-gradient-to-br from-[#FFF8F0] to-[#FFEDDA] border-[#F0D9B5]'
   }
 
   return (
     <div
       onClick={onClick}
-      className={`relative bg-gradient-to-br ${getBgStyle()} rounded-2xl p-3 cursor-pointer group transition-all duration-300 ease-out hover:scale-105 hover:-translate-y-1 hover:shadow-lg border-2`}
+      className={`relative ${getBgStyle()} rounded-xl p-2.5 cursor-pointer group transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md border`}
     >
       {/* 座號標籤 */}
-      <div className={`absolute -top-2 -left-2 w-7 h-7 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-md z-10 ${
-        allDone ? 'bg-[#7BC496]' : hasIncomplete ? 'bg-[#FFBF69]' : 'bg-[#B8B8B8]'
+      <div className={`absolute -top-1.5 -left-1.5 w-6 h-6 rounded-md flex items-center justify-center text-white font-bold text-[10px] shadow-sm z-10 ${
+        allDone ? 'bg-[#7BC496]' : hasIncomplete ? 'bg-[#FFBF69]' : 'bg-[#C8C8C8]'
       }`}>
         {studentNumber || '?'}
       </div>
 
       {/* 欠交警示 */}
       {hasOverdue && (
-        <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-[#D64545] flex items-center justify-center z-20 animate-pulse shadow-md">
-          <AlertCircle size={14} className="text-white" />
+        <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-[#D64545] flex items-center justify-center z-20 animate-pulse shadow-sm">
+          <AlertCircle size={12} className="text-white" />
         </div>
       )}
 
       {/* 頭像區 */}
-      <div className="relative w-full aspect-square mb-2 rounded-xl overflow-hidden bg-white/50 shadow-inner">
+      <div className="relative w-full aspect-square mb-1.5 rounded-lg overflow-hidden bg-white/60">
         <AvatarEmoji
           seed={student.uuid || student.id}
-          className="w-full h-full rounded-xl text-5xl transition-transform duration-300 group-hover:scale-110"
+          className="w-full h-full rounded-lg text-5xl transition-transform duration-200 group-hover:scale-105"
         />
-        
+
         {/* 完成狀態指示器 */}
         {hasTasks && (
-          <div className="absolute bottom-1 right-1 flex items-center gap-0.5">
+          <div className="absolute bottom-1 right-1">
             {allDone ? (
-              <div className="bg-[#7BC496] text-white text-xs px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow-md">
-                <Check size={12} />
-                <span className="font-bold">完成</span>
+              <div className="w-5 h-5 rounded-full bg-[#7BC496] flex items-center justify-center shadow-sm">
+                <Check size={12} className="text-white" />
               </div>
             ) : (
-              <div className="bg-[#FFBF69] text-white text-xs px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow-md">
-                <Clock size={12} />
-                <span className="font-bold">{completedCount}/{totalTasks}</span>
+              <div className="bg-white/90 backdrop-blur-sm text-[10px] px-1.5 py-0.5 rounded-md flex items-center gap-0.5 shadow-sm border border-black/5">
+                <span className="font-bold text-[#FFBF69]">{completedCount}/{totalTasks}</span>
               </div>
             )}
           </div>
@@ -1956,14 +1940,14 @@ function VillagerCard({ student, tasks, studentStatus, onClick, hasOverdue }) {
 
       {/* 名字 */}
       <div className="text-center">
-        <h3 className={`text-sm font-bold truncate ${hasDefaultName ? 'text-[#B8B8B8] italic' : 'text-[#5D5D5D]'}`}>
+        <h3 className={`text-xs font-bold truncate ${hasDefaultName ? 'text-[#C0C0C0] italic' : 'text-[#5D5D5D]'}`}>
           {student.name || '未命名'}
         </h3>
       </div>
 
-      {/* 任務進度條（當有任務時顯示） */}
+      {/* 任務進度條 */}
       {hasTasks && !allDone && (
-        <div className="mt-2 h-1 bg-white/50 rounded-full overflow-hidden">
+        <div className="mt-1.5 h-1 bg-black/5 rounded-full overflow-hidden">
           <div
             className="h-full rounded-full bg-[#7BC496] transition-all duration-500"
             style={{ width: `${(completedCount / totalTasks) * 100}%` }}
@@ -2579,7 +2563,7 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
 // Header
 // ============================================
 
-function Header({ todayStr, completionRate, className, classAlias, onLogout, onOpenSettings, onOpenTeamManagement, onOpenTaskOverview, onOpenGadgets, onDisconnect }) {
+function Header({ todayStr, completionRate, className, classAlias, onLogout, onOpenSettings, onOpenTeamManagement, onOpenTaskOverview, onOpenGadgets }) {
   const displayName = classAlias || className
   return (
     <header className="bg-white/80 backdrop-blur-md rounded-3xl p-4 md:p-5 mb-6 shadow-lg border border-white/50">
@@ -2622,9 +2606,6 @@ function Header({ todayStr, completionRate, className, classAlias, onLogout, onO
           <button onClick={onLogout} className="p-3 rounded-2xl bg-[#fdfbf7] hover:bg-[#FFADAD]/20 transition-colors" title="返回村莊列表">
             <LogOut size={22} className="text-[#5D5D5D]" />
           </button>
-          <button onClick={onDisconnect} className="p-3 rounded-2xl bg-[#fdfbf7] hover:bg-[#FFADAD]/20 text-[#D64545] transition-colors" title="斷開資料庫">
-            <Unplug size={22} />
-          </button>
         </div>
       </div>
     </header>
@@ -2635,7 +2616,7 @@ function Header({ todayStr, completionRate, className, classAlias, onLogout, onO
 // 村莊儀表板 (Dashboard View)
 // ============================================
 
-function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onDisconnect, onClearLocalClass }) {
+function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onClearLocalClass }) {
   const [students, setStudents] = useState([])
   const [allLogs, setAllLogs] = useState([])
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
@@ -2809,7 +2790,7 @@ function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onDis
       <div className="text-center">
         <h2 className="text-xl font-bold text-[#D64545] mb-2">載入失敗</h2>
         <p className="text-[#8B8B8B] mb-4">{error}</p>
-        <button onClick={onDisconnect} className="px-4 py-2 bg-[#E8E8E8] rounded-xl">斷開連結</button>
+        <button onClick={onLogout} className="px-4 py-2 bg-[#E8E8E8] rounded-xl">返回村莊列表</button>
       </div>
     </div>
   )
@@ -2826,7 +2807,6 @@ function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onDis
         onOpenTeamManagement={() => setShowTeamManagement(true)}
         onOpenTaskOverview={() => setShowTaskOverview(true)}
         onOpenGadgets={() => setShowGadgets(true)}
-        onDisconnect={onDisconnect}
       />
       
       <div className="flex flex-col lg:flex-row gap-6">
@@ -2859,9 +2839,15 @@ function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onDis
               <h2 className="text-xl font-bold text-[#5D5D5D] flex items-center gap-2">
                 <Users size={24} className="text-[#A8D8B9]" />村民廣場
               </h2>
-              <div className="flex items-center gap-3">
-                <span className="px-3 py-1 rounded-full text-xs font-medium bg-[#A8D8B9]/30 text-[#4A7C59]">✨ {purrCount} 已完成</span>
-                <span className="px-3 py-1 rounded-full text-xs font-medium bg-[#FFADAD]/30 text-[#D64545]">⏳ {angryCount} 未完成</span>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#A8D8B9]/15">
+                  <CheckCircle size={14} className="text-[#7BC496]" />
+                  <span className="text-xs font-bold text-[#4A7C59]">{purrCount}</span>
+                </div>
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#FFADAD]/15">
+                  <Clock size={14} className="text-[#FF8A8A]" />
+                  <span className="text-xs font-bold text-[#D64545]">{angryCount}</span>
+                </div>
               </div>
             </div>
 
@@ -2870,58 +2856,73 @@ function DashboardView({ classId, className, classAlias, onLogout, apiUrl, onDis
                 <p className="text-[#8B8B8B]">目前沒有村民資料</p>
               </div>
             ) : (
-              <div className="space-y-6">
-                {Object.entries(groupedStudents).map(([group, groupStudents]) => {
+              <div className="space-y-5">
+                {Object.entries(groupedStudents).map(([group, groupStudents], gi) => {
                   const rate = getGroupCompletionRate(groupStudents)
                   const isComplete = rate === 1 && tasks.length > 0
                   const groupName = settings.groupAliases?.[group] || `${group} 小隊`
-                  
+                  const groupColors = ['#A8D8B9', '#FFD6A5', '#FFADAD', '#A0C4FF', '#BDB2FF', '#FDE2F3']
+                  const accent = groupColors[gi % groupColors.length]
+
                   return (
                     <div
                       key={group}
-                      className={`p-4 rounded-2xl transition-all ${
+                      className={`rounded-2xl overflow-hidden transition-all ${
                         isComplete
-                          ? 'bg-gradient-to-r from-yellow-50 to-amber-50 border-4 border-yellow-400 shadow-[0_0_20px_rgba(250,204,21,0.4)]'
-                          : 'bg-white/40 border border-white/50'
+                          ? 'ring-2 ring-yellow-300 shadow-lg'
+                          : 'shadow-sm'
                       }`}
                     >
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-2">
-                          <Flag size={20} className="text-[#FF8A8A]" />
-                          <h3 className="text-lg font-bold text-[#5D5D5D]">{groupName}</h3>
+                      {/* Group header bar */}
+                      <div className={`px-4 py-3 flex items-center justify-between ${
+                        isComplete
+                          ? 'bg-gradient-to-r from-yellow-50 to-amber-50'
+                          : 'bg-[#fdfbf7]'
+                      }`}>
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{
+                            background: isComplete ? '#FBBF24' : `${accent}30`
+                          }}>
+                            <Flag size={16} className={isComplete ? 'text-white' : ''} style={isComplete ? {} : { color: accent }} />
+                          </div>
+                          <h3 className="font-bold text-[#5D5D5D]">{groupName}</h3>
                           {isComplete && (
-                            <span className="flex items-center gap-1 px-2 py-1 rounded-lg bg-yellow-400 text-yellow-900 text-xs font-bold">
-                              <Trophy size={14} />全員達成！
+                            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-400/20 text-yellow-700 text-xs font-bold">
+                              <Trophy size={12} />
+                              全員達成
                             </span>
                           )}
                         </div>
-                        <div className="flex items-center gap-3">
-                          <div className="w-24 h-2 bg-[#E8E8E8] rounded-full overflow-hidden">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-20 h-1.5 bg-black/5 rounded-full overflow-hidden">
                             <div
                               className="h-full rounded-full transition-all duration-500"
                               style={{
                                 width: `${rate * 100}%`,
                                 background: isComplete
-                                  ? 'linear-gradient(90deg, #FFD700, #FFA500)'
-                                  : 'linear-gradient(90deg, #A8D8B9, #7BC496)'
+                                  ? 'linear-gradient(90deg, #FBBF24, #F59E0B)'
+                                  : `linear-gradient(90deg, ${accent}, ${accent})`
                               }}
                             />
                           </div>
-                          <span className="text-xs text-[#8B8B8B]">{Math.round(rate * 100)}%</span>
+                          <span className="text-xs font-medium text-[#8B8B8B] w-8 text-right">{Math.round(rate * 100)}%</span>
                         </div>
                       </div>
-                      
-                      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-3">
-                        {groupStudents.map((student) => (
-                          <VillagerCard
-                            key={student.id}
-                            student={student}
-                            tasks={tasks}
-                            studentStatus={studentStatus}
-                            onClick={() => setSelectedStudent(student)}
-                            hasOverdue={checkOverdue(student.id)}
-                          />
-                        ))}
+
+                      {/* Student grid */}
+                      <div className={`px-4 pb-4 pt-3 ${isComplete ? 'bg-gradient-to-b from-amber-50/50 to-white' : 'bg-white/40'}`}>
+                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-3">
+                          {groupStudents.map((student) => (
+                            <VillagerCard
+                              key={student.id}
+                              student={student}
+                              tasks={tasks}
+                              studentStatus={studentStatus}
+                              onClick={() => setSelectedStudent(student)}
+                              hasOverdue={checkOverdue(student.id)}
+                            />
+                          ))}
+                        </div>
                       </div>
                     </div>
                   )
@@ -3037,10 +3038,6 @@ function App() {
   const [selectedClass, setSelectedClass] = useState(null)
   const [hasStarted, setHasStarted] = useState(false)
 
-  const handleDisconnect = () => {
-    setSelectedClass(null)
-  }
-
   const handleLocalMode = () => {
     setHasStarted(true)
     setLocalMode(true)
@@ -3107,7 +3104,6 @@ function App() {
         localClasses={localClasses}
         onCreateLocalClass={handleCreateLocalClass}
         onSelectClass={handleSelectClass}
-        onDisconnect={handleDisconnect}
       />
     )
   }
@@ -3118,7 +3114,6 @@ function App() {
       className={selectedClass.name}
       classAlias={selectedClass.alias}
       onLogout={() => setSelectedClass(null)}
-      onDisconnect={handleDisconnect}
       apiUrl={apiUrl}
       onClearLocalClass={handleClearLocalClass}
     />
