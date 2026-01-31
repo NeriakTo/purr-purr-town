@@ -984,7 +984,7 @@ function TeamManagementModal({ students, settings, onClose, onSave, onSettingsUp
 // 任務總覽 Modal (新功能)
 // ============================================
 
-function TaskOverviewModal({ allLogs, students, onClose, onNavigateToDate, settings, onToggleStatus }) {
+function TaskOverviewModal({ allLogs, students, onClose, onNavigateToDate, settings, onToggleStatus, onDeleteTask }) {
   const [expandedTask, setExpandedTask] = useState(null)
   const [filterType, setFilterType] = useState('all')
   const [batchTaskKey, setBatchTaskKey] = useState(null)
@@ -998,16 +998,21 @@ function TaskOverviewModal({ allLogs, students, onClose, onNavigateToDate, setti
       const logStatus = log.status || {}
       
       logTasks.forEach(task => {
-        const completedStudents = students.filter(s => isDoneStatus(logStatus[s.id]?.[task.id]))
         const incompleteStudents = students.filter(s => !isDoneStatus(logStatus[s.id]?.[task.id]))
-        
+        const completedStudents = students.filter(s => logStatus[s.id]?.[task.id] === true)
+        const leaveStudents = students.filter(s => logStatus[s.id]?.[task.id] === 'leave')
+        const exemptStudents = students.filter(s => logStatus[s.id]?.[task.id] === 'exempt')
+        const doneCount = completedStudents.length + leaveStudents.length + exemptStudents.length
+
         tasks.push({
           ...task,
           date: log.date,
-          completedCount: completedStudents.length,
+          completedCount: doneCount,
           incompleteCount: incompleteStudents.length,
           totalCount: students.length,
           completedStudents,
+          leaveStudents,
+          exemptStudents,
           incompleteStudents,
           isComplete: incompleteStudents.length === 0
         })
@@ -1135,7 +1140,7 @@ function TaskOverviewModal({ allLogs, students, onClose, onNavigateToDate, setti
                         <h4 className="font-bold text-[#5D5D5D] truncate">{task.title}</h4>
                       </div>
 
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-3">
                         <div className="text-right">
                           <div className={`text-lg font-bold ${task.isComplete ? 'text-[#7BC496]' : 'text-[#FF8A8A]'}`}>
                             {task.completedCount}/{task.totalCount}
@@ -1144,6 +1149,20 @@ function TaskOverviewModal({ allLogs, students, onClose, onNavigateToDate, setti
                             {task.isComplete ? '✅ 全員完成' : `⏳ 剩餘 ${task.incompleteCount} 人`}
                           </div>
                         </div>
+                        {onDeleteTask && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              if (window.confirm(`確定要刪除「${task.title}」任務嗎？`)) {
+                                onDeleteTask(task.date, task.id)
+                              }
+                            }}
+                            className="p-2 rounded-full hover:bg-[#FFADAD]/20 transition-colors"
+                            title="刪除任務"
+                          >
+                            <Trash2 size={18} className="text-[#D64545]" />
+                          </button>
+                        )}
                         <div className={`p-2 rounded-full transition-transform ${isExpanded ? 'rotate-180' : ''}`}>
                           <ChevronDown size={20} className="text-[#8B8B8B]" />
                         </div>
@@ -1170,6 +1189,7 @@ function TaskOverviewModal({ allLogs, students, onClose, onNavigateToDate, setti
                     const isBatchMode = batchTaskKey === taskKey
                     return (
                     <div className="px-4 pb-4 border-t border-[#E8E8E8]">
+                      {/* 未完成 */}
                       {task.incompleteCount > 0 && (
                         <div className="mt-4">
                           <div className="flex items-center justify-between mb-2">
@@ -1227,13 +1247,20 @@ function TaskOverviewModal({ allLogs, students, onClose, onNavigateToDate, setti
                             {task.incompleteStudents.map(s => (
                               <div
                                 key={s.id}
-                                onClick={isBatchMode ? (e) => { e.stopPropagation(); setBatchSelected(prev => ({ ...prev, [s.id]: !prev[s.id] })) } : undefined}
-                                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm border transition-all ${
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  if (isBatchMode) {
+                                    setBatchSelected(prev => ({ ...prev, [s.id]: !prev[s.id] }))
+                                  } else if (onToggleStatus) {
+                                    onToggleStatus(s.id, task.id, true, task.date)
+                                  }
+                                }}
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm border transition-all cursor-pointer hover:opacity-80 ${
                                   isBatchMode
                                     ? batchSelected[s.id]
-                                      ? 'bg-[#7BC496]/20 border-[#7BC496] cursor-pointer'
-                                      : 'bg-[#FFADAD]/20 border-[#FFADAD]/30 cursor-pointer hover:border-[#7BC496]/50'
-                                    : 'bg-[#FFADAD]/20 border-[#FFADAD]/30'
+                                      ? 'bg-[#7BC496]/20 border-[#7BC496]'
+                                      : 'bg-[#FFADAD]/20 border-[#FFADAD]/30 hover:border-[#7BC496]/50'
+                                    : 'bg-[#FFADAD]/20 border-[#FFADAD]/30 hover:border-[#7BC496]/50'
                                 }`}
                               >
                                 {isBatchMode && (
@@ -1253,22 +1280,81 @@ function TaskOverviewModal({ allLogs, students, onClose, onNavigateToDate, setti
                         </div>
                       )}
 
-                      {task.completedCount > 0 && (
+                      {/* 已完成 */}
+                      {task.completedStudents.length > 0 && (
                         <div className="mt-4">
                           <h5 className="text-sm font-bold text-[#7BC496] mb-2 flex items-center gap-2">
                             <CheckCircle size={16} />
-                            已完成 ({task.completedCount})
+                            已完成 ({task.completedStudents.length})
                           </h5>
                           <div className="flex flex-wrap gap-2">
                             {task.completedStudents.map(s => (
                               <div
                                 key={s.id}
-                                className="flex items-center gap-2 px-3 py-1.5 bg-[#A8D8B9]/20 rounded-lg text-sm border border-[#A8D8B9]/30"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  if (onToggleStatus) onToggleStatus(s.id, task.id, false, task.date)
+                                }}
+                                className="flex items-center gap-2 px-3 py-1.5 bg-[#A8D8B9]/20 rounded-lg text-sm border border-[#A8D8B9]/30 cursor-pointer hover:opacity-80 hover:border-[#FFADAD]/50 transition-all"
                               >
                                 <div className="w-6 h-6 rounded-full overflow-hidden">
                                   <AvatarEmoji seed={s.uuid || s.id} className="w-full h-full rounded-full text-xs" />
                                 </div>
                                 <span className="text-[#5D5D5D]">{s.number}. {s.name}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 請假 */}
+                      {task.leaveStudents.length > 0 && (
+                        <div className="mt-4">
+                          <h5 className="text-sm font-bold text-[#8B8B8B] mb-2 flex items-center gap-2">
+                            <Clock size={16} />
+                            請假 ({task.leaveStudents.length})
+                          </h5>
+                          <div className="flex flex-wrap gap-2">
+                            {task.leaveStudents.map(s => (
+                              <div
+                                key={s.id}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  if (onToggleStatus) onToggleStatus(s.id, task.id, false, task.date)
+                                }}
+                                className="flex items-center gap-2 px-3 py-1.5 bg-[#E8E8E8]/50 rounded-lg text-sm border border-[#D8D8D8] cursor-pointer hover:opacity-80 hover:border-[#FFADAD]/50 transition-all"
+                              >
+                                <div className="w-6 h-6 rounded-full overflow-hidden">
+                                  <AvatarEmoji seed={s.uuid || s.id} className="w-full h-full rounded-full text-xs" />
+                                </div>
+                                <span className="text-[#8B8B8B]">{s.number}. {s.name}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 免交 */}
+                      {task.exemptStudents.length > 0 && (
+                        <div className="mt-4">
+                          <h5 className="text-sm font-bold text-[#A0A0A0] mb-2 flex items-center gap-2">
+                            <XCircle size={16} />
+                            免交 ({task.exemptStudents.length})
+                          </h5>
+                          <div className="flex flex-wrap gap-2">
+                            {task.exemptStudents.map(s => (
+                              <div
+                                key={s.id}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  if (onToggleStatus) onToggleStatus(s.id, task.id, false, task.date)
+                                }}
+                                className="flex items-center gap-2 px-3 py-1.5 bg-[#F0F0F0]/50 rounded-lg text-sm border border-[#E0E0E0] cursor-pointer hover:opacity-80 hover:border-[#FFADAD]/50 transition-all"
+                              >
+                                <div className="w-6 h-6 rounded-full overflow-hidden">
+                                  <AvatarEmoji seed={s.uuid || s.id} className="w-full h-full rounded-full text-xs" />
+                                </div>
+                                <span className="text-[#A0A0A0]">{s.number}. {s.name}</span>
                               </div>
                             ))}
                           </div>
@@ -2547,6 +2633,15 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
     })
   }, [currentDate, normalizeDate])
 
+  const handleDeleteTaskFromLog = useCallback((date, taskId) => {
+    const normDate = normalizeDate(typeof date === 'string' ? date : formatDate(date))
+    setAllLogs(prev => prev.map(log =>
+      normalizeDate(log.date) === normDate
+        ? { ...log, tasks: (log.tasks || []).filter(t => t.id !== taskId) }
+        : log
+    ))
+  }, [normalizeDate])
+
   const toggleStatus = useCallback((studentId, taskId, checked, dateOverride) => {
     const rawDate = dateOverride || currentDate
     const dateStr = typeof rawDate === 'string' ? rawDate : formatDate(rawDate)
@@ -2809,6 +2904,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
           onClose={() => setShowTaskOverview(false)}
           onNavigateToDate={setCurrentDate}
           onToggleStatus={toggleStatus}
+          onDeleteTask={handleDeleteTaskFromLog}
         />
       )}
 
