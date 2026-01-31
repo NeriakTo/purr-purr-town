@@ -2265,7 +2265,7 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
 
   const handleBackupUpload = async () => {
     if (!backupUrl.trim()) {
-      setBackupMsg('???? GAS ????')
+      setBackupMsg('??? GAS ????')
       return
     }
     try {
@@ -2295,10 +2295,10 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
       const meta = { updatedAt: payload.data.updatedAt, className: className || '', classId }
       localStorage.setItem(`ppt_backup_meta_${classId}`, JSON.stringify(meta))
       setBackupMeta(meta)
-      setBackupMsg('?????????????')
+      setBackupMsg('?? ?????')
     } catch (err) {
-      console.error('??????:', err)
-      setBackupMsg('??????')
+      console.error('????:', err)
+      setBackupMsg('? ??????????')
     } finally {
       setBackupBusy(false)
     }
@@ -2306,7 +2306,7 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
 
   const handleBackupDownload = async () => {
     if (!backupUrl.trim()) {
-      setBackupMsg('???? GAS ????')
+      setBackupMsg('??? GAS ????')
       return
     }
     try {
@@ -2338,10 +2338,10 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
       const meta = { updatedAt: restored.updatedAt || new Date().toISOString(), className: className || '', classId }
       localStorage.setItem(`ppt_backup_meta_${classId}`, JSON.stringify(meta))
       setBackupMeta(meta)
-      setBackupMsg('????????????')
+      setBackupMsg('? ?????')
     } catch (err) {
-      console.error('??????:', err)
-      setBackupMsg('??????')
+      console.error('????:', err)
+      setBackupMsg('? ??????????')
     } finally {
       setBackupBusy(false)
     }
@@ -2379,17 +2379,17 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
       link.click()
       link.remove()
       URL.revokeObjectURL(url)
-      setFileMsg('???????')
+      setFileMsg('?? ?????')
     } catch (err) {
-      console.error('??????:', err)
-      setFileMsg('??????')
+      console.error('????:', err)
+      setFileMsg('? ????')
     }
   }
 
   const handleImportBackup = (event) => {
     const file = event.target.files?.[0]
     if (!file) return
-    if (!window.confirm('?????????????????????')) {
+    if (!window.confirm('??????????????????????')) {
       event.target.value = ''
       return
     }
@@ -2417,16 +2417,16 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
           taskTypes: restored.settings?.taskTypes || localSettings.taskTypes,
           groupAliases: restored.settings?.groupAliases || localSettings.groupAliases
         })
-        setFileMsg('??????????')
+        setFileMsg('? ?????')
       } catch (err) {
-        console.error('??????:', err)
-        setFileMsg('??????????????')
+        console.error('????:', err)
+        setFileMsg('? ???????????')
       } finally {
         event.target.value = ''
       }
     }
     reader.onerror = () => {
-      setFileMsg('?????????????')
+      setFileMsg('? ??????')
       event.target.value = ''
     }
     reader.readAsText(file)
@@ -2438,6 +2438,7 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
       <div className="relative bg-[#fdfbf7] rounded-3xl shadow-2xl max-w-3xl w-full overflow-hidden" onClick={e => e.stopPropagation()}>
         <div className="h-3 bg-gradient-to-r from-[#A8D8B9] to-[#FFD6A5]" />
 
+        {/* Header */}
         <div className="p-6 border-b border-[#E8E8E8] flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#A8D8B9] to-[#FFD6A5] flex items-center justify-center">
@@ -2445,7 +2446,7 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
             </div>
             <div>
               <h2 className="text-2xl font-bold text-[#5D5D5D]">????</h2>
-              <p className="text-sm text-[#8B8B8B]">???????????</p>
+              <p className="text-sm text-[#8B8B8B]">????????????</p>
             </div>
           </div>
           <button onClick={onClose} className="p-2 rounded-full hover:bg-[#E8E8E8] transition-colors">
@@ -2476,13 +2477,13 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
                 value={newTaskType}
                 onChange={e => setNewTaskType(e.target.value)}
                 className="flex-1 px-4 py-2 rounded-xl border-2 border-[#E8E8E8] focus:border-[#A8D8B9] outline-none"
-                placeholder="??????"
+                placeholder="???????..."
               />
               <button
                 onClick={() => { if(newTaskType.trim()) { setLocalSettings(p => ({...p, taskTypes: [...p.taskTypes, newTaskType.trim()]})); setNewTaskType('') } }}
-                className="px-4 py-2 rounded-xl bg-[#A8D8B9] text-white"
+                className="px-4 py-2 rounded-xl bg-[#A8D8B9] text-white font-bold flex items-center gap-1"
               >
-                <Plus size={20} />
+                <Plus size={20} /> ??
               </button>
             </div>
           </div>
@@ -2495,32 +2496,32 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
                 ??????
               </h3>
               <p className="text-xs text-[#8B8B8B]">
-                ????/??????????????????{className || classId}
+                ?? Google Apps Script (GAS) ????????????
               </p>
               {backupMeta?.updatedAt && (
-                <p className="text-xs text-[#8B8B8B]">
-                  ???????{new Date(backupMeta.updatedAt).toLocaleString()}
+                <p className="text-xs text-[#7BC496]">
+                  ?? ???????{new Date(backupMeta.updatedAt).toLocaleString()}
                 </p>
               )}
               <div className="grid gap-3">
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-[#5D5D5D]">GAS ????</label>
+                  <label className="text-xs font-bold text-[#5D5D5D] ml-1">GAS ????</label>
                   <input
                     type="url"
                     value={backupUrl}
                     onChange={(e) => setBackupUrl(e.target.value)}
                     placeholder="https://script.google.com/macros/s/.../exec"
-                    className="w-full px-3 py-2 rounded-xl border-2 border-[#E8E8E8] focus:border-[#A8D8B9] outline-none"
+                    className="w-full px-3 py-2 rounded-xl border-2 border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-sm"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-[#5D5D5D]">?? Token</label>
+                  <label className="text-xs font-bold text-[#5D5D5D] ml-1">?? Token</label>
                   <input
                     type="text"
                     value={backupToken}
                     onChange={(e) => setBackupToken(e.target.value)}
-                    placeholder="?? meow1234"
-                    className="w-full px-3 py-2 rounded-xl border-2 border-[#E8E8E8] focus:border-[#A8D8B9] outline-none"
+                    placeholder="??? meow1234"
+                    className="w-full px-3 py-2 rounded-xl border-2 border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-sm"
                   />
                 </div>
               </div>
@@ -2528,20 +2529,20 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
                 <button
                   onClick={handleBackupUpload}
                   disabled={backupBusy}
-                  className="px-4 py-2 rounded-xl bg-[#A8D8B9] text-white font-bold hover:bg-[#7BC496] transition-all disabled:opacity-50"
+                  className="px-4 py-2 rounded-xl bg-[#A8D8B9] text-white font-bold hover:bg-[#7BC496] transition-all disabled:opacity-50 text-sm flex-1"
                 >
                   ?? ????
                 </button>
                 <button
                   onClick={handleBackupDownload}
                   disabled={backupBusy}
-                  className="px-4 py-2 rounded-xl bg-[#FFD6A5] text-white font-bold hover:bg-[#FFBF69] transition-all disabled:opacity-50"
+                  className="px-4 py-2 rounded-xl bg-[#FFD6A5] text-white font-bold hover:bg-[#FFBF69] transition-all disabled:opacity-50 text-sm flex-1"
                 >
                   ?? ????
                 </button>
               </div>
               {backupMsg && (
-                <div className="text-xs text-[#5D5D5D] bg-[#F9F9F9] border border-[#E8E8E8] rounded-xl px-3 py-2">
+                <div className={`text-xs border rounded-xl px-3 py-2 ${backupMsg.includes('??') || backupMsg.includes('???') ? 'bg-[#FFADAD]/20 border-[#FFADAD] text-[#D64545]' : 'bg-[#E8F5E9] border-[#A8D8B9] text-[#4A7C59]'}`}>
                   {backupMsg}
                 </div>
               )}
@@ -2550,11 +2551,11 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
             {/* ??????? */}
             <div className="border border-[#E8E8E8] rounded-2xl p-5 bg-white/60 space-y-4">
               <h3 className="text-sm font-bold text-[#5D5D5D] flex items-center gap-2">
-                <Download size={16} className="text-[#FFD6A5]" />
+                <Save size={16} className="text-[#FFD6A5]" />
                 ???????
               </h3>
               <p className="text-xs text-[#8B8B8B]">
-                ????? JSON ??????????????
+                ???????? JSON ??????????
               </p>
               <input
                 ref={fileInputRef}
@@ -2563,22 +2564,24 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
                 className="hidden"
                 onChange={handleImportBackup}
               />
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-col gap-2">
                 <button
                   onClick={handleExportBackup}
-                  className="px-4 py-2 rounded-xl bg-[#A0C4FF] text-white font-bold hover:bg-[#7EB0FF] transition-all"
+                  className="w-full px-4 py-2.5 rounded-xl bg-[#A0C4FF] text-white font-bold hover:bg-[#7EB0FF] transition-all text-sm flex items-center justify-center gap-2"
                 >
+                  <Download size={16} />
                   ?? ??????
                 </button>
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  className="px-4 py-2 rounded-xl bg-[#BDB2FF] text-white font-bold hover:bg-[#9B8FFF] transition-all"
+                  className="w-full px-4 py-2.5 rounded-xl bg-[#BDB2FF] text-white font-bold hover:bg-[#9B8FFF] transition-all text-sm flex items-center justify-center gap-2"
                 >
+                  <Link size={16} />
                   ?? ??????
                 </button>
               </div>
               {fileMsg && (
-                <div className="text-xs text-[#5D5D5D] bg-[#F9F9F9] border border-[#E8E8E8] rounded-xl px-3 py-2">
+                <div className={`text-xs border rounded-xl px-3 py-2 ${fileMsg.includes('??') ? 'bg-[#FFADAD]/20 border-[#FFADAD] text-[#D64545]' : 'bg-[#E8F5E9] border-[#A8D8B9] text-[#4A7C59]'}`}>
                   {fileMsg}
                 </div>
               )}
@@ -2588,29 +2591,31 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
           <div className="border-t border-[#E8E8E8] pt-6">
             <button
               onClick={() => {
-                if (window.confirm('??????????????????????????')) {
+                if (window.confirm('?????????????????????????')) {
                   onClearLocalClass?.(classId)
                   onClose()
                 }
               }}
-              className="w-full py-2.5 rounded-xl bg-[#FFADAD]/20 text-[#D64545] font-bold hover:bg-[#FFADAD]/30 transition-colors"
+              className="w-full py-2.5 rounded-xl bg-[#FFADAD]/20 text-[#D64545] font-bold hover:bg-[#FFADAD]/30 transition-colors text-sm flex items-center justify-center gap-2"
             >
+              <Trash2 size={16} />
               ?????????
             </button>
           </div>
 
           <div className="mt-6 flex gap-3">
-            <button onClick={handleSave} className="flex-1 py-3 rounded-xl bg-gradient-to-r from-[#A8D8B9] to-[#7BC496] text-white font-medium">
+            <button onClick={handleSave} className="flex-1 py-3 rounded-xl bg-gradient-to-r from-[#A8D8B9] to-[#7BC496] text-white font-bold shadow-md hover:shadow-lg transition-all">
               ????
             </button>
-            <button onClick={onClose} className="px-4 py-3 rounded-xl bg-[#E8E8E8] text-[#5D5D5D]">??</button>
+            <button onClick={onClose} className="px-6 py-3 rounded-xl bg-[#E8E8E8] text-[#5D5D5D] font-medium hover:bg-[#D8D8D8] transition-colors">
+              ??
+            </button>
           </div>
         </div>
       </div>
     </div>
   )
 }
-
 // ============================================
 // Header
 // ============================================
