@@ -69,6 +69,36 @@ function formatDate(date) {
   return format(date, 'yyyy-MM-dd')
 }
 
+// --- Task Date Logic (v2.2.0) ---
+function getNextDay(dateStr) {
+  const date = parseDate(dateStr)
+  date.setDate(date.getDate() + 1)
+  return formatDate(date)
+}
+
+function getTaskDueDate(task, logDate) {
+  return task.dueDate || logDate
+}
+
+function getTaskCreatedAt(task, logDate) {
+  return task.createdAt || logDate
+}
+
+function getTasksForDate(allLogs, targetDateStr, normalizeDateFn) {
+  const results = []
+  allLogs.forEach(log => {
+    const logDate = normalizeDateFn(log.date)
+    const logTasks = log.tasks || []
+    logTasks.forEach(task => {
+      const dueDate = getTaskDueDate(task, logDate)
+      if (normalizeDateFn(dueDate) === targetDateStr) {
+        results.push({ task, logDate })
+      }
+    })
+  })
+  return results
+}
+
 const DEFAULT_SETTINGS = { taskTypes: ['作業', '訂正', '攜帶物品', '考試', '通知單', '回條'], groupAliases: {} }
 
 function getClassCacheKey(classId) {
@@ -117,14 +147,56 @@ function saveLocalClasses(classes) {
   }
 }
 
+// --- Status System 2.0 ---
+const STATUS_VALUES = {
+  ON_TIME: 'on_time',
+  LATE: 'late',
+  MISSING: 'missing',
+  LEAVE: 'leave',
+  EXEMPT: 'exempt',
+}
+
+function normalizeStatus(value) {
+  if (value === true) return STATUS_VALUES.ON_TIME
+  if (value === 'leave') return STATUS_VALUES.LEAVE
+  if (value === 'exempt') return STATUS_VALUES.EXEMPT
+  if (Object.values(STATUS_VALUES).includes(value)) return value
+  return value // false, undefined, etc. remain as-is
+}
+
 function isDoneStatus(value) {
-  return value === true || value === 'leave' || value === 'exempt'
+  const norm = normalizeStatus(value)
+  return norm === STATUS_VALUES.ON_TIME || norm === STATUS_VALUES.LATE || norm === STATUS_VALUES.LEAVE || norm === STATUS_VALUES.EXEMPT
 }
 
 function getStatusLabel(value) {
-  if (value === 'leave') return '請假'
-  if (value === 'exempt') return '免交'
-  return ''
+  const norm = normalizeStatus(value)
+  switch (norm) {
+    case STATUS_VALUES.ON_TIME: return '準時'
+    case STATUS_VALUES.LATE: return '遲交'
+    case STATUS_VALUES.MISSING: return '未交'
+    case STATUS_VALUES.LEAVE: return '請假'
+    case STATUS_VALUES.EXEMPT: return '免交'
+    default: return ''
+  }
+}
+
+function getStatusVisual(value) {
+  const norm = normalizeStatus(value)
+  switch (norm) {
+    case STATUS_VALUES.ON_TIME:
+      return { icon: Check, color: '#7BC496', bg: 'bg-[#A8D8B9]/20', border: 'border-[#A8D8B9]', text: 'text-[#4A7C59]', label: '準時' }
+    case STATUS_VALUES.LATE:
+      return { icon: Clock, color: '#FFBF69', bg: 'bg-[#FFD6A5]/20', border: 'border-[#FFD6A5]', text: 'text-[#8B6914]', label: '遲交' }
+    case STATUS_VALUES.MISSING:
+      return { icon: XCircle, color: '#D64545', bg: 'bg-[#FFADAD]/20', border: 'border-[#FFADAD]', text: 'text-[#D64545]', label: '未交' }
+    case STATUS_VALUES.LEAVE:
+      return { icon: Clock, color: '#8B8B8B', bg: 'bg-[#E8E8E8]/50', border: 'border-[#D8D8D8]', text: 'text-[#8B8B8B]', label: '請假' }
+    case STATUS_VALUES.EXEMPT:
+      return { icon: Eye, color: '#B8B8B8', bg: 'bg-[#F0F0F0]/50', border: 'border-[#E0E0E0]', text: 'text-[#A0A0A0]', label: '免交' }
+    default:
+      return { icon: null, color: '#D8D8D8', bg: 'bg-white', border: 'border-[#E8E8E8]', text: 'text-[#5D5D5D]', label: '' }
+  }
 }
 
 function getTaskIcon(title) {
@@ -233,7 +305,7 @@ function LoadingScreen({ message = '正在前往呼嚕嚕小鎮...' }) {
 
       <div className="absolute bottom-8 flex items-center gap-2 text-[#A8D8B9]">
         <PawPrint size={20} />
-        <span className="text-sm font-medium">Purr Purr Town v2.1.0</span>
+        <span className="text-sm font-medium">Purr Purr Town v2.2.0</span>
         <PawPrint size={20} />
       </div>
 
@@ -292,7 +364,7 @@ function WelcomeView({ onLocalMode }) {
           </div>
         </div>
       </div>
-      <p className="mt-6 text-[#B8B8B8] text-xs">Purr Purr Town v2.1.0 • BYOB Architecture</p>
+      <p className="mt-6 text-[#B8B8B8] text-xs">Purr Purr Town v2.2.0 • BYOB Architecture</p>
     </div>
   )
 }
@@ -580,7 +652,7 @@ function LoginView({ onSelectClass, localClasses, onCreateLocalClass }) {
       <footer className="text-center py-6 relative z-10">
         <p className="flex items-center justify-center gap-2 text-[#B8B8B8] text-xs">
           <PawPrint size={12} />
-          Purr Purr Town v2.1.0
+          Purr Purr Town v2.2.0
           <PawPrint size={12} />
         </p>
       </footer>
@@ -999,18 +1071,24 @@ function TaskOverviewModal({ allLogs, students, onClose, onNavigateToDate, setti
       
       logTasks.forEach(task => {
         const incompleteStudents = students.filter(s => !isDoneStatus(logStatus[s.id]?.[task.id]))
-        const completedStudents = students.filter(s => logStatus[s.id]?.[task.id] === true)
-        const leaveStudents = students.filter(s => logStatus[s.id]?.[task.id] === 'leave')
-        const exemptStudents = students.filter(s => logStatus[s.id]?.[task.id] === 'exempt')
-        const doneCount = completedStudents.length + leaveStudents.length + exemptStudents.length
+        const onTimeStudents = students.filter(s => normalizeStatus(logStatus[s.id]?.[task.id]) === STATUS_VALUES.ON_TIME)
+        const lateStudents = students.filter(s => normalizeStatus(logStatus[s.id]?.[task.id]) === STATUS_VALUES.LATE)
+        const missingStudents = students.filter(s => normalizeStatus(logStatus[s.id]?.[task.id]) === STATUS_VALUES.MISSING)
+        const leaveStudents = students.filter(s => normalizeStatus(logStatus[s.id]?.[task.id]) === STATUS_VALUES.LEAVE)
+        const exemptStudents = students.filter(s => normalizeStatus(logStatus[s.id]?.[task.id]) === STATUS_VALUES.EXEMPT)
+        const doneCount = onTimeStudents.length + lateStudents.length + leaveStudents.length + exemptStudents.length
 
+        const dueDate = getTaskDueDate(task, log.date)
         tasks.push({
           ...task,
           date: log.date,
+          dueDate,
           completedCount: doneCount,
           incompleteCount: incompleteStudents.length,
           totalCount: students.length,
-          completedStudents,
+          onTimeStudents,
+          lateStudents,
+          missingStudents,
           leaveStudents,
           exemptStudents,
           incompleteStudents,
@@ -1129,8 +1207,13 @@ function TaskOverviewModal({ allLogs, students, onClose, onNavigateToDate, setti
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-xs px-2 py-0.5 rounded-full bg-[#E8E8E8] text-[#5D5D5D]">
-                            {formatDateDisplay(task.date)}
+                            截止：{formatDateDisplay(task.dueDate || task.date)}
                           </span>
+                          {task.dueDate && task.dueDate !== task.date && (
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-[#F0F0F0] text-[#8B8B8B]">
+                              建立：{formatDateDisplay(task.date)}
+                            </span>
+                          )}
                           {task.type && (
                             <span className="text-xs px-2 py-0.5 rounded-full bg-[#FFD6A5]/30 text-[#8B6914]">
                               {task.type}
@@ -1224,7 +1307,7 @@ function TaskOverviewModal({ allLogs, students, onClose, onNavigateToDate, setti
                                   onClick={(e) => {
                                     e.stopPropagation()
                                     const selected = Object.entries(batchSelected).filter(([, v]) => v).map(([id]) => id)
-                                    selected.forEach(studentId => onToggleStatus(studentId, task.id, true, task.date))
+                                    selected.forEach(studentId => onToggleStatus(studentId, task.id, STATUS_VALUES.ON_TIME, task.date))
                                     setBatchTaskKey(null)
                                     setBatchSelected({})
                                   }}
@@ -1252,7 +1335,7 @@ function TaskOverviewModal({ allLogs, students, onClose, onNavigateToDate, setti
                                   if (isBatchMode) {
                                     setBatchSelected(prev => ({ ...prev, [s.id]: !prev[s.id] }))
                                   } else if (onToggleStatus) {
-                                    onToggleStatus(s.id, task.id, true, task.date)
+                                    onToggleStatus(s.id, task.id, STATUS_VALUES.ON_TIME, task.date)
                                   }
                                 }}
                                 className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm border transition-all cursor-pointer hover:opacity-80 ${
@@ -1280,15 +1363,15 @@ function TaskOverviewModal({ allLogs, students, onClose, onNavigateToDate, setti
                         </div>
                       )}
 
-                      {/* 已完成 */}
-                      {task.completedStudents.length > 0 && (
+                      {/* 準時完成 */}
+                      {task.onTimeStudents.length > 0 && (
                         <div className="mt-4">
                           <h5 className="text-sm font-bold text-[#7BC496] mb-2 flex items-center gap-2">
-                            <CheckCircle size={16} />
-                            已完成 ({task.completedStudents.length})
+                            <Check size={16} />
+                            準時 ({task.onTimeStudents.length})
                           </h5>
                           <div className="flex flex-wrap gap-2">
-                            {task.completedStudents.map(s => (
+                            {task.onTimeStudents.map(s => (
                               <div
                                 key={s.id}
                                 onClick={(e) => {
@@ -1301,6 +1384,60 @@ function TaskOverviewModal({ allLogs, students, onClose, onNavigateToDate, setti
                                   <AvatarEmoji seed={s.uuid || s.id} className="w-full h-full rounded-full text-xs" />
                                 </div>
                                 <span className="text-[#5D5D5D]">{s.number}. {s.name}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 遲交 */}
+                      {task.lateStudents.length > 0 && (
+                        <div className="mt-4">
+                          <h5 className="text-sm font-bold text-[#8B6914] mb-2 flex items-center gap-2">
+                            <Clock size={16} />
+                            遲交 ({task.lateStudents.length})
+                          </h5>
+                          <div className="flex flex-wrap gap-2">
+                            {task.lateStudents.map(s => (
+                              <div
+                                key={s.id}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  if (onToggleStatus) onToggleStatus(s.id, task.id, false, task.date)
+                                }}
+                                className="flex items-center gap-2 px-3 py-1.5 bg-[#FFD6A5]/20 rounded-lg text-sm border border-[#FFD6A5]/30 cursor-pointer hover:opacity-80 hover:border-[#FFADAD]/50 transition-all"
+                              >
+                                <div className="w-6 h-6 rounded-full overflow-hidden">
+                                  <AvatarEmoji seed={s.uuid || s.id} className="w-full h-full rounded-full text-xs" />
+                                </div>
+                                <span className="text-[#8B6914]">{s.number}. {s.name}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 未交 */}
+                      {task.missingStudents.length > 0 && (
+                        <div className="mt-4">
+                          <h5 className="text-sm font-bold text-[#D64545] mb-2 flex items-center gap-2">
+                            <XCircle size={16} />
+                            未交 ({task.missingStudents.length})
+                          </h5>
+                          <div className="flex flex-wrap gap-2">
+                            {task.missingStudents.map(s => (
+                              <div
+                                key={s.id}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  if (onToggleStatus) onToggleStatus(s.id, task.id, false, task.date)
+                                }}
+                                className="flex items-center gap-2 px-3 py-1.5 bg-[#FFADAD]/20 rounded-lg text-sm border border-[#FFADAD]/30 cursor-pointer hover:opacity-80 hover:border-[#7BC496]/50 transition-all"
+                              >
+                                <div className="w-6 h-6 rounded-full overflow-hidden">
+                                  <AvatarEmoji seed={s.uuid || s.id} className="w-full h-full rounded-full text-xs" />
+                                </div>
+                                <span className="text-[#D64545]">{s.number}. {s.name}</span>
                               </div>
                             ))}
                           </div>
@@ -1338,7 +1475,7 @@ function TaskOverviewModal({ allLogs, students, onClose, onNavigateToDate, setti
                       {task.exemptStudents.length > 0 && (
                         <div className="mt-4">
                           <h5 className="text-sm font-bold text-[#A0A0A0] mb-2 flex items-center gap-2">
-                            <XCircle size={16} />
+                            <Eye size={16} />
                             免交 ({task.exemptStudents.length})
                           </h5>
                           <div className="flex flex-wrap gap-2">
@@ -1376,6 +1513,227 @@ function TaskOverviewModal({ allLogs, students, onClose, onNavigateToDate, setti
             })
           )}
         </div>
+      </div>
+    </div>
+  )
+}
+
+// ============================================
+// 村莊歷史 Modal (v2.2.0)
+// ============================================
+
+function HistoryModal({ allLogs, students, settings, onClose, onToggleStatus }) {
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [filterType, setFilterType] = useState('all')
+  const [expandedTask, setExpandedTask] = useState(null)
+
+  useEffect(() => {
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = '' }
+  }, [])
+
+  const allHistoryTasks = useMemo(() => {
+    const tasks = []
+    allLogs.forEach(log => {
+      const logDate = typeof log.date === 'string' ? log.date.split('T')[0] : formatDate(log.date)
+      const logTasks = log.tasks || []
+      const logStatus = log.status || {}
+
+      logTasks.forEach(task => {
+        const dueDate = getTaskDueDate(task, logDate)
+        const createdAt = getTaskCreatedAt(task, logDate)
+
+        if (dateFrom && dueDate < dateFrom) return
+        if (dateTo && dueDate > dateTo) return
+        if (filterType !== 'all' && task.type !== filterType) return
+
+        const studentStatuses = students.map(s => {
+          const statusValue = logStatus[s.id]?.[task.id]
+          return { student: s, status: statusValue, visual: getStatusVisual(statusValue) }
+        })
+
+        tasks.push({
+          ...task,
+          logDate,
+          dueDate,
+          createdAt,
+          studentStatuses,
+          completedCount: studentStatuses.filter(ss => isDoneStatus(ss.status)).length,
+          totalCount: students.length,
+        })
+      })
+    })
+
+    return tasks.sort((a, b) => new Date(b.dueDate) - new Date(a.dueDate))
+  }, [allLogs, students, dateFrom, dateTo, filterType])
+
+  const taskTypes = useMemo(() => {
+    const types = new Set()
+    allLogs.forEach(log => (log.tasks || []).forEach(t => t.type && types.add(t.type)))
+    return Array.from(types)
+  }, [allLogs])
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col bg-[#fdfbf7]">
+      <div className="h-3 bg-gradient-to-r from-[#FFD6A5] to-[#A8D8B9]" />
+
+      {/* Header */}
+      <div className="px-6 py-4 border-b border-[#E8E8E8] flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#FFD6A5] to-[#A8D8B9] flex items-center justify-center shadow-md">
+            <ScrollText size={24} className="text-white" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-[#5D5D5D]">村莊歷史</h2>
+            <p className="text-sm text-[#8B8B8B]">查看與補登所有歷史任務紀錄</p>
+          </div>
+        </div>
+        <button onClick={onClose} className="p-2 rounded-full hover:bg-[#E8E8E8] transition-colors">
+          <X size={24} className="text-[#5D5D5D]" />
+        </button>
+      </div>
+
+      {/* Filters */}
+      <div className="px-6 py-3 border-b border-[#E8E8E8] flex flex-wrap items-center gap-4">
+        <div className="flex items-center gap-2">
+          <CalendarIcon size={18} className="text-[#8B8B8B]" />
+          <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+            className="px-3 py-1.5 rounded-lg border-2 border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-sm text-[#5D5D5D]" />
+          <span className="text-[#8B8B8B]">~</span>
+          <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+            className="px-3 py-1.5 rounded-lg border-2 border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-sm text-[#5D5D5D]" />
+        </div>
+        <div className="flex items-center gap-2 overflow-x-auto">
+          <Filter size={18} className="text-[#8B8B8B] shrink-0" />
+          <button onClick={() => setFilterType('all')}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${filterType === 'all' ? 'bg-[#A8D8B9] text-white' : 'bg-[#E8E8E8] text-[#5D5D5D] hover:bg-[#D8D8D8]'}`}>
+            全部
+          </button>
+          {taskTypes.map(type => (
+            <button key={type} onClick={() => setFilterType(type)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${filterType === type ? 'bg-[#FFD6A5] text-white' : 'bg-[#E8E8E8] text-[#5D5D5D] hover:bg-[#D8D8D8]'}`}>
+              {type}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Task list */}
+      <div className="flex-1 overflow-y-auto p-6 space-y-3">
+        {allHistoryTasks.length === 0 ? (
+          <div className="text-center py-16">
+            <div className="text-5xl mb-4">📜</div>
+            <p className="text-[#8B8B8B] text-lg">沒有符合條件的歷史紀錄</p>
+          </div>
+        ) : (
+          allHistoryTasks.map((task, idx) => {
+            const taskKey = `${task.logDate}-${task.id}`
+            const isExpanded = expandedTask === taskKey
+            const IconComponent = getTaskIcon(task.title)
+            const allDone = task.completedCount === task.totalCount && task.totalCount > 0
+
+            return (
+              <div key={`${taskKey}-${idx}`} className="bg-white rounded-2xl shadow-sm overflow-hidden">
+                <div
+                  className="p-4 cursor-pointer hover:bg-[#F9F9F9] transition-colors"
+                  onClick={() => setExpandedTask(isExpanded ? null : taskKey)}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${allDone ? 'bg-[#A8D8B9]' : 'bg-[#FFD6A5]'}`}>
+                      <IconComponent size={24} className="text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-[#E8E8E8] text-[#5D5D5D]">
+                          截止：{formatDateDisplay(task.dueDate)}
+                        </span>
+                        {task.createdAt !== task.dueDate && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-[#F0F0F0] text-[#8B8B8B]">
+                            建立：{formatDateDisplay(task.createdAt)}
+                          </span>
+                        )}
+                        {task.type && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-[#FFD6A5]/30 text-[#8B6914]">{task.type}</span>
+                        )}
+                      </div>
+                      <h4 className="font-bold text-[#5D5D5D] truncate">{task.title}</h4>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className={`text-lg font-bold ${allDone ? 'text-[#7BC496]' : 'text-[#5D5D5D]'}`}>{task.completedCount}/{task.totalCount}</div>
+                    </div>
+                    <ChevronDown size={20} className={`text-[#8B8B8B] transition-transform shrink-0 ${isExpanded ? 'rotate-180' : ''}`} />
+                  </div>
+                  {/* Progress bar */}
+                  <div className="mt-3 h-2 bg-[#E8E8E8] rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{
+                        width: `${task.totalCount > 0 ? (task.completedCount / task.totalCount) * 100 : 0}%`,
+                        background: allDone ? 'linear-gradient(90deg, #A8D8B9, #7BC496)' : 'linear-gradient(90deg, #FFD6A5, #FFBF69)'
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Expanded: student list with status edit */}
+                {isExpanded && (
+                  <div className="px-4 pb-4 border-t border-[#E8E8E8]">
+                    <div className="mt-3 space-y-1.5 max-h-80 overflow-y-auto">
+                      {task.studentStatuses.map(({ student, status, visual }) => {
+                        const StatusIcon = visual.icon
+                        return (
+                          <div key={student.id} className={`flex items-center gap-3 p-2.5 rounded-xl ${visual.bg} border ${visual.border} transition-all`}>
+                            <div className="w-8 h-8 rounded-full overflow-hidden shrink-0">
+                              <AvatarEmoji seed={student.uuid || student.id} className="w-full h-full rounded-full text-sm" />
+                            </div>
+                            <span className="font-medium text-[#5D5D5D] flex-1 min-w-0 truncate">{student.number}. {student.name}</span>
+                            {StatusIcon && <StatusIcon size={16} style={{ color: visual.color }} />}
+                            <span className={`text-xs font-bold shrink-0 ${visual.text}`}>{visual.label || '未完成'}</span>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button onClick={() => onToggleStatus(student.id, task.id, STATUS_VALUES.ON_TIME, task.logDate)}
+                                className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${normalizeStatus(status) === STATUS_VALUES.ON_TIME ? 'bg-[#7BC496] text-white' : 'bg-[#A8D8B9]/20 hover:bg-[#A8D8B9] text-[#4A7C59] hover:text-white'}`}
+                                title="準時">
+                                <Check size={14} />
+                              </button>
+                              <button onClick={() => onToggleStatus(student.id, task.id, STATUS_VALUES.LATE, task.logDate)}
+                                className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${normalizeStatus(status) === STATUS_VALUES.LATE ? 'bg-[#FFBF69] text-white' : 'bg-[#FFD6A5]/20 hover:bg-[#FFD6A5] text-[#8B6914] hover:text-white'}`}
+                                title="遲交">
+                                <Clock size={14} />
+                              </button>
+                              <button onClick={() => onToggleStatus(student.id, task.id, STATUS_VALUES.MISSING, task.logDate)}
+                                className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${normalizeStatus(status) === STATUS_VALUES.MISSING ? 'bg-[#D64545] text-white' : 'bg-[#FFADAD]/20 hover:bg-[#FFADAD] text-[#D64545] hover:text-white'}`}
+                                title="未交">
+                                <XCircle size={14} />
+                              </button>
+                              <button onClick={() => onToggleStatus(student.id, task.id, 'leave', task.logDate)}
+                                className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${normalizeStatus(status) === STATUS_VALUES.LEAVE ? 'bg-[#8B8B8B] text-white' : 'bg-[#E8E8E8]/50 hover:bg-[#D8D8D8] text-[#8B8B8B]'}`}
+                                title="請假">
+                                <Clock size={14} />
+                              </button>
+                              <button onClick={() => onToggleStatus(student.id, task.id, 'exempt', task.logDate)}
+                                className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${normalizeStatus(status) === STATUS_VALUES.EXEMPT ? 'bg-[#B8B8B8] text-white' : 'bg-[#F0F0F0]/50 hover:bg-[#E0E0E0] text-[#A0A0A0]'}`}
+                                title="免交">
+                                <Eye size={14} />
+                              </button>
+                              {isDoneStatus(status) && (
+                                <button onClick={() => onToggleStatus(student.id, task.id, false, task.logDate)}
+                                  className="w-7 h-7 rounded-full flex items-center justify-center bg-white/80 hover:bg-[#FFADAD]/20 text-[#D64545] transition-colors border border-[#E8E8E8]"
+                                  title="清除狀態">
+                                  <X size={14} />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })
+        )}
       </div>
     </div>
   )
@@ -1424,20 +1782,28 @@ function CalendarNav({ currentDate, onDateChange }) {
 // 任務板
 // ============================================
 
-function TaskBoard({ tasks, students, studentStatus, onTasksUpdate, taskTypes, onOpenFocus }) {
+function TaskBoard({ tasks, students, studentStatus, onTasksUpdate, taskTypes, onOpenFocus, currentDateStr }) {
   const [showAddTask, setShowAddTask] = useState(false)
   const [newTaskTitle, setNewTaskTitle] = useState('')
   const [newTaskType, setNewTaskType] = useState(taskTypes?.[0] || '作業')
+  const [newTaskDueDate, setNewTaskDueDate] = useState(() => currentDateStr ? getNextDay(currentDateStr) : '')
+
+  useEffect(() => {
+    if (currentDateStr) setNewTaskDueDate(getNextDay(currentDateStr))
+  }, [currentDateStr])
 
   const handleAddTask = async () => {
     if (!newTaskTitle.trim()) return
-    const newTask = { id: `task_${Date.now()}`, title: newTaskTitle.trim(), type: newTaskType }
+    const createdAt = currentDateStr || getTodayStr()
+    const dueDate = newTaskDueDate || getNextDay(createdAt)
+    const newTask = { id: `task_${Date.now()}`, title: newTaskTitle.trim(), type: newTaskType, createdAt, dueDate }
     const updatedTasks = [...tasks, newTask]
-    
+
     if (onTasksUpdate) onTasksUpdate(updatedTasks)
 
     setNewTaskTitle('')
     setNewTaskType(taskTypes?.[0] || '作業')
+    setNewTaskDueDate(currentDateStr ? getNextDay(currentDateStr) : '')
     setShowAddTask(false)
   }
 
@@ -1495,6 +1861,16 @@ function TaskBoard({ tasks, students, studentStatus, onTasksUpdate, taskTypes, o
             >
               {taskTypes?.map((type) => <option key={type} value={type}>{type}</option>)}
             </select>
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-[#5D5D5D] font-medium shrink-0">截止日期</label>
+              <input
+                type="date"
+                value={newTaskDueDate}
+                onChange={(e) => setNewTaskDueDate(e.target.value)}
+                min={currentDateStr}
+                className="flex-1 px-4 py-2.5 rounded-xl border-2 border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-[#5D5D5D]"
+              />
+            </div>
             <div className="flex gap-2">
               <button onClick={handleAddTask} className="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#A8D8B9] to-[#7BC496] text-white font-medium">發布</button>
               <button onClick={() => setShowAddTask(false)} className="px-4 py-2.5 rounded-xl bg-[#E8E8E8] text-[#5D5D5D] font-medium">取消</button>
@@ -1899,9 +2275,12 @@ function VillagerCard({ student, tasks, studentStatus, onClick, hasOverdue }) {
   const studentNumber = student.number || student.seatNumber
   const hasDefaultName = isDefaultName(student.name, studentNumber)
 
+  const hasMissing = hasTasks && tasks.some(t => normalizeStatus(status[t.id]) === STATUS_VALUES.MISSING)
+
   const getBgStyle = () => {
     if (!hasTasks) return 'bg-[#F7F7F7] border-[#EBEBEB]'
     if (allDone) return 'bg-gradient-to-br from-[#EDF7EF] to-[#DFF0E3] border-[#B5DFBF]'
+    if (hasMissing) return 'bg-gradient-to-br from-[#FFF0F0] to-[#FFE0E0] border-[#F0B5B5]'
     return 'bg-gradient-to-br from-[#FFF8F0] to-[#FFEDDA] border-[#F0D9B5]'
   }
 
@@ -1987,12 +2366,13 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
     allLogs.forEach(log => {
       const logDateStr = typeof log.date === 'string' ? log.date.split('T')[0] : formatDate(log.date)
       if (!logDateStr) return
-      if (parseDate(logDateStr) >= today) return
       const logTasks = log.tasks || []
       const logStatus = log.status?.[student.id] || {}
       logTasks.forEach(task => {
+        const dueDate = getTaskDueDate(task, logDateStr)
+        if (parseDate(dueDate) >= today) return
         if (!isDoneStatus(logStatus[task.id])) {
-          items.push({ date: logDateStr, task })
+          items.push({ date: logDateStr, dueDate, task })
         }
       })
     })
@@ -2118,37 +2498,46 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
                 const IconComponent = getTaskIcon(task.title)
                 const statusValue = status[task.id]
                 const isCompleted = isDoneStatus(statusValue)
-                const statusLabel = getStatusLabel(statusValue)
-                
+                const visual = getStatusVisual(statusValue)
+                const StatusIcon = visual.icon
+
                 return (
-                  <label
+                  <div
                     key={task.id}
-                    className={`flex items-center gap-4 p-4 rounded-2xl cursor-pointer transition-all ${
-                      isCompleted
-                        ? 'bg-[#A8D8B9]/20 border-2 border-[#A8D8B9]'
-                        : 'bg-white border-2 border-transparent hover:border-[#FFD6A5]'
-                    }`}
+                    className={`flex items-center gap-4 p-4 rounded-2xl transition-all border-2 ${visual.bg} ${visual.border}`}
                   >
-                    <input
-                      type="checkbox"
-                      checked={isCompleted}
-                      onChange={e => onToggleStatus(student.id, task.id, e.target.checked)}
-                      className="sr-only"
-                    />
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                      isCompleted ? 'bg-[#7BC496]' : 'bg-[#FFD6A5]'
-                    }`}>
-                      <IconComponent size={18} className="text-white" />
-                    </div>
-                    <span className={`flex-1 font-medium ${isCompleted ? 'text-[#7BC496] line-through' : 'text-[#5D5D5D]'}`}>
-                      {task.title}
-                    </span>
-                    {statusLabel && (
-                      <span className="text-xs px-2 py-1 rounded-full bg-[#FFD6A5]/40 text-[#8B6914] font-bold">
-                        {statusLabel}
+                    <div
+                      onClick={() => onToggleStatus(student.id, task.id, isCompleted ? false : true)}
+                      className="cursor-pointer flex items-center gap-3 flex-1 min-w-0"
+                    >
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0`}
+                        style={{ background: isCompleted ? visual.color : '#FFD6A5' }}>
+                        <IconComponent size={18} className="text-white" />
+                      </div>
+                      <span className={`flex-1 font-medium ${isCompleted ? `${visual.text} line-through` : 'text-[#5D5D5D]'}`}>
+                        {task.title}
                       </span>
-                    )}
+                      {visual.label && StatusIcon && (
+                        <span className={`text-xs px-2 py-1 rounded-full ${visual.bg} ${visual.text} font-bold flex items-center gap-1`}>
+                          <StatusIcon size={12} />{visual.label}
+                        </span>
+                      )}
+                    </div>
                     <div className="flex items-center gap-1">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onToggleStatus(student.id, task.id, STATUS_VALUES.LATE); }}
+                        className="px-2 py-1 text-xs rounded-lg bg-[#FFD6A5]/30 text-[#8B6914] hover:bg-[#FFD6A5] flex items-center gap-0.5"
+                        title="遲交"
+                      >
+                        <Clock size={12} />遲交
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onToggleStatus(student.id, task.id, STATUS_VALUES.MISSING); }}
+                        className="px-2 py-1 text-xs rounded-lg bg-[#FFADAD]/30 text-[#D64545] hover:bg-[#FFADAD] flex items-center gap-0.5"
+                        title="未交"
+                      >
+                        <XCircle size={12} />未交
+                      </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); onToggleStatus(student.id, task.id, 'leave'); }}
                         className="px-2 py-1 text-xs rounded-lg bg-[#E8E8E8] text-[#5D5D5D] hover:bg-[#D8D8D8]"
@@ -2157,12 +2546,12 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); onToggleStatus(student.id, task.id, 'exempt'); }}
-                        className="px-2 py-1 text-xs rounded-lg bg-[#FFD6A5]/60 text-[#8B6914] hover:bg-[#FFD6A5]"
+                        className="px-2 py-1 text-xs rounded-lg bg-[#F0F0F0] text-[#A0A0A0] hover:bg-[#E0E0E0]"
                       >
                         免交
                       </button>
                     </div>
-                  </label>
+                  </div>
                 )
               })
             )}
@@ -2192,10 +2581,16 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
                     </div>
                     <div className="flex items-center gap-1">
                       <button
-                        onClick={(e) => { e.stopPropagation(); onToggleStatus(student.id, item.task.id, true, item.date); }}
-                        className="px-2 py-1 text-xs rounded-lg bg-[#FFADAD]/30 text-[#D64545] hover:bg-[#FFADAD]/50"
+                        onClick={(e) => { e.stopPropagation(); onToggleStatus(student.id, item.task.id, STATUS_VALUES.LATE, item.date); }}
+                        className="px-2 py-1 text-xs rounded-lg bg-[#FFD6A5]/30 text-[#8B6914] hover:bg-[#FFD6A5] flex items-center gap-0.5"
                       >
-                        補交
+                        <Clock size={10} />補交
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onToggleStatus(student.id, item.task.id, STATUS_VALUES.MISSING, item.date); }}
+                        className="px-2 py-1 text-xs rounded-lg bg-[#FFADAD]/30 text-[#D64545] hover:bg-[#FFADAD]/50 flex items-center gap-0.5"
+                      >
+                        <XCircle size={10} />未交
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); onToggleStatus(student.id, item.task.id, 'leave', item.date); }}
@@ -2205,7 +2600,7 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); onToggleStatus(student.id, item.task.id, 'exempt', item.date); }}
-                        className="px-2 py-1 text-xs rounded-lg bg-[#FFD6A5]/60 text-[#8B6914] hover:bg-[#FFD6A5]"
+                        className="px-2 py-1 text-xs rounded-lg bg-[#F0F0F0] text-[#A0A0A0] hover:bg-[#E0E0E0]"
                       >
                         免交
                       </button>
@@ -2663,7 +3058,7 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
 // Header
 // ============================================
 
-function Header({ todayStr, completionRate, className, classAlias, onLogout, onOpenSettings, onOpenTeamManagement, onOpenTaskOverview, onOpenGadgets }) {
+function Header({ todayStr, completionRate, className, classAlias, onLogout, onOpenSettings, onOpenTeamManagement, onOpenTaskOverview, onOpenGadgets, onOpenHistory }) {
   const displayName = classAlias || className
   return (
     <header className="bg-white/80 backdrop-blur-md rounded-3xl p-4 md:p-5 mb-6 shadow-lg border border-white/50">
@@ -2694,6 +3089,9 @@ function Header({ todayStr, completionRate, className, classAlias, onLogout, onO
           <button onClick={onOpenTaskOverview} className="p-3 rounded-2xl bg-[#fdfbf7] hover:bg-[#A8D8B9]/20 transition-colors" title="任務總覽">
             <ListTodo size={22} className="text-[#5D5D5D]" />
           </button>
+          <button onClick={onOpenHistory} className="p-3 rounded-2xl bg-[#fdfbf7] hover:bg-[#FFD6A5]/20 transition-colors" title="村莊歷史">
+            <ScrollText size={22} className="text-[#5D5D5D]" />
+          </button>
           <button onClick={onOpenGadgets} className="p-3 rounded-2xl bg-[#fdfbf7] hover:bg-[#A8D8B9]/20 transition-colors" title="課堂法寶">
             <Sparkles size={22} className="text-[#5D5D5D]" />
           </button>
@@ -2719,6 +3117,8 @@ function Header({ todayStr, completionRate, className, classAlias, onLogout, onO
 function DashboardView({ classId, className, classAlias, onLogout, onClearLocalClass }) {
   const [students, setStudents] = useState([])
   const [allLogs, setAllLogs] = useState([])
+  const allLogsRef = useRef(allLogs)
+  useEffect(() => { allLogsRef.current = allLogs }, [allLogs])
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
   const [loading, setLoading] = useState(true)
   const [selectedStudent, setSelectedStudent] = useState(null)
@@ -2728,6 +3128,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
   const [showTaskOverview, setShowTaskOverview] = useState(false)
   const [showFocus, setShowFocus] = useState(false)
   const [showGadgets, setShowGadgets] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
 
   const normalizeDate = useCallback((date) => {
     if (typeof date === 'string') {
@@ -2753,11 +3154,28 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
     }
   }, [classId, normalizeDate])
 
+  // v2.2.0: Cross-log task query by dueDate
   const { tasks, studentStatus } = useMemo(() => {
     const dateStr = formatDate(currentDate)
-    const log = allLogs.find(log => normalizeDate(log.date) === dateStr)
-    return log ? { tasks: (log.tasks || []).map((t, i) => ({...t, id: t.id || `task_${i}`})), studentStatus: log.status || {} } : { tasks: [], studentStatus: {} }
-  }, [allLogs, currentDate, normalizeDate])
+    const taskEntries = getTasksForDate(allLogs, dateStr, normalizeDate)
+
+    const mergedTasks = taskEntries.map(({ task, logDate }) => ({
+      ...task,
+      id: task.id || `task_${Date.now()}`,
+      _sourceLogDate: logDate,
+    }))
+
+    const mergedStatus = {}
+    students.forEach(s => {
+      mergedStatus[s.id] = {}
+      taskEntries.forEach(({ task, logDate }) => {
+        const log = allLogs.find(l => normalizeDate(l.date) === logDate)
+        mergedStatus[s.id][task.id] = log?.status?.[s.id]?.[task.id]
+      })
+    })
+
+    return { tasks: mergedTasks, studentStatus: mergedStatus }
+  }, [allLogs, currentDate, normalizeDate, students])
 
   const completionRate = useMemo(() => {
     if (students.length === 0 || tasks.length === 0) return 0
@@ -2801,20 +3219,33 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
   }, [normalizeDate])
 
   const toggleStatus = useCallback((studentId, taskId, checked, dateOverride) => {
-    const rawDate = dateOverride || currentDate
-    const dateStr = typeof rawDate === 'string' ? rawDate : formatDate(rawDate)
-    const normDate = normalizeDate(dateStr)
+    // Status 2.0: normalize true → on_time
+    let newValue = checked
+    if (checked === true) newValue = STATUS_VALUES.ON_TIME
+
+    // v2.2.0: Resolve the source log date (where the task was created)
+    let targetLogDate
+    if (dateOverride) {
+      targetLogDate = typeof dateOverride === 'string' ? dateOverride : formatDate(dateOverride)
+    } else {
+      // Find which log contains this task by scanning for dueDate match
+      const currentDateStr = formatDate(currentDate)
+      const entries = getTasksForDate(allLogsRef.current, currentDateStr, normalizeDate)
+      const entry = entries.find(e => e.task.id === taskId)
+      targetLogDate = entry ? entry.logDate : currentDateStr
+    }
+    const normDate = normalizeDate(targetLogDate)
 
     setAllLogs(prev => {
       const idx = prev.findIndex(l => normalizeDate(l.date) === normDate)
       if (idx >= 0) {
         const newLogs = [...prev]
         const currentStatus = newLogs[idx].status || {}
-        newLogs[idx] = { ...newLogs[idx], status: { ...currentStatus, [studentId]: { ...currentStatus[studentId], [taskId]: checked } } }
+        newLogs[idx] = { ...newLogs[idx], status: { ...currentStatus, [studentId]: { ...currentStatus[studentId], [taskId]: newValue } } }
         return newLogs
       }
       const log = prev.find(l => normalizeDate(l.date) === normDate)
-      return [...prev, { date: normDate, tasks: log?.tasks || [], status: { [studentId]: { [taskId]: checked } } }]
+      return [...prev, { date: normDate, tasks: log?.tasks || [], status: { [studentId]: { [taskId]: newValue } } }]
     })
   }, [currentDate, normalizeDate])
 
@@ -2823,13 +3254,13 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
     const today = parseDate(todayStr)
 
     for (const log of allLogs) {
-      const logDate = parseDate(normalizeDate(log.date))
-      if (logDate >= today) continue
-
+      const logDateStr = normalizeDate(log.date)
       const logTasks = log.tasks || []
       const logStatus = log.status?.[studentId] || {}
 
       for (const task of logTasks) {
+        const dueDate = getTaskDueDate(task, logDateStr)
+        if (parseDate(dueDate) >= today) continue
         if (!isDoneStatus(logStatus[task.id])) {
           return true
         }
@@ -2872,6 +3303,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
         onOpenTeamManagement={() => setShowTeamManagement(true)}
         onOpenTaskOverview={() => setShowTaskOverview(true)}
         onOpenGadgets={() => setShowGadgets(true)}
+        onOpenHistory={() => setShowHistory(true)}
       />
       
       <div className="flex flex-col lg:flex-row gap-6 2xl:gap-4">
@@ -2891,6 +3323,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
               onTasksUpdate={handleTasksUpdate}
               taskTypes={settings.taskTypes}
               onOpenFocus={() => setShowFocus(true)}
+              currentDateStr={formatDate(currentDate)}
             />
           </div>
         </aside>
@@ -2998,7 +3431,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
       <footer className="mt-10 text-center text-[#8B8B8B] text-sm">
         <p className="flex items-center justify-center gap-2">
           <PawPrint size={16} className="text-[#A8D8B9]" />
-          呼嚕嚕小鎮 Purr Purr Town v2.1.0 © 2026
+          呼嚕嚕小鎮 Purr Purr Town v2.2.0 © 2026
           <PawPrint size={16} className="text-[#A8D8B9]" />
         </p>
       </footer>
@@ -3078,6 +3511,16 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
         <GadgetsModal
           students={students}
           onClose={() => setShowGadgets(false)}
+        />
+      )}
+
+      {showHistory && (
+        <HistoryModal
+          allLogs={allLogs}
+          students={students}
+          settings={settings}
+          onClose={() => setShowHistory(false)}
+          onToggleStatus={toggleStatus}
         />
       )}
     </div>
