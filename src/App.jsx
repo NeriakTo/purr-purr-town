@@ -45,7 +45,8 @@ import {
   ChevronUp,
   Search,
   Filter,
-  Projector
+  Projector,
+  Menu
 } from 'lucide-react'
 
 // ============================================
@@ -1750,9 +1751,11 @@ function CalendarNav({ currentDate, onDateChange }) {
   return (
     <div className="react-calendar-container space-y-3">
       <Calendar
+        calendarType="gregory"
         onChange={onDateChange}
         value={currentDate}
-        className="!border-0 !bg-transparent w-full"
+        className="!border-0 !bg-transparent w-full react-calendar-compact"
+        showNeighboringMonth={false}
         tileClassName={({ date, view }) => {
           if (view === 'month') {
             const dateStr = formatDate(date)
@@ -1825,11 +1828,10 @@ function TaskBoard({ tasks, students, studentStatus, onTasksUpdate, taskTypes, o
         </h2>
         <button
           onClick={onOpenFocus}
-          className="px-3 py-2 rounded-xl bg-[#1f3327] text-[#E8F5E9] text-sm font-bold shadow-md transition-all duration-200 flex items-center gap-2 hover:-translate-y-0.5 hover:scale-[1.02] hover:shadow-xl hover:bg-[#2a4634] active:scale-[0.99]"
+          className="p-3 rounded-2xl bg-[#fdfbf7] hover:bg-[#A8D8B9]/20 transition-colors"
           title="投影模式"
         >
-          <Projector size={16} />
-          投影模式
+          <Projector size={22} className="text-[#5D5D5D]" />
         </button>
       </div>
       
@@ -2287,10 +2289,10 @@ function VillagerCard({ student, tasks, studentStatus, onClick, hasOverdue }) {
   return (
     <div
       onClick={onClick}
-      className={`relative ${getBgStyle()} rounded-xl 2xl:rounded-lg p-2.5 2xl:p-1.5 cursor-pointer group transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md border`}
+      className={`relative ${getBgStyle()} rounded-xl 2xl:rounded-lg 3xl:rounded-md p-2.5 2xl:p-1.5 3xl:p-1 cursor-pointer group transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md border`}
     >
       {/* 座號標籤 */}
-      <div className={`absolute -top-1.5 -left-1.5 w-6 h-6 2xl:w-5 2xl:h-5 rounded-md flex items-center justify-center text-white font-bold text-[10px] 2xl:text-[8px] shadow-sm z-10 ${
+      <div className={`absolute -top-1.5 -left-1.5 w-6 h-6 2xl:w-5 2xl:h-5 3xl:w-4 3xl:h-4 rounded-md flex items-center justify-center text-white font-bold text-[10px] 2xl:text-[8px] 3xl:text-[7px] shadow-sm z-10 ${
         allDone ? 'bg-[#7BC496]' : hasIncomplete ? 'bg-[#FFBF69]' : 'bg-[#C8C8C8]'
       }`}>
         {studentNumber || '?'}
@@ -2298,27 +2300,27 @@ function VillagerCard({ student, tasks, studentStatus, onClick, hasOverdue }) {
 
       {/* 欠交警示 */}
       {hasOverdue && (
-        <div className="absolute -top-1 -right-1 w-5 h-5 2xl:w-4 2xl:h-4 rounded-full bg-[#D64545] flex items-center justify-center z-20 animate-pulse shadow-sm">
-          <AlertCircle size={12} className="text-white" />
+        <div className="absolute -top-1 -right-1 w-5 h-5 2xl:w-4 2xl:h-4 3xl:w-3.5 3xl:h-3.5 rounded-full bg-[#D64545] flex items-center justify-center z-20 animate-pulse shadow-sm">
+          <AlertCircle size={10} className="text-white" />
         </div>
       )}
 
       {/* 頭像區 */}
-      <div className="relative w-full aspect-square mb-1.5 2xl:mb-1 rounded-lg overflow-hidden bg-white/60">
+      <div className="relative w-full aspect-square mb-1.5 2xl:mb-1 3xl:mb-0.5 rounded-lg overflow-hidden bg-white/60">
         <AvatarEmoji
           seed={student.uuid || student.id}
-          className="w-full h-full rounded-lg text-5xl 2xl:text-3xl transition-transform duration-200 group-hover:scale-105"
+          className="w-full h-full rounded-lg text-5xl 2xl:text-3xl 3xl:text-2xl transition-transform duration-200 group-hover:scale-105"
         />
 
         {/* 完成狀態指示器 */}
         {hasTasks && (
-          <div className="absolute bottom-1 right-1">
+          <div className="absolute bottom-1 right-1 3xl:bottom-0.5 3xl:right-0.5">
             {allDone ? (
-              <div className="w-5 h-5 rounded-full bg-[#7BC496] flex items-center justify-center shadow-sm">
-                <Check size={12} className="text-white" />
+              <div className="w-5 h-5 3xl:w-4 3xl:h-4 rounded-full bg-[#7BC496] flex items-center justify-center shadow-sm">
+                <Check size={10} className="text-white" />
               </div>
             ) : (
-              <div className="bg-white/90 backdrop-blur-sm text-[10px] px-1.5 py-0.5 rounded-md flex items-center gap-0.5 shadow-sm border border-black/5">
+              <div className="bg-white/90 backdrop-blur-sm text-[10px] 3xl:text-[8px] px-1.5 py-0.5 3xl:px-1 3xl:py-0 rounded-md flex items-center gap-0.5 shadow-sm border border-black/5">
                 <span className="font-bold text-[#FFBF69]">{completedCount}/{totalTasks}</span>
               </div>
             )}
@@ -2328,14 +2330,14 @@ function VillagerCard({ student, tasks, studentStatus, onClick, hasOverdue }) {
 
       {/* 名字 */}
       <div className="text-center">
-        <h3 className={`text-xs 2xl:text-[10px] font-bold truncate ${hasDefaultName ? 'text-[#C0C0C0] italic' : 'text-[#5D5D5D]'}`}>
+        <h3 className={`text-xs 2xl:text-[10px] 3xl:text-[9px] font-bold truncate ${hasDefaultName ? 'text-[#C0C0C0] italic' : 'text-[#5D5D5D]'}`}>
           {student.name || '未命名'}
         </h3>
       </div>
 
       {/* 任務進度條 */}
       {hasTasks && !allDone && (
-        <div className="mt-1.5 2xl:mt-1 h-1 bg-black/5 rounded-full overflow-hidden">
+        <div className="mt-1.5 2xl:mt-1 3xl:mt-0.5 h-1 bg-black/5 rounded-full overflow-hidden">
           <div
             className="h-full rounded-full bg-[#7BC496] transition-all duration-500"
             style={{ width: `${(completedCount / totalTasks) * 100}%` }}
@@ -3059,7 +3061,18 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
 // ============================================
 
 function Header({ todayStr, completionRate, className, classAlias, onLogout, onOpenSettings, onOpenTeamManagement, onOpenTaskOverview, onOpenGadgets, onOpenHistory }) {
+  const [menuOpen, setMenuOpen] = useState(false)
   const displayName = classAlias || className
+
+  const iconBtnClass = 'p-3 rounded-2xl bg-[#fdfbf7] hover:bg-[#A8D8B9]/20 transition-colors'
+  const menuItems = [
+    { onClick: onOpenTaskOverview, icon: ListTodo, label: '任務總覽' },
+    { onClick: onOpenHistory, icon: ScrollText, label: '村莊歷史' },
+    { onClick: onOpenGadgets, icon: Sparkles, label: '課堂法寶' },
+    { onClick: onOpenTeamManagement, icon: Flag, label: '小隊管理' },
+    { onClick: onOpenSettings, icon: Settings, label: '村莊設定' },
+  ]
+
   return (
     <header className="bg-white/80 backdrop-blur-md rounded-3xl p-4 md:p-5 mb-6 shadow-lg border border-white/50">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -3072,38 +3085,67 @@ function Header({ todayStr, completionRate, className, classAlias, onLogout, onO
             <p className="text-xs md:text-sm text-[#8B8B8B]">{formatDateDisplay(todayStr)}</p>
           </div>
         </div>
-        
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-3 bg-[#fdfbf7] px-4 py-2 rounded-2xl">
+
+        <div className="flex items-center gap-2 md:gap-4">
+          {/* 達成率 - 保留在 Navbar */}
+          <div className="flex items-center gap-2 md:gap-3 bg-[#fdfbf7] px-3 md:px-4 py-1.5 md:py-2 rounded-2xl">
             <div className="hidden sm:block">
               <span className="text-xs text-[#8B8B8B]">達成率</span>
-              <div className="text-lg font-bold text-[#5D5D5D]">{Math.round(completionRate * 100)}%</div>
+              <div className="text-base md:text-lg font-bold text-[#5D5D5D]">{Math.round(completionRate * 100)}%</div>
             </div>
-            <div className="w-24 md:w-32 h-3 bg-[#E8E8E8] rounded-full overflow-hidden">
+            <div className="w-16 sm:w-24 md:w-32 h-2.5 md:h-3 bg-[#E8E8E8] rounded-full overflow-hidden shrink-0">
               <div
                 className="h-full rounded-full transition-all duration-500"
                 style={{ width: `${completionRate * 100}%`, background: completionRate >= 0.8 ? '#7BC496' : '#FFBF69' }}
               />
             </div>
           </div>
-          <button onClick={onOpenTaskOverview} className="p-3 rounded-2xl bg-[#fdfbf7] hover:bg-[#A8D8B9]/20 transition-colors" title="任務總覽">
-            <ListTodo size={22} className="text-[#5D5D5D]" />
-          </button>
-          <button onClick={onOpenHistory} className="p-3 rounded-2xl bg-[#fdfbf7] hover:bg-[#FFD6A5]/20 transition-colors" title="村莊歷史">
-            <ScrollText size={22} className="text-[#5D5D5D]" />
-          </button>
-          <button onClick={onOpenGadgets} className="p-3 rounded-2xl bg-[#fdfbf7] hover:bg-[#A8D8B9]/20 transition-colors" title="課堂法寶">
-            <Sparkles size={22} className="text-[#5D5D5D]" />
-          </button>
-          <button onClick={onOpenTeamManagement} className="p-3 rounded-2xl bg-[#fdfbf7] hover:bg-[#FFD6A5]/20 transition-colors" title="小隊管理">
-            <Flag size={22} className="text-[#5D5D5D]" />
-          </button>
-          <button onClick={onOpenSettings} className="p-3 rounded-2xl bg-[#fdfbf7] hover:bg-[#FFD6A5]/20 transition-colors" title="村莊設定">
-            <Settings size={22} className="text-[#5D5D5D]" />
-          </button>
-          <button onClick={onLogout} className="p-3 rounded-2xl bg-[#fdfbf7] hover:bg-[#FFADAD]/20 transition-colors" title="返回村莊列表">
-            <LogOut size={22} className="text-[#5D5D5D]" />
-          </button>
+
+          {/* md 以上：顯示全部按鈕 */}
+          <div className="hidden md:flex items-center gap-2">
+            {menuItems.map(({ onClick, icon: Icon, label }) => (
+              <button key={label} onClick={onClick} className={iconBtnClass} title={label}>
+                <Icon size={22} className="text-[#5D5D5D]" />
+              </button>
+            ))}
+            <button onClick={onLogout} className="p-3 rounded-2xl bg-[#fdfbf7] hover:bg-[#FFADAD]/20 transition-colors" title="返回村莊列表">
+              <LogOut size={22} className="text-[#5D5D5D]" />
+            </button>
+          </div>
+
+          {/* md 以下：漢堡選單 + 返回列表 */}
+          <div className="flex md:hidden items-center gap-1">
+            <button onClick={onLogout} className={iconBtnClass} title="返回村莊列表">
+              <LogOut size={20} className="text-[#5D5D5D]" />
+            </button>
+            <div className="relative">
+              <button
+                onClick={() => setMenuOpen(v => !v)}
+                className={`${iconBtnClass} ${menuOpen ? 'bg-[#A8D8B9]/20' : ''}`}
+                title="功能選單"
+                aria-expanded={menuOpen}
+              >
+                <Menu size={22} className="text-[#5D5D5D]" />
+              </button>
+              {menuOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} aria-hidden="true" />
+                  <div className="absolute right-0 top-full mt-1 py-2 rounded-2xl bg-white shadow-xl border border-[#E8E8E8] z-50 min-w-[160px] animate-slide-up">
+                    {menuItems.map(({ onClick, icon: Icon, label }) => (
+                      <button
+                        key={label}
+                        onClick={() => { onClick(); setMenuOpen(false) }}
+                        className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-[#fdfbf7] text-left text-[#5D5D5D] font-medium"
+                      >
+                        <Icon size={20} />
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </header>
@@ -3292,7 +3334,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
   if (loading) return <LoadingScreen message="正在進入村莊..." />
 
   return (
-    <div className="min-h-screen p-4 md:p-6 lg:p-8 2xl:p-4 bg-[#fdfbf7]">
+    <div className="min-h-screen p-4 md:p-6 lg:p-8 2xl:p-3 3xl:p-2 bg-[#fdfbf7]">
       <Header
         todayStr={formatDate(currentDate)}
         completionRate={completionRate}
@@ -3306,11 +3348,11 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
         onOpenHistory={() => setShowHistory(true)}
       />
       
-      <div className="flex flex-col lg:flex-row gap-6 2xl:gap-4">
-        <aside className="w-full lg:w-[350px] lg:shrink-0 space-y-4">
-          <div className="bg-white/60 backdrop-blur-sm rounded-3xl p-4 shadow-lg border border-white/50 space-y-6">
+      <div className="flex flex-col lg:flex-row gap-6 2xl:gap-3 3xl:gap-2">
+        <aside className="w-full lg:w-[350px] 2xl:w-[300px] 3xl:w-[260px] lg:shrink-0 space-y-4 2xl:space-y-3 3xl:space-y-2">
+          <div className="bg-white/60 backdrop-blur-sm rounded-3xl p-4 2xl:p-3 3xl:p-2 shadow-lg border border-white/50 space-y-6 2xl:space-y-4 3xl:space-y-3">
             <div>
-              <h2 className="text-lg font-bold text-[#5D5D5D] mb-4 flex items-center gap-2">
+              <h2 className="text-lg 3xl:text-base font-bold text-[#5D5D5D] mb-4 2xl:mb-2 3xl:mb-1 flex items-center gap-2">
                 <CalendarIcon size={20} className="text-[#A8D8B9]" />村莊日誌
               </h2>
               <CalendarNav currentDate={currentDate} onDateChange={setCurrentDate} />
@@ -3328,9 +3370,9 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
           </div>
         </aside>
 
-        <main className="flex-1 min-w-0">
-          <div className="bg-white/60 backdrop-blur-sm rounded-3xl p-6 2xl:p-4 shadow-lg border border-white/50">
-            <div className="flex items-center justify-between mb-6 2xl:mb-3">
+        <main className="flex-1 min-w-0 min-h-0 flex flex-col">
+          <div className="bg-white/60 backdrop-blur-sm rounded-3xl p-6 2xl:p-4 3xl:p-3 shadow-lg border border-white/50 flex-1 min-h-0 flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between mb-6 2xl:mb-2 3xl:mb-1 shrink-0">
               <h2 className="text-xl font-bold text-[#5D5D5D] flex items-center gap-2">
                 <Users size={24} className="text-[#A8D8B9]" />村民廣場
               </h2>
@@ -3351,7 +3393,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
                 <p className="text-[#8B8B8B]">目前沒有村民資料</p>
               </div>
             ) : (
-              <div className="space-y-5 2xl:space-y-3">
+              <div className="space-y-5 2xl:space-y-2 3xl:space-y-1.5 overflow-y-auto flex-1 min-h-0">
                 {Object.entries(groupedStudents).map(([group, groupStudents], gi) => {
                   const rate = getGroupCompletionRate(groupStudents)
                   const isComplete = rate === 1 && tasks.length > 0
@@ -3362,14 +3404,14 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
                   return (
                     <div
                       key={group}
-                      className={`rounded-2xl overflow-hidden transition-all ${
+                      className={`rounded-2xl 3xl:rounded-xl overflow-hidden transition-all shrink-0 ${
                         isComplete
                           ? 'ring-2 ring-yellow-300 shadow-lg'
                           : 'shadow-sm'
                       }`}
                     >
                       {/* Group header bar */}
-                      <div className={`px-4 py-3 2xl:px-3 2xl:py-2 flex items-center justify-between ${
+                      <div className={`px-4 py-3 2xl:px-3 2xl:py-2 3xl:px-2 3xl:py-1.5 flex items-center justify-between ${
                         isComplete
                           ? 'bg-gradient-to-r from-yellow-50 to-amber-50'
                           : 'bg-[#fdfbf7]'
@@ -3405,8 +3447,8 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
                       </div>
 
                       {/* Student grid */}
-                      <div className={`px-4 pb-4 pt-3 2xl:px-3 2xl:pb-3 2xl:pt-2 ${isComplete ? 'bg-gradient-to-b from-amber-50/50 to-white' : 'bg-white/40'}`}>
-                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-10 3xl:grid-cols-12 gap-3 2xl:gap-2">
+                      <div className={`px-4 pb-4 pt-3 2xl:px-3 2xl:pb-3 2xl:pt-2 3xl:px-2 3xl:pb-2 3xl:pt-1.5 ${isComplete ? 'bg-gradient-to-b from-amber-50/50 to-white' : 'bg-white/40'}`}>
+                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 3xl:grid-cols-10 gap-3 2xl:gap-2 3xl:gap-1.5">
                           {groupStudents.map((student) => (
                             <VillagerCard
                               key={student.id}

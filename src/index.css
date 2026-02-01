@@ -482,4 +482,44 @@ body {
     color: var(--color-text-light);
     opacity: 0.5;
   }
+
+  /* 電子白板適配：壓縮行事曆 */
+  .react-calendar-compact .react-calendar__navigation {
+    margin-bottom: 0.5rem;
+  }
+
+  .react-calendar-compact .react-calendar__navigation button {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+  }
+
+  .react-calendar-compact .react-calendar__month-view__weekdays__weekday {
+    padding: 0.25rem;
+    font-size: 0.7rem;
+  }
+
+  .react-calendar-compact .react-calendar__month-view__days {
+    gap: 0.125rem;
+  }
+
+  .react-calendar-compact .react-calendar__tile {
+    padding: 0.25rem;
+    font-size: 0.7rem;
+    aspect-ratio: 1;
+    min-height: 0;
+  }
+
+  /* 隱藏非本月日期 */
+  .react-calendar-compact .react-calendar__tile--neighboringMonth {
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+
+/* 3xl 以上更緊湊行事曆 */
+@media (min-width: 1920px) {
+  .react-calendar-compact .react-calendar__tile {
+    padding: 0.15rem;
+    font-size: 0.65rem;
+  }
 }
