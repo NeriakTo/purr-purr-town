@@ -3517,11 +3517,10 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
                   return (
                     <div
                       key={group}
-                      className={`rounded-xl transition-all shrink-0 p-0.5 ${
-                        isComplete ? 'ring-2 ring-yellow-300 shadow-lg' : 'shadow-sm'
+                      className={`rounded-xl overflow-hidden transition-all shrink-0 ${
+                        isComplete ? 'border-2 border-yellow-300 shadow-lg' : 'border border-transparent shadow-sm'
                       }`}
                     >
-                      <div className="rounded-lg overflow-hidden">
                       {/* Group header */}
                       <div className={`px-2.5 py-1.5 flex items-center justify-between ${
                         isComplete ? 'bg-gradient-to-r from-yellow-100 to-amber-100' : 'bg-[#f4ede3]'
@@ -3571,7 +3570,6 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
                         </div>
                       </div>
                     </div>
-                  </div>
                   )
                 })}
               </div>
