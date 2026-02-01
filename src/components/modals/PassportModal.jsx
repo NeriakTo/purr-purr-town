@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { X, AlertCircle, Pencil, Clock, XCircle, AlertTriangle, Check, ScrollText } from 'lucide-react'
+import { X, Pencil, Clock, XCircle, AlertTriangle, Check, ScrollText } from 'lucide-react'
 import AvatarEmoji from '../common/AvatarEmoji'
 import { STATUS_VALUES } from '../../utils/constants'
 import { formatDate, formatDateDisplay, getTaskDueDate, getTodayStr, isDoneStatus, normalizeStatus, parseDate, getTaskIcon, getStatusVisual } from '../../utils/helpers'
@@ -65,14 +65,6 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
         </button>
         
         <div className="p-6">
-          {/* 欠交警示 */}
-          {hasOverdue && (
-            <div className="mb-4 p-3 rounded-xl bg-[#FFADAD]/20 border-2 border-[#D64545] text-[#D64545] text-sm flex items-start gap-2">
-              <AlertCircle size={18} className="shrink-0 mt-0.5" />
-              <span>⚠️ 尚有過去任務未完成，請檢查歷史日誌</span>
-            </div>
-          )}
-          
           {/* 頭像和基本資料 */}
           <div className="flex items-start gap-6 mb-6">
             <div className={`w-28 h-28 rounded-3xl overflow-hidden shadow-lg shrink-0 ring-4 ${isAllDone ? 'ring-[#A8D8B9]' : hasTasks ? 'ring-[#FFD6A5]' : 'ring-[#E8E8E8]'}`}>

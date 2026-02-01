@@ -46,7 +46,7 @@ function TaskBoard({ tasks, students, studentStatus, onTasksUpdate, onAddTask, o
   return (
     <div>
       <div className="flex items-center h-10 mb-2 shrink-0 justify-between gap-3">
-        <h2 className="text-base font-bold text-[#5D5D5D] flex items-center gap-2">
+        <h2 className="text-xl font-bold text-[#5D5D5D] flex items-center gap-2">
           <ClipboardList size={18} className="text-[#A8D8B9]" />今日任務
         </h2>
         <button

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { CheckCircle, Clock, Users, Calendar as CalendarIcon, PawPrint } from 'lucide-react'
+import { CheckCircle, Clock, Users, Calendar as CalendarIcon, PawPrint, XCircle, Coffee } from 'lucide-react'
 import Header from '../components/common/Header'
 import LoadingScreen from '../components/common/LoadingScreen'
 import CalendarNav from '../components/calendar/CalendarNav'
@@ -215,6 +215,14 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
     const effective = tasks.filter(t => isCountedInDenominator(studentStatus[s.id]?.[t.id]))
     return effective.some(t => !isDoneStatus(studentStatus[s.id]?.[t.id]))
   }).length
+  const lateCount = students.filter(s => {
+    if (tasks.length === 0) return false
+    return tasks.some(t => normalizeStatus(studentStatus[s.id]?.[t.id]) === STATUS_VALUES.LATE)
+  }).length
+  const leaveCount = students.filter(s => {
+    if (tasks.length === 0) return false
+    return tasks.every(t => normalizeStatus(studentStatus[s.id]?.[t.id]) === STATUS_VALUES.LEAVE)
+  }).length
 
   if (loading) return <LoadingScreen message="正在進入村莊..." />
 
@@ -239,7 +247,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
           <div className="flex-1 min-h-0 flex flex-col bg-white/60 backdrop-blur-sm rounded-3xl p-4 2xl:p-3 shadow-lg border border-white/50">
             <div className="shrink-0">
               <div className="flex items-center h-10 mb-2 shrink-0">
-                <h2 className="text-base font-bold text-[#5D5D5D] flex items-center gap-2">
+                <h2 className="text-xl font-bold text-[#5D5D5D] flex items-center gap-2">
                   <CalendarIcon size={18} className="text-[#A8D8B9]" />村莊日誌
                 </h2>
               </div>
@@ -283,7 +291,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
         <main className="flex-1 min-w-0 min-h-0 flex flex-col">
           <div className="bg-white/60 backdrop-blur-sm rounded-3xl p-4 2xl:p-3 shadow-lg border border-white/50 flex-1 min-h-0 flex flex-col overflow-hidden">
             <div className="flex items-center h-10 mb-2 shrink-0 justify-between">
-              <h2 className="text-base font-bold text-[#5D5D5D] flex items-center gap-2">
+              <h2 className="text-xl font-bold text-[#5D5D5D] flex items-center gap-2">
                 <Users size={18} className="text-[#A8D8B9]" />村民廣場
               </h2>
               <div className="flex items-center gap-2">
@@ -291,9 +299,17 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
                   <CheckCircle size={14} className="text-[#7BC496]" />
                   <span className="text-xs font-bold text-[#4A7C59]">{purrCount}</span>
                 </div>
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FFD6A5]/20">
+                  <Clock size={14} className="text-[#8B6914]" />
+                  <span className="text-xs font-bold text-[#8B6914]">{lateCount}</span>
+                </div>
                 <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FFADAD]/15">
-                  <Clock size={14} className="text-[#FF8A8A]" />
+                  <XCircle size={14} className="text-[#FF8A8A]" />
                   <span className="text-xs font-bold text-[#D64545]">{angryCount}</span>
+                </div>
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E8E8E8]/50">
+                  <Coffee size={14} className="text-[#8B8B8B]" />
+                  <span className="text-xs font-bold text-[#8B8B8B]">{leaveCount}</span>
                 </div>
               </div>
             </div>
