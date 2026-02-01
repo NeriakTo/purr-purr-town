@@ -39,7 +39,7 @@ function VillagerCard({ student, tasks, studentStatus, onClick, hasOverdue }) {
 
       {/* 欠交警示 */}
       {hasOverdue && (
-        <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#D64545] flex items-center justify-center z-20 animate-pulse shadow-sm">
+        <div className="absolute -bottom-1 -left-1 w-4 h-4 rounded-full bg-[#D64545] flex items-center justify-center z-20 animate-pulse shadow-sm">
           <AlertCircle size={8} className="text-white" />
         </div>
       )}

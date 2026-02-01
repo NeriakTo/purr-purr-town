@@ -24,7 +24,7 @@ function Header({ todayStr, completionRate, className, classAlias, onLogout, onO
           </div>
           <div>
             <h1 className="text-xl md:text-2xl font-bold text-[#5D5D5D] flex items-center gap-2">{displayName || '呼嚕嚕小鎮'}</h1>
-            <p className="text-xs md:text-sm text-[#8B8B8B]">{formatDateDisplay(todayStr)}</p>
+            <p className="text-sm md:text-base font-medium text-[#8B8B8B]">{formatDateDisplay(todayStr)}</p>
           </div>
         </div>
 

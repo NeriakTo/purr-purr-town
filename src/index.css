@@ -401,6 +401,18 @@ body {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 1rem;
+    gap: 0.25rem;
+  }
+
+  .react-calendar__navigation__label {
+    flex: 1;
+    text-align: center;
+    min-width: 0;
+  }
+
+  .react-calendar__navigation__prev-button,
+  .react-calendar__navigation__next-button {
+    flex-shrink: 0;
   }
 
   .react-calendar__navigation button {
@@ -451,7 +463,8 @@ body {
     padding: 0.5rem;
     border-radius: 12px;
     transition: all 0.3s;
-  font-weight: 500;
+    font-weight: 500;
+    font-size: 0.9rem;
   }
 
   .react-calendar__tile:hover {
@@ -504,7 +517,7 @@ body {
 
   .react-calendar-compact .react-calendar__tile {
     padding: 0.125rem;
-    font-size: 0.7rem;
+    font-size: 0.85rem;
     aspect-ratio: 1;
     min-height: 0;
   }
@@ -520,6 +533,6 @@ body {
 @media (min-width: 1536px) {
   .react-calendar-compact .react-calendar__tile {
     padding: 0.1rem;
-    font-size: 0.65rem;
+    font-size: 0.75rem;
   }
 }

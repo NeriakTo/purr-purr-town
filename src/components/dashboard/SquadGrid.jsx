@@ -37,7 +37,7 @@ function SquadGrid({ students, tasks, studentStatus, settings, onSelectStudent, 
       {Object.entries(groupedStudents).map(([group, groupStudents], gi) => {
         const rate = getGroupCompletionRate(groupStudents)
         const isComplete = rate === 1 && tasks.length > 0
-        const groupName = settings.groupAliases?.[group] || `${group} ??`
+        const groupName = settings.groupAliases?.[group] || `${group} 小隊`
         const accent = groupColors[gi % groupColors.length]
 
         return (

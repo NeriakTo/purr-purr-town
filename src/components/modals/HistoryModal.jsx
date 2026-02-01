@@ -91,39 +91,41 @@ function HistoryModal({ allLogs, students, settings, onClose, onToggleStatus }) 
         </div>
 
         {/* Filters */}
-        <div className="px-4 py-2 border-b border-[#E8E8E8] flex flex-wrap items-center gap-2 shrink-0">
-        <div className="flex items-center gap-2 flex-1">
-          <Search size={16} className="text-[#8B8B8B]" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            placeholder="搜尋任務名稱..."
-            className="flex-1 min-w-0 px-2 py-1 rounded-lg border border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-xs text-[#5D5D5D]"
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <CalendarIcon size={16} className="text-[#8B8B8B]" />
-          <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
-            className="px-2 py-1 rounded-lg border border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-xs text-[#5D5D5D]" />
-          <span className="text-[#8B8B8B] text-xs">~</span>
-          <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
-            className="px-2 py-1 rounded-lg border border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-xs text-[#5D5D5D]" />
-        </div>
-        <div className="flex items-center gap-1 overflow-x-auto">
-          <Filter size={18} className="text-[#8B8B8B] shrink-0" />
-          <button onClick={() => setFilterType('all')}
-            className={`px-2 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${filterType === 'all' ? 'bg-[#A8D8B9] text-white' : 'bg-[#E8E8E8] text-[#5D5D5D] hover:bg-[#D8D8D8]'}`}>
-            全部
-          </button>
-          {taskTypes.map(type => (
-            <button key={type} onClick={() => setFilterType(type)}
-              className={`px-2 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${filterType === type ? 'bg-[#FFD6A5] text-white' : 'bg-[#E8E8E8] text-[#5D5D5D] hover:bg-[#D8D8D8]'}`}>
-              {type}
+        <div className="px-4 py-2 border-b border-[#E8E8E8] space-y-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2 flex-1">
+              <Search size={16} className="text-[#8B8B8B]" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="搜尋任務名稱..."
+                className="flex-1 min-w-0 px-2 py-1 rounded-lg border border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-xs text-[#5D5D5D]"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <CalendarIcon size={16} className="text-[#8B8B8B]" />
+              <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+                className="px-2 py-1 rounded-lg border border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-xs text-[#5D5D5D]" />
+              <span className="text-[#8B8B8B] text-xs">~</span>
+              <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+                className="px-2 py-1 rounded-lg border border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-xs text-[#5D5D5D]" />
+            </div>
+          </div>
+          <div className="flex items-center gap-1 overflow-x-auto">
+            <Filter size={18} className="text-[#8B8B8B] shrink-0" />
+            <button onClick={() => setFilterType('all')}
+              className={`px-2 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${filterType === 'all' ? 'bg-[#A8D8B9] text-white' : 'bg-[#E8E8E8] text-[#5D5D5D] hover:bg-[#D8D8D8]'}`}>
+              全部
             </button>
-          ))}
+            {taskTypes.map(type => (
+              <button key={type} onClick={() => setFilterType(type)}
+                className={`px-2 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${filterType === type ? 'bg-[#FFD6A5] text-white' : 'bg-[#E8E8E8] text-[#5D5D5D] hover:bg-[#D8D8D8]'}`}>
+                {type}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
 
       {/* Task list */}
       <div className="flex-1 overflow-y-auto p-4 space-y-2 min-h-0">

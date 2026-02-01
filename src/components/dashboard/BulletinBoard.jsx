@@ -4,8 +4,8 @@ function BulletinBoard({ announcements = [], onOpenAnnouncements }) {
   return (
     <div className="rounded-2xl p-4 shadow-md border border-[#C8A070] cork-texture">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-bold text-[#5D5D5D] flex items-center gap-2">
-          <Pin size={16} className="text-[#D97706]" />公佈欄
+        <h3 className="text-sm font-bold text-[#5D4037] flex items-center gap-2">
+          <Pin size={16} className="text-[#D97706]" />村莊布告欄
         </h3>
         <button
           onClick={onOpenAnnouncements}
@@ -21,7 +21,7 @@ function BulletinBoard({ announcements = [], onOpenAnnouncements }) {
           尚無公告，點擊右上角齒輪新增吧！
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3">
           {announcements.map((item) => (
             <div
               key={item.id}
