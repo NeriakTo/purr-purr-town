@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { PawPrint, LogOut, Menu, ListTodo, ScrollText, Sparkles, Flag, Settings } from 'lucide-react'
+import { formatDateDisplay } from '../../utils/helpers'
 
 function Header({ todayStr, completionRate, className, classAlias, onLogout, onOpenSettings, onOpenTeamManagement, onOpenTaskOverview, onOpenGadgets, onOpenHistory }) {
   const [menuOpen, setMenuOpen] = useState(false)
