@@ -914,6 +914,7 @@ function TeamManagementModal({ students, settings, onClose, onSave, onSettingsUp
                         )}
                       </div>
                     </div>
+                  </div>
                   )
                 })}
               </div>
@@ -1970,7 +1971,7 @@ function TaskBoard({ tasks, students, studentStatus, onTasksUpdate, onAddTask, o
                     </div>
                     <button
                       onClick={() => handleDeleteTask(task.id)}
-                      className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-[#FFADAD]/20 transition-all"
+                      className="p-1.5 rounded-lg opacity-70 hover:opacity-100 hover:bg-[#FFADAD]/20 transition-all"
                     >
                       <Trash2 size={16} className="text-[#D64545]" />
                     </button>
@@ -3517,10 +3518,11 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
                   return (
                     <div
                       key={group}
-                      className={`rounded-xl overflow-hidden transition-all shrink-0 ${
+                      className={`rounded-xl transition-all shrink-0 p-0.5 ${
                         isComplete ? 'ring-2 ring-yellow-300 shadow-lg' : 'shadow-sm'
                       }`}
                     >
+                      <div className="rounded-lg overflow-hidden">
                       {/* Group header */}
                       <div className={`px-2.5 py-1.5 flex items-center justify-between ${
                         isComplete ? 'bg-gradient-to-r from-yellow-100 to-amber-100' : 'bg-[#f4ede3]'
@@ -3570,6 +3572,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
                         </div>
                       </div>
                     </div>
+                  </div>
                   )
                 })}
               </div>
