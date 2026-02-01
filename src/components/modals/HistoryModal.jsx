@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react'
-import { X, ChevronRight, ChevronLeft, Calendar as CalendarIcon, Search } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { X, Calendar as CalendarIcon, Search, ScrollText, Filter, ChevronDown, Check, Clock, XCircle, Coffee, CircleMinus } from 'lucide-react'
+import AvatarEmoji from '../common/AvatarEmoji'
 import { STATUS_VALUES } from '../../utils/constants'
-import { formatDate, formatDateDisplay, getTaskDueDate, normalizeStatus, getStatusVisual, isDoneStatus } from '../../utils/helpers'
+import { formatDate, formatDateDisplay, getTodayStr, getTaskDueDate, getTaskCreatedAt, normalizeStatus, getStatusVisual, isDoneStatus, isCountedInDenominator, getTaskIcon } from '../../utils/helpers'
 
 function HistoryModal({ allLogs, students, settings, onClose, onToggleStatus }) {
   const [dateFrom, setDateFrom] = useState('')

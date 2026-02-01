@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { X, Users, Save, GripVertical, UserPlus, Search, Plus, ChevronRight, ChevronLeft, Loader2 } from 'lucide-react'
+import { X, Users, Save, GripVertical, UserPlus, Search, Plus, ChevronRight, ChevronLeft, Loader2, Flag } from 'lucide-react'
 import AvatarEmoji from '../common/AvatarEmoji'
 
 function TeamManagementModal({ students, settings, onClose, onSave, onSettingsUpdate }) {

@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
-import { X, AlertCircle } from 'lucide-react'
+import { X, AlertCircle, Pencil, Clock, XCircle, AlertTriangle, Check, ScrollText } from 'lucide-react'
 import AvatarEmoji from '../common/AvatarEmoji'
 import { STATUS_VALUES } from '../../utils/constants'
-import { formatDateDisplay, getTaskDueDate, getTodayStr, isDoneStatus, normalizeStatus, parseDate } from '../../utils/helpers'
+import { formatDate, formatDateDisplay, getTaskDueDate, getTodayStr, isDoneStatus, normalizeStatus, parseDate, getTaskIcon, getStatusVisual } from '../../utils/helpers'
 
 function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus, onStudentUpdate, hasOverdue, settings, allLogs, currentDateStr }) {
   const [isEditMode, setIsEditMode] = useState(false)

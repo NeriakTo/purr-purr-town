@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { X, Save, Link, Download, Eye, AlertTriangle, ChevronDown, ChevronUp, Plus, Trash2, Flag, Users } from 'lucide-react'
+import { X, Save, Link, Download, Plus, Trash2, Settings, ClipboardList } from 'lucide-react'
 import { DEFAULT_SETTINGS } from '../../utils/constants'
-import { formatDateDisplay, getStatusLabel, makeTaskId } from '../../utils/helpers'
+import { saveClassCache } from '../../utils/helpers'
 
 function SettingsModal({ classId, className, settings, students, allLogs, onClose, onSave, onRestoreFromBackup, onClearLocalClass }) {
   const [localSettings, setLocalSettings] = useState({

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { X, Home, Calendar as CalendarIcon, School, User, Sparkles, Users, Flag, Loader2 } from 'lucide-react'
+import { X, Home, Calendar as CalendarIcon, School, User, Sparkles, Users, Flag, Loader2, Plus } from 'lucide-react'
 
 function CreateClassModal({ onClose, onSuccess, onCreateLocalClass }) {
   const [formData, setFormData] = useState({

@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
-import { ListTodo, Filter, Trash2, ChevronDown, X } from 'lucide-react'
+import { ListTodo, Filter, Trash2, ChevronDown, X, AlertCircle, CheckCircle, Check, Clock, XCircle, Eye, Calendar as CalendarIcon } from 'lucide-react'
+import AvatarEmoji from '../common/AvatarEmoji'
 import { STATUS_VALUES } from '../../utils/constants'
-import { formatDateDisplay, getTaskDueDate, getTaskIcon, isDoneStatus, normalizeStatus, isCountedInDenominator } from '../../utils/helpers'
+import { formatDateDisplay, getTaskDueDate, getTaskIcon, isDoneStatus, normalizeStatus, isCountedInDenominator, parseDate } from '../../utils/helpers'
 
 function TaskOverviewModal({ allLogs, students, onClose, onNavigateToDate, settings, onToggleStatus, onDeleteTask }) {
   const [expandedTask, setExpandedTask] = useState(null)
