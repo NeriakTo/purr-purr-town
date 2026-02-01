@@ -1,0 +1,224 @@
+import { format } from 'date-fns'
+import { STATUS_VALUES, AVATAR_EMOJIS, AVATAR_COLORS } from './constants'
+import { Check, Clock, XCircle, Coffee, CircleMinus, BookOpen, AlertTriangle, Palette, ScrollText } from 'lucide-react'
+
+export function getTodayStr() {
+  return format(new Date(), 'yyyy-MM-dd')
+}
+
+export function formatDateDisplay(dateStr) {
+  return dateStr.replace(/-/g, '/')
+}
+
+export function parseDate(dateStr) {
+  const [year, month, day] = dateStr.split('-').map(Number)
+  return new Date(year, month - 1, day)
+}
+
+export function formatDate(date) {
+  return format(date, 'yyyy-MM-dd')
+}
+
+// --- Task Date Logic (v2.2.0) ---
+
+export function getNextDay(dateStr) {
+  const date = parseDate(dateStr)
+  date.setDate(date.getDate() + 1)
+  return formatDate(date)
+}
+
+export function getTaskDueDate(task, logDate) {
+  return task.dueDate || logDate
+}
+
+export function getTaskCreatedAt(task, logDate) {
+  return task.createdAt || logDate
+}
+
+export function getTasksForDate(allLogs, targetDateStr, normalizeDateFn) {
+  const results = []
+  allLogs.forEach(log => {
+    const logDate = normalizeDateFn(log.date)
+    const logTasks = log.tasks || []
+    logTasks.forEach(task => {
+      const dueDate = getTaskDueDate(task, logDate)
+      if (normalizeDateFn(dueDate) === targetDateStr) {
+        results.push({ task, logDate })
+      }
+    })
+  })
+  return results
+}
+
+// v3.0.1: 投影模式用 - 篩選 createdAt === 今天 的任務（今天發布、明天要交）
+
+export function getTasksCreatedToday(allLogs, todayStr, normalizeDateFn) {
+  const results = []
+  allLogs.forEach(log => {
+    const logDate = normalizeDateFn(log.date)
+    const logTasks = log.tasks || []
+    logTasks.forEach(task => {
+      const createdAt = getTaskCreatedAt(task, logDate)
+      if (normalizeDateFn(createdAt) === todayStr) {
+        results.push({ task, logDate })
+      }
+    })
+  })
+  return results
+}
+
+export function getClassCacheKey(classId) {
+  return `ppt_cache_class_${classId}`
+}
+
+export function loadClassCache(classId) {
+  if (!classId) return null
+  try {
+    const raw = localStorage.getItem(getClassCacheKey(classId))
+    return raw ? JSON.parse(raw) : null
+  } catch (err) {
+    console.error('讀取本地快取失敗:', err)
+    return null
+  }
+}
+
+export function saveClassCache(classId, payload) {
+  if (!classId || !payload) return
+  try {
+    localStorage.setItem(getClassCacheKey(classId), JSON.stringify(payload))
+  } catch (err) {
+    console.error('寫入本地快取失敗:', err)
+  }
+}
+
+export function getLocalClassesKey() {
+  return 'ppt_local_classes'
+}
+
+export function loadLocalClasses() {
+  try {
+    const raw = localStorage.getItem(getLocalClassesKey())
+    return raw ? JSON.parse(raw) : []
+  } catch (err) {
+    console.error('讀取本地班級清單失敗:', err)
+    return []
+  }
+}
+
+export function saveLocalClasses(classes) {
+  try {
+    localStorage.setItem(getLocalClassesKey(), JSON.stringify(classes))
+  } catch (err) {
+    console.error('寫入本地班級清單失敗:', err)
+  }
+}
+
+export function normalizeStatus(value) {
+  if (value === true) return STATUS_VALUES.ON_TIME
+  if (value === 'leave') return STATUS_VALUES.LEAVE
+  if (value === 'exempt') return STATUS_VALUES.EXEMPT
+  if (Object.values(STATUS_VALUES).includes(value)) return value
+  return value // false, undefined, etc. remain as-is
+}
+
+export function isDoneStatus(value) {
+  const norm = normalizeStatus(value)
+  return norm === STATUS_VALUES.ON_TIME || norm === STATUS_VALUES.LATE
+}
+
+// v3.0.1: 是否計入分母（排除 leave、exempt）
+
+export function isCountedInDenominator(value) {
+  const norm = normalizeStatus(value)
+  return norm !== STATUS_VALUES.LEAVE && norm !== STATUS_VALUES.EXEMPT
+}
+
+export function getStatusLabel(value) {
+  const norm = normalizeStatus(value)
+  switch (norm) {
+    case STATUS_VALUES.ON_TIME: return '準時'
+    case STATUS_VALUES.LATE: return '遲交'
+    case STATUS_VALUES.MISSING: return '未交'
+    case STATUS_VALUES.LEAVE: return '請假'
+    case STATUS_VALUES.EXEMPT: return '免交'
+    default: return ''
+  }
+}
+
+export function getStatusVisual(value) {
+  const norm = normalizeStatus(value)
+  switch (norm) {
+    case STATUS_VALUES.ON_TIME:
+      return { icon: Check, color: '#7BC496', bg: 'bg-[#A8D8B9]/20', border: 'border-[#A8D8B9]', text: 'text-[#4A7C59]', label: '準時' }
+    case STATUS_VALUES.LATE:
+      return { icon: Clock, color: '#FFBF69', bg: 'bg-[#FFD6A5]/20', border: 'border-[#FFD6A5]', text: 'text-[#8B6914]', label: '遲交' }
+    case STATUS_VALUES.MISSING:
+      return { icon: XCircle, color: '#D64545', bg: 'bg-[#FFADAD]/20', border: 'border-[#FFADAD]', text: 'text-[#D64545]', label: '未交' }
+    case STATUS_VALUES.LEAVE:
+      return { icon: Coffee, color: '#8B8B8B', bg: 'bg-[#E8E8E8]/50', border: 'border-[#D8D8D8]', text: 'text-[#8B8B8B]', label: '請假' }
+    case STATUS_VALUES.EXEMPT:
+      return { icon: CircleMinus, color: '#B8B8B8', bg: 'bg-[#F0F0F0]/50', border: 'border-[#E0E0E0]', text: 'text-[#A0A0A0]', label: '免交' }
+    default:
+      return { icon: null, color: '#D8D8D8', bg: 'bg-white', border: 'border-[#E8E8E8]', text: 'text-[#5D5D5D]', label: '' }
+  }
+}
+
+export function getTaskIcon(title) {
+  const lower = title?.toLowerCase() || ''
+  if (lower.includes('習') || lower.includes('作業') || lower.includes('國') || lower.includes('數') || lower.includes('英')) {
+    return BookOpen
+  }
+  if (lower.includes('訂正') || lower.includes('補')) {
+    return AlertTriangle
+  }
+  if (lower.includes('水彩') || lower.includes('美') || lower.includes('畫')) {
+    return Palette
+  }
+  return ScrollText
+}
+
+export function getTaskTypeColor(titleOrType) {
+  const s = (titleOrType || '').toLowerCase()
+  if (s.includes('作業') || s.includes('習')) return { border: 'border-l-blue-400', accent: '#60A5FA', bg: 'bg-blue-50/50' }
+  if (s.includes('攜帶') || s.includes('物品')) return { border: 'border-l-amber-400', accent: '#F59E0B', bg: 'bg-amber-50/50' }
+  if (s.includes('回條') || s.includes('通知')) return { border: 'border-l-rose-400', accent: '#FB7185', bg: 'bg-rose-50/50' }
+  return { border: 'border-l-green-400', accent: '#34D399', bg: 'bg-green-50/50' }
+}
+
+export function hashSeed(seed) {
+  const str = String(seed ?? '')
+  let h = 0
+  for (let i = 0; i < str.length; i++) {
+    h = (h * 31 + str.charCodeAt(i)) >>> 0
+  }
+  return h
+}
+
+export function makeTaskId(dateStr, task, index) {
+  const base = `${dateStr}-${task?.title || ''}-${task?.type || ''}-${index}`
+  return `task_${hashSeed(base).toString(36)}`
+}
+
+export function getAvatarMeta(seed) {
+  const hash = hashSeed(seed)
+  const emojiIndex = hash % AVATAR_EMOJIS.length
+  const colorIndex = (hash + 3) % AVATAR_COLORS.length
+  return {
+    emoji: AVATAR_EMOJIS[emojiIndex],
+    bg: AVATAR_COLORS[colorIndex]
+  }
+}
+
+export function isDefaultName(name, number) {
+  if (!name || !number) return false
+  try {
+    const defaultPattern = new RegExp(`^${number}號村民$`)
+    return defaultPattern.test(name) || name === `${number}號村民`
+  } catch (err) {
+    return false
+  }
+}
+
+// ============================================
+// Loading 畫面元件
+// ============================================
