@@ -239,7 +239,7 @@ function getTaskIcon(title) {
 }
 
 // v2.0 改用 lorelei 風格 - 更可愛的手繪風格頭像
-const AVATAR_EMOJIS = ['🐻', '🐱', '🐶', '🐰', '🦊', '🐼', '🐨', '🐯', '🦁', '🐷']
+const AVATAR_EMOJIS = ['🐻', '🐱', '🐶', '🐰', '🦊', '🐼', '🐨', '🐯', '🦁', '🐹', '🐭', '🦝', '🐮', '🐸', '🐔', '🐧', '🦉', '🦄', '🐺', '🐴']
 const AVATAR_COLORS = ['#FCE3E3', '#FDEBC8', '#E7F3D7', '#DDF1F8', '#E7E3FA', '#F8E6D8', '#FDE2F3', '#E2F0FF', '#E9F7F1', '#FFF1CC']
 
 function hashSeed(seed) {
@@ -258,9 +258,11 @@ function makeTaskId(dateStr, task, index) {
 
 function getAvatarMeta(seed) {
   const hash = hashSeed(seed)
+  const emojiIndex = hash % AVATAR_EMOJIS.length
+  const colorIndex = (hash + 3) % AVATAR_COLORS.length
   return {
-    emoji: AVATAR_EMOJIS[hash % AVATAR_EMOJIS.length],
-    bg: AVATAR_COLORS[hash % AVATAR_COLORS.length]
+    emoji: AVATAR_EMOJIS[emojiIndex],
+    bg: AVATAR_COLORS[colorIndex]
   }
 }
 
@@ -2367,7 +2369,7 @@ function VillagerCard({ student, tasks, studentStatus, onClick, onToggleStatus, 
       className={`relative ${getBgStyle()} rounded-xl 2xl:rounded-lg p-2.5 2xl:p-1.5 cursor-pointer group transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md border`}
     >
       {/* 座號標籤 */}
-      <div className={`absolute -top-1.5 -left-1.5 w-6 h-6 2xl:w-5 2xl:h-5 rounded-md flex items-center justify-center text-white font-bold text-[10px] 2xl:text-[9px] shadow-sm z-10 ${
+      <div className={`absolute -top-2 -left-2 w-8 h-8 2xl:w-7 2xl:h-7 rounded-lg flex items-center justify-center text-white font-extrabold text-sm 2xl:text-xs shadow-sm z-10 ${
         allDone ? 'bg-[#7BC496]' : hasIncomplete ? 'bg-[#FFBF69]' : 'bg-[#C8C8C8]'
       }`}>
         {studentNumber || '?'}
@@ -2380,11 +2382,11 @@ function VillagerCard({ student, tasks, studentStatus, onClick, onToggleStatus, 
         </div>
       )}
 
-      {/* 頭像區：高密度下放大頭像、佔滿寬度 */}
-      <div className="relative w-full aspect-square mb-1.5 2xl:mb-0.5 rounded-lg overflow-hidden bg-white/60">
+      {/* 頭像區 */}
+      <div className="relative w-full aspect-[4/3] mb-1 2xl:mb-0.5 rounded-lg overflow-hidden bg-white/60">
         <AvatarEmoji
           seed={student.uuid || student.id}
-          className="w-full h-full rounded-lg text-5xl 2xl:text-4xl transition-transform duration-200 group-hover:scale-105"
+          className="w-full h-full rounded-lg text-4xl 2xl:text-3xl transition-transform duration-200 group-hover:scale-105"
         />
 
         {/* 完成狀態指示器 - 左鍵切換 null/on_time */}
@@ -2394,11 +2396,11 @@ function VillagerCard({ student, tasks, studentStatus, onClick, onToggleStatus, 
             className="absolute bottom-0.5 right-0.5 2xl:bottom-0 2xl:right-0 cursor-pointer"
           >
             {allDone ? (
-              <div className="w-5 h-5 2xl:w-4 2xl:h-4 rounded-full bg-[#7BC496] flex items-center justify-center shadow-sm">
-                <Check size={10} className="text-white" />
+              <div className="w-6 h-6 2xl:w-5 2xl:h-5 rounded-full bg-[#7BC496] flex items-center justify-center shadow-sm">
+                <Check size={12} className="text-white" />
               </div>
             ) : (
-              <div className="bg-white/90 backdrop-blur-sm text-[10px] 2xl:text-[8px] px-1 py-0.5 rounded flex items-center gap-0.5 shadow-sm border border-black/5">
+              <div className="bg-white/90 backdrop-blur-sm text-sm 2xl:text-xs px-1.5 py-0.5 rounded flex items-center gap-0.5 shadow-sm border border-black/5">
                 <span className="font-bold text-[#FFBF69]">{completedCount}/{totalTasks}</span>
               </div>
             )}
@@ -2408,7 +2410,7 @@ function VillagerCard({ student, tasks, studentStatus, onClick, onToggleStatus, 
 
       {/* 名字 */}
       <div className="text-center 2xl:min-h-0">
-        <h3 className={`text-xs 2xl:text-[11px] font-bold truncate leading-tight ${hasDefaultName ? 'text-[#C0C0C0] italic' : 'text-[#5D5D5D]'}`}>
+        <h3 className={`text-base 2xl:text-sm font-bold truncate leading-tight ${hasDefaultName ? 'text-[#C0C0C0] italic' : 'text-[#5D5D5D]'}`}>
           {student.name || '未命名'}
         </h3>
       </div>
@@ -2439,15 +2441,6 @@ function VillagerCard({ student, tasks, studentStatus, onClick, onToggleStatus, 
         </>
       )}
 
-      {/* 任務進度條 */}
-      {hasTasks && !allDone && totalTasks > 0 && (
-        <div className="mt-1 2xl:mt-0.5 h-1 bg-black/5 rounded-full overflow-hidden">
-          <div
-            className="h-full rounded-full bg-[#7BC496] transition-all duration-500"
-            style={{ width: `${(completedCount / totalTasks) * 100}%` }}
-          />
-        </div>
-      )}
     </div>
   )
 }
