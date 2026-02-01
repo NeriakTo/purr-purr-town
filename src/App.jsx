@@ -2366,10 +2366,10 @@ function VillagerCard({ student, tasks, studentStatus, onClick, onToggleStatus, 
     <div
       onClick={handleCardClick}
       onContextMenu={handleContextMenu}
-      className={`relative ${getBgStyle()} rounded-xl 2xl:rounded-lg p-2.5 2xl:p-1.5 cursor-pointer group transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md border`}
+      className={`relative ${getBgStyle()} rounded-xl 2xl:rounded-lg p-2 2xl:p-1.5 cursor-pointer group transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md border`}
     >
       {/* 座號標籤 */}
-      <div className={`absolute -top-2 -left-2 w-8 h-8 2xl:w-7 2xl:h-7 rounded-lg flex items-center justify-center text-white font-extrabold text-sm 2xl:text-xs shadow-sm z-10 ${
+      <div className={`absolute -top-1.5 -left-1.5 w-7 h-7 2xl:w-6 2xl:h-6 rounded-md flex items-center justify-center text-white font-extrabold text-xs 2xl:text-[10px] shadow-sm z-10 ${
         allDone ? 'bg-[#7BC496]' : hasIncomplete ? 'bg-[#FFBF69]' : 'bg-[#C8C8C8]'
       }`}>
         {studentNumber || '?'}
@@ -2377,31 +2377,31 @@ function VillagerCard({ student, tasks, studentStatus, onClick, onToggleStatus, 
 
       {/* 欠交警示 */}
       {hasOverdue && (
-        <div className="absolute -top-1 -right-1 w-5 h-5 2xl:w-4 2xl:h-4 rounded-full bg-[#D64545] flex items-center justify-center z-20 animate-pulse shadow-sm">
-          <AlertCircle size={10} className="text-white" />
+        <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#D64545] flex items-center justify-center z-20 animate-pulse shadow-sm">
+          <AlertCircle size={8} className="text-white" />
         </div>
       )}
 
       {/* 頭像區 */}
-      <div className="relative w-full aspect-[4/3] mb-1 2xl:mb-0.5 rounded-lg overflow-hidden bg-white/60">
+      <div className="relative w-full h-14 2xl:h-12 rounded-lg overflow-hidden bg-white/60">
         <AvatarEmoji
           seed={student.uuid || student.id}
-          className="w-full h-full rounded-lg text-4xl 2xl:text-3xl transition-transform duration-200 group-hover:scale-105"
+          className="w-full h-full rounded-lg text-3xl 2xl:text-2xl transition-transform duration-200 group-hover:scale-105"
         />
 
         {/* 完成狀態指示器 - 左鍵切換 null/on_time */}
         {hasTasks && (
           <div
             onClick={handleStatusClick}
-            className="absolute bottom-0.5 right-0.5 2xl:bottom-0 2xl:right-0 cursor-pointer"
+            className="absolute bottom-0 right-0 cursor-pointer"
           >
             {allDone ? (
-              <div className="w-6 h-6 2xl:w-5 2xl:h-5 rounded-full bg-[#7BC496] flex items-center justify-center shadow-sm">
-                <Check size={12} className="text-white" />
+              <div className="w-5 h-5 rounded-full bg-[#7BC496] flex items-center justify-center shadow-sm">
+                <Check size={10} className="text-white" />
               </div>
             ) : (
-              <div className="bg-white/90 backdrop-blur-sm text-sm 2xl:text-xs px-1.5 py-0.5 rounded flex items-center gap-0.5 shadow-sm border border-black/5">
-                <span className="font-bold text-[#FFBF69]">{completedCount}/{totalTasks}</span>
+              <div className="bg-white/90 backdrop-blur-sm text-sm 2xl:text-xs px-1 py-0.5 rounded shadow-sm border border-black/5">
+                <span className="font-black text-[#E8963A]">{completedCount}/{totalTasks}</span>
               </div>
             )}
           </div>
@@ -2409,8 +2409,8 @@ function VillagerCard({ student, tasks, studentStatus, onClick, onToggleStatus, 
       </div>
 
       {/* 名字 */}
-      <div className="text-center 2xl:min-h-0">
-        <h3 className={`text-base 2xl:text-sm font-bold truncate leading-tight ${hasDefaultName ? 'text-[#C0C0C0] italic' : 'text-[#5D5D5D]'}`}>
+      <div className="text-center mt-0.5">
+        <h3 className={`text-sm 2xl:text-xs font-bold truncate leading-tight ${hasDefaultName ? 'text-[#C0C0C0] italic' : 'text-[#5D5D5D]'}`}>
           {student.name || '未命名'}
         </h3>
       </div>
@@ -3171,7 +3171,7 @@ function Header({ todayStr, completionRate, className, classAlias, onLogout, onO
   ]
 
   return (
-    <header className="bg-white/80 backdrop-blur-md rounded-3xl p-4 md:p-5 mb-6 shadow-lg border border-white/50">
+    <header className="bg-white/80 backdrop-blur-md rounded-3xl p-3 md:p-4 mb-4 2xl:mb-2 shadow-lg border border-white/50 shrink-0">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#A8D8B9] to-[#7BC496] flex items-center justify-center shadow-md">
@@ -3480,7 +3480,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
   if (loading) return <LoadingScreen message="正在進入村莊..." />
 
   return (
-    <div className="min-h-screen p-4 md:p-6 lg:p-8 2xl:p-3 3xl:p-2 bg-[#fdfbf7]">
+    <div className="h-screen 2xl:overflow-hidden p-4 md:p-6 lg:p-8 2xl:p-3 3xl:p-2 bg-[#fdfbf7] flex flex-col">
       <Header
         todayStr={formatDate(currentDate)}
         completionRate={completionRate}
@@ -3494,26 +3494,28 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
         onOpenHistory={() => setShowHistory(true)}
       />
       
-      <div className="flex flex-col lg:flex-row gap-6 2xl:gap-3 3xl:gap-2">
-        <aside className="w-full lg:w-[350px] 2xl:w-[300px] 3xl:w-[260px] lg:shrink-0 space-y-4 2xl:space-y-3 3xl:space-y-2">
-          <div className="bg-white/60 backdrop-blur-sm rounded-3xl p-4 2xl:p-3 3xl:p-2 shadow-lg border border-white/50 space-y-6 2xl:space-y-4 3xl:space-y-3">
-            <div>
+      <div className="flex flex-col lg:flex-row gap-6 2xl:gap-3 3xl:gap-2 flex-1 min-h-0">
+        <aside className="w-full lg:w-[350px] 2xl:w-[300px] 3xl:w-[260px] lg:shrink-0 lg:sticky lg:top-3 lg:self-start lg:max-h-[calc(100vh-80px)] 2xl:max-h-[calc(100vh-60px)]">
+          <div className="bg-white/60 backdrop-blur-sm rounded-3xl p-4 2xl:p-3 3xl:p-2 shadow-lg border border-white/50 flex flex-col max-h-full">
+            <div className="shrink-0">
               <h2 className="text-lg 3xl:text-base font-bold text-[#5D5D5D] mb-4 2xl:mb-2 3xl:mb-1 flex items-center gap-2">
                 <CalendarIcon size={20} className="text-[#A8D8B9]" />村莊日誌
               </h2>
               <CalendarNav currentDate={currentDate} onDateChange={setCurrentDate} />
             </div>
-            <div className="h-px bg-gradient-to-r from-transparent via-[#E8E8E8] to-transparent" />
-            <TaskBoard
-              tasks={tasks}
-              students={students}
-              studentStatus={studentStatus}
-              onTasksUpdate={handleTasksUpdate}
-              onAddTask={handleAddTask}
-              taskTypes={settings.taskTypes}
-              onOpenFocus={() => setShowFocus(true)}
-              currentDateStr={formatDate(currentDate)}
-            />
+            <div className="h-px bg-gradient-to-r from-transparent via-[#E8E8E8] to-transparent my-4 2xl:my-3 3xl:my-2 shrink-0" />
+            <div className="flex-1 min-h-0 overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin', overscrollBehavior: 'contain' }}>
+              <TaskBoard
+                tasks={tasks}
+                students={students}
+                studentStatus={studentStatus}
+                onTasksUpdate={handleTasksUpdate}
+                onAddTask={handleAddTask}
+                taskTypes={settings.taskTypes}
+                onOpenFocus={() => setShowFocus(true)}
+                currentDateStr={formatDate(currentDate)}
+              />
+            </div>
           </div>
         </aside>
 
@@ -3558,7 +3560,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
                       }`}
                     >
                       {/* Group header bar：高密度壓縮 */}
-                      <div className={`px-4 py-2 2xl:px-3 2xl:py-1 flex items-center justify-between ${
+                      <div className={`px-3 py-1.5 2xl:px-2 2xl:py-1 flex items-center justify-between ${
                         isComplete
                           ? 'bg-gradient-to-r from-yellow-50 to-amber-50'
                           : 'bg-[#fdfbf7]'
@@ -3569,7 +3571,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
                           }}>
                             <Flag size={16} className={`2xl:!w-3.5 2xl:!h-3.5 ${isComplete ? 'text-white' : ''}`} style={isComplete ? {} : { color: accent }} />
                           </div>
-                          <h3 className="font-bold text-[#5D5D5D] 2xl:text-sm">{groupName}</h3>
+                          <h3 className="font-bold text-sm text-[#5D5D5D] 2xl:text-xs">{groupName}</h3>
                           {isComplete && (
                             <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-400/20 text-yellow-700 text-xs font-bold">
                               <Trophy size={12} />
@@ -3595,7 +3597,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
 
                       {/* Student grid：高密度 2xl grid-cols-10 */}
                       <div className={`px-4 pb-3 pt-2 2xl:px-2 2xl:pb-1.5 2xl:pt-1 ${isComplete ? 'bg-gradient-to-b from-amber-50/50 to-white' : 'bg-white/40'}`}>
-                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-5 gap-3 2xl:gap-1.5">
+                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-6 gap-3 2xl:gap-1.5">
                           {groupStudents.map((student) => (
                             <VillagerCard
                               key={student.id}
@@ -3618,7 +3620,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
         </main>
       </div>
 
-      <footer className="mt-10 text-center text-[#8B8B8B] text-sm">
+      <footer className="mt-10 2xl:mt-1 text-center text-[#8B8B8B] text-sm 2xl:hidden shrink-0">
         <p className="flex items-center justify-center gap-2">
           <PawPrint size={16} className="text-[#A8D8B9]" />
           呼嚕嚕小鎮 Purr Purr Town v3.0.1 © 2026
