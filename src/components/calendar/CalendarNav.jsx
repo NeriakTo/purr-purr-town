@@ -14,7 +14,7 @@ function CalendarNav({ currentDate, onDateChange }) {
         onChange={onDateChange}
         value={currentDate}
         className="!border-0 !bg-transparent w-full react-calendar-compact"
-        showNeighboringMonth={false}
+        showNeighboringMonth={true}
         tileClassName={({ date, view }) => {
           if (view === 'month') {
             const dateStr = formatDate(date)
