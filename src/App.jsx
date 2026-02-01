@@ -2383,7 +2383,7 @@ function VillagerCard({ student, tasks, studentStatus, onClick, onToggleStatus, 
       )}
 
       {/* 頭像區 */}
-      <div className="relative w-full h-14 2xl:h-12 rounded-lg overflow-hidden bg-white/60">
+      <div className="relative w-full h-14 2xl:h-16 rounded-lg overflow-hidden bg-white/60">
         <AvatarEmoji
           seed={student.uuid || student.id}
           className="w-full h-full rounded-lg text-3xl 2xl:text-2xl transition-transform duration-200 group-hover:scale-105"
@@ -3495,7 +3495,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
       />
       
       <div className="flex flex-col lg:flex-row gap-6 2xl:gap-3 3xl:gap-2 flex-1 min-h-0">
-        <aside className="w-full lg:w-[350px] 2xl:w-[300px] 3xl:w-[260px] lg:shrink-0 lg:h-[calc(100vh-2rem)] lg:sticky lg:top-4 lg:self-start">
+        <aside className="w-full lg:w-[350px] 2xl:w-[300px] 3xl:w-[260px] lg:shrink-0 lg:h-full lg:sticky lg:top-4 lg:self-start">
           <div className="h-full max-h-full overflow-hidden flex flex-col bg-white/60 backdrop-blur-sm rounded-3xl p-4 2xl:p-3 3xl:p-2 shadow-lg border border-white/50">
             <div className="shrink-0">
               <h2 className="text-lg 3xl:text-base font-bold text-[#5D5D5D] mb-4 2xl:mb-2 3xl:mb-1 flex items-center gap-2">
@@ -3504,7 +3504,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
               <CalendarNav currentDate={currentDate} onDateChange={setCurrentDate} />
             </div>
             <div className="h-px bg-gradient-to-r from-transparent via-[#E8E8E8] to-transparent my-4 2xl:my-3 3xl:my-2 shrink-0" />
-            <div className="flex-1 min-h-0 overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin', overscrollBehavior: 'contain' }}>
+            <div className="flex-1 min-h-0 overflow-y-auto pr-1 pb-10" style={{ scrollbarWidth: 'thin', overscrollBehavior: 'contain' }}>
               <TaskBoard
                 tasks={tasks}
                 students={students}
@@ -3542,7 +3542,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
                 <p className="text-[#8B8B8B]">目前沒有村民資料</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 2xl:grid-cols-2 gap-4 2xl:gap-2 overflow-y-auto flex-1 min-h-0">
+              <div className="grid grid-cols-1 2xl:grid-cols-2 gap-6 2xl:gap-8 overflow-y-auto flex-1 min-h-0">
                 {Object.entries(groupedStudents).map(([group, groupStudents], gi) => {
                   const rate = getGroupCompletionRate(groupStudents)
                   const isComplete = rate === 1 && tasks.length > 0
