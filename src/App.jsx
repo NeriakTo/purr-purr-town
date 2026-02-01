@@ -48,7 +48,8 @@ import {
   Projector,
   Menu,
   Coffee,
-  CircleMinus
+  CircleMinus,
+  Pin
 } from 'lucide-react'
 
 // ============================================
@@ -240,10 +241,10 @@ function getTaskIcon(title) {
 
 function getTaskTypeColor(titleOrType) {
   const s = (titleOrType || '').toLowerCase()
-  if (s.includes('作業') || s.includes('習')) return { border: 'border-l-blue-400', accent: '#60A5FA' }
-  if (s.includes('攜帶') || s.includes('物品')) return { border: 'border-l-amber-400', accent: '#F59E0B' }
-  if (s.includes('回條') || s.includes('通知')) return { border: 'border-l-rose-400', accent: '#FB7185' }
-  return { border: 'border-l-green-400', accent: '#34D399' }
+  if (s.includes('作業') || s.includes('習')) return { border: 'border-l-blue-400', accent: '#60A5FA', bg: 'bg-blue-50/50' }
+  if (s.includes('攜帶') || s.includes('物品')) return { border: 'border-l-amber-400', accent: '#F59E0B', bg: 'bg-amber-50/50' }
+  if (s.includes('回條') || s.includes('通知')) return { border: 'border-l-rose-400', accent: '#FB7185', bg: 'bg-rose-50/50' }
+  return { border: 'border-l-green-400', accent: '#34D399', bg: 'bg-green-50/50' }
 }
 
 // v2.0 改用 lorelei 風格 - 更可愛的手繪風格頭像
@@ -572,12 +573,12 @@ function LoginView({ onSelectClass, localClasses, onCreateLocalClass }) {
     <div className="min-h-screen bg-[#fdfbf7] flex flex-col relative overflow-hidden">
       {/* Decorative background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-32 -right-32 w-96 h-96 bg-[#A8D8B9]/8 rounded-full" />
-        <div className="absolute -bottom-24 -left-24 w-80 h-80 bg-[#FFD6A5]/8 rounded-full" />
-        <div className="absolute top-1/3 right-1/4 w-48 h-48 bg-[#FFADAD]/5 rounded-full" />
-        <div className="absolute top-[15%] left-[8%] w-32 h-32 bg-[#BDB2FF]/6 rounded-full" />
-        <div className="absolute bottom-[20%] right-[10%] w-56 h-56 bg-[#A0C4FF]/6 rounded-full" />
-        <div className="absolute top-[60%] left-[45%] w-24 h-24 bg-[#FDE2F3]/10 rounded-full" />
+        <div className="absolute -top-32 -right-32 w-96 h-96 bg-[#A8D8B9]/8 rounded-full animate-float" style={{ animationDuration: '6s', animationDelay: '0s' }} />
+        <div className="absolute -bottom-24 -left-24 w-80 h-80 bg-[#FFD6A5]/8 rounded-full animate-float" style={{ animationDuration: '7s', animationDelay: '2s' }} />
+        <div className="absolute top-1/3 right-1/4 w-48 h-48 bg-[#FFADAD]/5 rounded-full animate-float" style={{ animationDuration: '5s', animationDelay: '1.5s' }} />
+        <div className="absolute top-[15%] left-[8%] w-32 h-32 bg-[#BDB2FF]/6 rounded-full animate-float" style={{ animationDuration: '4s', animationDelay: '0.5s' }} />
+        <div className="absolute bottom-[20%] right-[10%] w-56 h-56 bg-[#A0C4FF]/6 rounded-full animate-float" style={{ animationDuration: '5.5s', animationDelay: '3s' }} />
+        <div className="absolute top-[60%] left-[45%] w-24 h-24 bg-[#FDE2F3]/10 rounded-full animate-float" style={{ animationDuration: '4.5s', animationDelay: '1s' }} />
       </div>
 
       <div className="flex-1 p-6 md:p-10 relative z-10">
@@ -588,7 +589,7 @@ function LoginView({ onSelectClass, localClasses, onCreateLocalClass }) {
               <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl shadow-lg bg-gradient-to-br from-[#A8D8B9] to-[#7BC496] flex items-center justify-center">
                 <PawPrint size={32} className="text-white" />
               </div>
-              <h1 className="text-4xl md:text-5xl font-bold text-[#5D5D5D]">呼嚕嚕小鎮</h1>
+              <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-[#5D5D5D] via-[#7BC496] to-[#FFBF69] bg-clip-text text-transparent">呼嚕嚕小鎮</h1>
             </div>
             <p className="text-lg text-[#8B8B8B] mb-1">歡迎回到小鎮！</p>
             <p className="text-sm text-[#B8B8B8]">用最溫暖的方式，陪伴每個孩子的學習旅程</p>
@@ -1887,8 +1888,8 @@ function TaskBoard({ tasks, students, studentStatus, onTasksUpdate, onAddTask, t
   return (
     <div>
       <div className="mb-4 flex items-center justify-between gap-3">
-        <h2 className="text-lg font-bold text-[#5D5D5D] flex items-center gap-2">
-          <ClipboardList size={20} className="text-[#A8D8B9]" />今日任務
+        <h2 className="text-base font-bold text-[#5D5D5D] flex items-center gap-2">
+          <ClipboardList size={18} className="text-[#A8D8B9]" />今日任務
         </h2>
         <button
           onClick={onOpenFocus}
@@ -1949,7 +1950,7 @@ function TaskBoard({ tasks, students, studentStatus, onTasksUpdate, onAddTask, t
               const percentage = total > 0 ? Math.round((completed / total) * 100) : 0
 
               return (
-                <div key={task.id} className={`bg-white rounded-xl p-3 shadow-sm group border-l-4 ${getTaskTypeColor(task.type || task.title).border}`}>
+                <div key={task.id} className={`rounded-xl p-3 shadow-sm group border-l-4 ${getTaskTypeColor(task.type || task.title).border} ${getTaskTypeColor(task.type || task.title).bg}`}>
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${isAllDone ? 'bg-[#A8D8B9]' : 'bg-[#FFD6A5]'}`}>
                       <IconComponent size={20} className="text-white" />
@@ -2376,8 +2377,8 @@ function VillagerCard({ student, tasks, studentStatus, onClick, hasOverdue }) {
                 <Check size={10} className="text-white" />
               </div>
             ) : (
-              <div className="bg-white/90 backdrop-blur-sm text-sm 2xl:text-xs px-1 py-0.5 rounded shadow-sm border border-black/5">
-                <span className="font-black text-[#E8963A]">{completedCount}/{totalTasks}</span>
+              <div className="bg-white px-1 py-0.5 rounded shadow-sm border border-gray-100">
+                <span className="font-black text-sm text-[#E8963A]">{completedCount}/{totalTasks}</span>
               </div>
             )}
           </div>
@@ -2386,7 +2387,7 @@ function VillagerCard({ student, tasks, studentStatus, onClick, hasOverdue }) {
 
       {/* 名字 */}
       <div className="text-center mt-0.5 shrink-0">
-        <h3 className={`text-sm 2xl:text-xs font-bold truncate leading-tight ${hasDefaultName ? 'text-[#C0C0C0] italic' : 'text-[#5D5D5D]'}`}>
+        <h3 className={`text-sm font-bold truncate leading-tight ${hasDefaultName ? 'text-[#C0C0C0] italic' : 'text-[#5D5D5D]'}`}>
           {student.name || '未命名'}
         </h3>
       </div>
@@ -3453,8 +3454,13 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
               </h2>
               <CalendarNav currentDate={currentDate} onDateChange={setCurrentDate} />
             </div>
-            <div className="flex-1 min-h-0 mt-3 2xl:mt-2 rounded-xl border-2 border-dashed border-[#E8E8E8] flex items-center justify-center">
-              <p className="text-xs text-[#B8B8B8]">公告預留區</p>
+            <div className="flex-1 min-h-0 mt-3 2xl:mt-2 flex items-center justify-center">
+              <div className="relative bg-[#FEF3C7] rounded-lg shadow-md rotate-1 px-4 py-3 w-full">
+                <Pin size={14} className="absolute -top-1.5 left-1/2 -translate-x-1/2 text-[#D97706]" />
+                <p className="font-chalk text-sm text-[#92400E] text-center leading-relaxed mt-1">
+                  ✨ 今天也要元氣滿滿喔！
+                </p>
+              </div>
             </div>
           </div>
           <footer className="mt-2 text-center text-[#8B8B8B] text-xs shrink-0 py-1">
@@ -3488,8 +3494,8 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
         <main className="flex-1 min-w-0 min-h-0 flex flex-col">
           <div className="bg-white/60 backdrop-blur-sm rounded-3xl p-4 2xl:p-3 shadow-lg border border-white/50 flex-1 min-h-0 flex flex-col overflow-hidden">
             <div className="flex items-center justify-between mb-3 2xl:mb-2 shrink-0">
-              <h2 className="text-lg font-bold text-[#5D5D5D] flex items-center gap-2">
-                <Users size={20} className="text-[#A8D8B9]" />村民廣場
+              <h2 className="text-base font-bold text-[#5D5D5D] flex items-center gap-2">
+                <Users size={18} className="text-[#A8D8B9]" />村民廣場
               </h2>
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#A8D8B9]/15">
