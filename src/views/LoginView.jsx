@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { PawPrint, Plus, Home, Users, Sparkles, ListTodo, Trophy, School } from 'lucide-react'
+import { PawPrint, Plus, Home, Users, Sparkles, ListTodo, Trophy, School, ChevronRight } from 'lucide-react'
 import CreateClassModal from '../components/modals/CreateClassModal'
 
 function LoginView({ onSelectClass, localClasses, onCreateLocalClass }) {
