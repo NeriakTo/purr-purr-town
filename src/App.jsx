@@ -238,6 +238,14 @@ function getTaskIcon(title) {
   return ScrollText
 }
 
+function getTaskTypeColor(titleOrType) {
+  const s = (titleOrType || '').toLowerCase()
+  if (s.includes('作業') || s.includes('習')) return { border: 'border-l-blue-400', accent: '#60A5FA' }
+  if (s.includes('攜帶') || s.includes('物品')) return { border: 'border-l-amber-400', accent: '#F59E0B' }
+  if (s.includes('回條') || s.includes('通知')) return { border: 'border-l-rose-400', accent: '#FB7185' }
+  return { border: 'border-l-green-400', accent: '#34D399' }
+}
+
 // v2.0 改用 lorelei 風格 - 更可愛的手繪風格頭像
 const AVATAR_EMOJIS = ['🐻', '🐱', '🐶', '🐰', '🦊', '🐼', '🐨', '🐯', '🦁', '🐹', '🐭', '🦝', '🐮', '🐸', '🐔', '🐧', '🦉', '🦄', '🐺', '🐴']
 const AVATAR_COLORS = ['#FCE3E3', '#FDEBC8', '#E7F3D7', '#DDF1F8', '#E7E3FA', '#F8E6D8', '#FDE2F3', '#E2F0FF', '#E9F7F1', '#FFF1CC']
@@ -332,66 +340,10 @@ function LoadingScreen({ message = '正在前往呼嚕嚕小鎮...' }) {
 
       <div className="absolute bottom-8 flex items-center gap-2 text-[#A8D8B9]">
         <PawPrint size={20} />
-        <span className="text-sm font-medium">Purr Purr Town v2.2.0</span>
+        <span className="text-sm font-medium">Purr Purr Town v3.1.6</span>
         <PawPrint size={20} />
       </div>
 
-    </div>
-  )
-}
-
-// ============================================
-// 歡迎連結頁面 (WelcomeView)
-// ============================================
-
-function WelcomeView({ onLocalMode }) {
-  return (
-    <div className="min-h-screen bg-[#fdfbf7] flex flex-col items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-3xl shadow-xl overflow-hidden border-2 border-white/50">
-        <div className="h-3 bg-gradient-to-r from-[#A8D8B9] to-[#FFD6A5]" />
-        
-        <div className="p-8">
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-[#A8D8B9] mb-4 shadow-lg rotate-3">
-              <PawPrint size={40} className="text-white" />
-            </div>
-            <h1 className="text-3xl font-bold text-[#5D5D5D] mb-2">歡迎來到<br/>呼嚕嚕小鎮</h1>
-            <p className="text-[#8B8B8B] text-sm">
-              這裡是一個安全、去中心化的班級管理工具。<br/>
-              資料以本機為主，雲端備份可選擇性連結。
-            </p>
-          </div>
-
-          <button
-            onClick={onLocalMode}
-            className="w-full py-3.5 rounded-xl bg-gradient-to-r from-[#A8D8B9] to-[#7BC496] text-white font-bold shadow-md hover:shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
-          >
-            <Sparkles size={20} />
-            開始使用（本地模式）
-          </button>
-
-          <div className="mt-8 pt-6 border-t border-[#E8E8E8]">
-            <h3 className="text-xs font-bold text-[#8B8B8B] mb-3 uppercase tracking-wider text-center">
-              關於雲端備份
-            </h3>
-            <div className="space-y-3">
-              <div className="flex items-start gap-3 text-sm text-[#5D5D5D]">
-                <div className="w-6 h-6 rounded-full bg-[#FFD6A5] text-white flex items-center justify-center shrink-0 font-bold text-xs">1</div>
-                <p>建立一個空的 Google Sheet</p>
-              </div>
-              <div className="flex items-start gap-3 text-sm text-[#5D5D5D]">
-                <div className="w-6 h-6 rounded-full bg-[#FFD6A5] text-white flex items-center justify-center shrink-0 font-bold text-xs">2</div>
-                <p>在擴充功能中貼上 Apps Script 並部署</p>
-              </div>
-              <div className="flex items-start gap-3 text-sm text-[#5D5D5D]">
-                <div className="w-6 h-6 rounded-full bg-[#FFD6A5] text-white flex items-center justify-center shrink-0 font-bold text-xs">3</div>
-                <p>到「設定 → 備份中心」貼上 GAS 連結</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <p className="mt-6 text-[#B8B8B8] text-xs">Purr Purr Town v2.2.0 • BYOB Architecture</p>
     </div>
   )
 }
@@ -406,7 +358,8 @@ function CreateClassModal({ onClose, onSuccess, onCreateLocalClass }) {
     className: '',
     teacher: '',
     alias: '',
-    studentCount: '30'
+    studentCount: '30',
+    squadCount: '6'
   })
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
@@ -428,7 +381,11 @@ function CreateClassModal({ onClose, onSuccess, onCreateLocalClass }) {
     if (!formData.studentCount.trim()) newErrors.studentCount = '請輸入村民人數'
     else if (!/^\d+$/.test(formData.studentCount.trim())) newErrors.studentCount = '請輸入數字'
     else if (parseInt(formData.studentCount.trim(), 10) < 1 || parseInt(formData.studentCount.trim(), 10) > 50) newErrors.studentCount = '人數需在 1-50 之間'
-    
+
+    if (!formData.squadCount.trim()) newErrors.squadCount = '請輸入小隊數量'
+    else if (!/^\d+$/.test(formData.squadCount.trim())) newErrors.squadCount = '請輸入數字'
+    else if (parseInt(formData.squadCount.trim(), 10) < 1 || parseInt(formData.squadCount.trim(), 10) > 6) newErrors.squadCount = '小隊數需在 1-6 之間'
+
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -451,7 +408,8 @@ function CreateClassModal({ onClose, onSuccess, onCreateLocalClass }) {
         className: formData.className.trim(),
         teacher: formData.teacher.trim(),
         alias: formData.alias.trim(),
-        studentCount: parseInt(formData.studentCount.trim(), 10)
+        studentCount: parseInt(formData.studentCount.trim(), 10),
+        squadCount: parseInt(formData.squadCount.trim(), 10)
       })
       onSuccess()
     } catch (err) {
@@ -559,6 +517,21 @@ function CreateClassModal({ onClose, onSuccess, onCreateLocalClass }) {
                 className={`w-full px-4 py-3 rounded-2xl border-2 transition-all outline-none ${errors.studentCount ? 'border-[#FFADAD] bg-[#FFADAD]/5' : 'border-[#E8E8E8] focus:border-[#A8D8B9] bg-white'}`}
               />
               {errors.studentCount && <p className="mt-1 text-xs text-[#D64545]">{errors.studentCount}</p>}
+            </div>
+
+            <div>
+              <label className="flex items-center gap-2 text-sm font-medium text-[#5D5D5D] mb-2">
+                <Flag size={16} className="text-[#FFADAD]" />預計小隊數量 <span className="text-xs text-[#8B8B8B] font-normal">(1-6)</span>
+              </label>
+              <input
+                type="text"
+                value={formData.squadCount}
+                onChange={(e) => handleChange('squadCount', e.target.value.replace(/[^\d]/g, ''))}
+                placeholder="例如：6"
+                disabled={submitting}
+                className={`w-full px-4 py-3 rounded-2xl border-2 transition-all outline-none ${errors.squadCount ? 'border-[#FFADAD] bg-[#FFADAD]/5' : 'border-[#E8E8E8] focus:border-[#A8D8B9] bg-white'}`}
+              />
+              {errors.squadCount && <p className="mt-1 text-xs text-[#D64545]">{errors.squadCount}</p>}
             </div>
 
             <button
@@ -679,7 +652,7 @@ function LoginView({ onSelectClass, localClasses, onCreateLocalClass }) {
       <footer className="text-center py-6 relative z-10">
         <p className="flex items-center justify-center gap-2 text-[#B8B8B8] text-xs">
           <PawPrint size={12} />
-          Purr Purr Town v2.2.0
+          Purr Purr Town v3.1.6
           <PawPrint size={12} />
         </p>
       </footer>
@@ -1941,7 +1914,7 @@ function TaskBoard({ tasks, students, studentStatus, onTasksUpdate, onAddTask, t
               const percentage = total > 0 ? Math.round((completed / total) * 100) : 0
 
               return (
-                <div key={task.id} className="bg-white rounded-xl p-3 shadow-sm group">
+                <div key={task.id} className={`bg-white rounded-xl p-3 shadow-sm group border-l-4 ${getTaskTypeColor(task.type || task.title).border}`}>
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${isAllDone ? 'bg-[#A8D8B9]' : 'bg-[#FFD6A5]'}`}>
                       <IconComponent size={20} className="text-white" />
@@ -2312,8 +2285,7 @@ function GadgetsModal({ students, onClose }) {
 // 村民卡片 (v2.0 重新設計)
 // ============================================
 
-function VillagerCard({ student, tasks, studentStatus, onClick, onToggleStatus, hasOverdue }) {
-  const [contextMenu, setContextMenu] = useState(null)
+function VillagerCard({ student, tasks, studentStatus, onClick, hasOverdue }) {
   const status = studentStatus[student.id] || {}
   const hasTasks = tasks.length > 0
 
@@ -2328,33 +2300,6 @@ function VillagerCard({ student, tasks, studentStatus, onClick, onToggleStatus, 
 
   const hasMissing = hasTasks && tasks.some(t => normalizeStatus(status[t.id]) === STATUS_VALUES.MISSING)
 
-  const handleContextMenu = (e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (!onToggleStatus || tasks.length === 0) return
-    setContextMenu({ x: e.clientX, y: e.clientY, task: tasks[0] })
-  }
-
-  const handleStatusSelect = (newStatus, task) => {
-    onToggleStatus?.(student.id, task.id, newStatus, task._sourceLogDate)
-    setContextMenu(null)
-  }
-
-  const handleStatusClick = (e) => {
-    e.stopPropagation()
-    setContextMenu(null)
-    if (!onToggleStatus || tasks.length === 0) return
-    const task = tasks[0]
-    const current = normalizeStatus(status[task.id])
-    const isCompleted = isDoneStatus(current)
-    onToggleStatus(student.id, task.id, isCompleted ? null : STATUS_VALUES.ON_TIME, task._sourceLogDate)
-  }
-
-  const handleCardClick = () => {
-    if (contextMenu) setContextMenu(null)
-    onClick()
-  }
-
   const getBgStyle = () => {
     if (!hasTasks) return 'bg-[#F7F7F7] border-[#EBEBEB]'
     if (allDone) return 'bg-gradient-to-br from-[#EDF7EF] to-[#DFF0E3] border-[#B5DFBF]'
@@ -2364,8 +2309,7 @@ function VillagerCard({ student, tasks, studentStatus, onClick, onToggleStatus, 
 
   return (
     <div
-      onClick={handleCardClick}
-      onContextMenu={handleContextMenu}
+      onClick={onClick}
       className={`relative ${getBgStyle()} rounded-xl 2xl:rounded-lg p-2 2xl:p-1.5 cursor-pointer group transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md border`}
     >
       {/* 座號標籤 */}
@@ -2383,18 +2327,15 @@ function VillagerCard({ student, tasks, studentStatus, onClick, onToggleStatus, 
       )}
 
       {/* 頭像區 */}
-      <div className="relative w-full h-14 2xl:h-16 rounded-lg overflow-hidden bg-white/60">
+      <div className="relative w-full h-14 2xl:h-12 rounded-lg overflow-hidden bg-white/60">
         <AvatarEmoji
           seed={student.uuid || student.id}
           className="w-full h-full rounded-lg text-3xl 2xl:text-2xl transition-transform duration-200 group-hover:scale-105"
         />
 
-        {/* 完成狀態指示器 - 僅綠色勾勾可點擊切換 null/on_time */}
+        {/* 完成狀態指示器（僅顯示，不可點擊） */}
         {hasTasks && (
-          <div
-            onClick={allDone ? handleStatusClick : undefined}
-            className={`absolute bottom-0 right-0 ${allDone ? 'cursor-pointer' : 'cursor-default'}`}
-          >
+          <div className="absolute bottom-0 right-0">
             {allDone ? (
               <div className="w-5 h-5 rounded-full bg-[#7BC496] flex items-center justify-center shadow-sm">
                 <Check size={10} className="text-white" />
@@ -2414,33 +2355,6 @@ function VillagerCard({ student, tasks, studentStatus, onClick, onToggleStatus, 
           {student.name || '未命名'}
         </h3>
       </div>
-
-      {/* 右鍵選單 */}
-      {contextMenu && onToggleStatus && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setContextMenu(null)} />
-          <div
-            className="fixed z-50 py-1 rounded-xl bg-white shadow-xl border border-[#E8E8E8] min-w-[120px] animate-slide-up"
-            style={{ left: contextMenu.x, top: contextMenu.y }}
-          >
-            {[STATUS_VALUES.LATE, STATUS_VALUES.MISSING, STATUS_VALUES.LEAVE, STATUS_VALUES.EXEMPT].map(val => {
-              const v = getStatusVisual(val)
-              const Icon = v.icon
-              return (
-                <button
-                  key={val}
-                  onClick={() => handleStatusSelect(val, contextMenu.task)}
-                  className="w-full px-3 py-2 flex items-center gap-2 hover:bg-[#fdfbf7] text-left text-sm"
-                >
-                  {Icon && <Icon size={16} style={{ color: v.color }} />}
-                  {v.label}
-                </button>
-              )
-            })}
-          </div>
-        </>
-      )}
-
     </div>
   )
 }
@@ -3494,17 +3408,33 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
         onOpenHistory={() => setShowHistory(true)}
       />
       
-      <div className="flex flex-col lg:flex-row gap-6 2xl:gap-3 3xl:gap-2 flex-1 min-h-0">
-        <aside className="w-full lg:w-[350px] 2xl:w-[300px] 3xl:w-[260px] lg:shrink-0 lg:h-full lg:sticky lg:top-4 lg:self-start">
-          <div className="h-full max-h-full overflow-hidden flex flex-col bg-white/60 backdrop-blur-sm rounded-3xl p-4 2xl:p-3 3xl:p-2 shadow-lg border border-white/50">
+      <div className="flex flex-col lg:flex-row gap-4 2xl:gap-3 flex-1 min-h-0">
+        {/* Column 1: 村莊日誌 (Calendar) */}
+        <aside className="w-full lg:w-[260px] lg:shrink-0 flex flex-col min-h-0">
+          <div className="flex-1 min-h-0 flex flex-col bg-white/60 backdrop-blur-sm rounded-3xl p-4 2xl:p-3 shadow-lg border border-white/50">
             <div className="shrink-0">
-              <h2 className="text-lg 3xl:text-base font-bold text-[#5D5D5D] mb-4 2xl:mb-2 3xl:mb-1 flex items-center gap-2">
-                <CalendarIcon size={20} className="text-[#A8D8B9]" />村莊日誌
+              <h2 className="text-base font-bold text-[#5D5D5D] mb-3 2xl:mb-2 flex items-center gap-2">
+                <CalendarIcon size={18} className="text-[#A8D8B9]" />村莊日誌
               </h2>
               <CalendarNav currentDate={currentDate} onDateChange={setCurrentDate} />
             </div>
-            <div className="h-px bg-gradient-to-r from-transparent via-[#E8E8E8] to-transparent my-4 2xl:my-3 3xl:my-2 shrink-0" />
-            <div className="flex-1 min-h-0 overflow-y-auto pr-1 pb-10" style={{ scrollbarWidth: 'thin', overscrollBehavior: 'contain' }}>
+            <div className="flex-1 min-h-0 mt-3 2xl:mt-2 rounded-xl border-2 border-dashed border-[#E8E8E8] flex items-center justify-center">
+              <p className="text-xs text-[#B8B8B8]">公告預留區</p>
+            </div>
+          </div>
+          <footer className="mt-2 text-center text-[#8B8B8B] text-xs shrink-0 py-1">
+            <p className="flex items-center justify-center gap-1.5">
+              <PawPrint size={10} className="text-[#A8D8B9]" />
+              呼嚕嚕小鎮 v3.1.6
+              <PawPrint size={10} className="text-[#A8D8B9]" />
+            </p>
+          </footer>
+        </aside>
+
+        {/* Column 2: 任務布告欄 (TaskBoard) */}
+        <aside className="w-full lg:w-[280px] lg:shrink-0 min-h-0">
+          <div className="h-full max-h-full overflow-hidden flex flex-col bg-white/60 backdrop-blur-sm rounded-3xl p-4 2xl:p-3 shadow-lg border border-white/50">
+            <div className="flex-1 min-h-0 overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin', overscrollBehavior: 'contain' }}>
               <TaskBoard
                 tasks={tasks}
                 students={students}
@@ -3519,18 +3449,19 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
           </div>
         </aside>
 
+        {/* Column 3: 村民廣場 (Squad Grid) */}
         <main className="flex-1 min-w-0 min-h-0 flex flex-col">
-          <div className="bg-white/60 backdrop-blur-sm rounded-3xl p-6 2xl:p-4 3xl:p-3 shadow-lg border border-white/50 flex-1 min-h-0 flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between mb-6 2xl:mb-2 3xl:mb-1 shrink-0">
-              <h2 className="text-xl font-bold text-[#5D5D5D] flex items-center gap-2">
-                <Users size={24} className="text-[#A8D8B9]" />村民廣場
+          <div className="bg-white/60 backdrop-blur-sm rounded-3xl p-4 2xl:p-3 shadow-lg border border-white/50 flex-1 min-h-0 flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between mb-3 2xl:mb-2 shrink-0">
+              <h2 className="text-lg font-bold text-[#5D5D5D] flex items-center gap-2">
+                <Users size={20} className="text-[#A8D8B9]" />村民廣場
               </h2>
               <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#A8D8B9]/15">
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#A8D8B9]/15">
                   <CheckCircle size={14} className="text-[#7BC496]" />
                   <span className="text-xs font-bold text-[#4A7C59]">{purrCount}</span>
                 </div>
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#FFADAD]/15">
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FFADAD]/15">
                   <Clock size={14} className="text-[#FF8A8A]" />
                   <span className="text-xs font-bold text-[#D64545]">{angryCount}</span>
                 </div>
@@ -3542,7 +3473,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
                 <p className="text-[#8B8B8B]">目前沒有村民資料</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 2xl:grid-cols-2 gap-6 2xl:gap-8 overflow-y-auto flex-1 min-h-0">
+              <div className="grid grid-cols-1 2xl:grid-cols-2 gap-4 2xl:gap-3 overflow-y-auto flex-1 min-h-0" style={{ scrollbarWidth: 'thin' }}>
                 {Object.entries(groupedStudents).map(([group, groupStudents], gi) => {
                   const rate = getGroupCompletionRate(groupStudents)
                   const isComplete = rate === 1 && tasks.length > 0
@@ -3553,34 +3484,29 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
                   return (
                     <div
                       key={group}
-                      className={`rounded-2xl 3xl:rounded-xl overflow-hidden transition-all shrink-0 ${
-                        isComplete
-                          ? 'ring-2 ring-yellow-300 shadow-lg'
-                          : 'shadow-sm'
+                      className={`rounded-xl overflow-hidden transition-all shrink-0 ${
+                        isComplete ? 'ring-2 ring-yellow-300 shadow-lg' : 'shadow-sm'
                       }`}
                     >
-                      {/* Group header bar：高密度壓縮 */}
-                      <div className={`px-3 py-1.5 2xl:px-2 2xl:py-1 flex items-center justify-between ${
-                        isComplete
-                          ? 'bg-gradient-to-r from-yellow-50 to-amber-50'
-                          : 'bg-[#fdfbf7]'
+                      {/* Group header */}
+                      <div className={`px-2.5 py-1 flex items-center justify-between ${
+                        isComplete ? 'bg-gradient-to-r from-yellow-50 to-amber-50' : 'bg-[#fdfbf7]'
                       }`}>
-                        <div className="flex items-center gap-2 2xl:gap-1.5">
-                          <div className="w-8 h-8 2xl:w-6 2xl:h-6 rounded-lg flex items-center justify-center shrink-0" style={{
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-6 h-6 rounded-md flex items-center justify-center shrink-0" style={{
                             background: isComplete ? '#FBBF24' : `${accent}30`
                           }}>
-                            <Flag size={16} className={`2xl:!w-3.5 2xl:!h-3.5 ${isComplete ? 'text-white' : ''}`} style={isComplete ? {} : { color: accent }} />
+                            <Flag size={12} className={isComplete ? 'text-white' : ''} style={isComplete ? {} : { color: accent }} />
                           </div>
-                          <h3 className="font-bold text-sm text-[#5D5D5D] 2xl:text-xs">{groupName}</h3>
+                          <h3 className="font-bold text-xs text-[#5D5D5D]">{groupName}</h3>
                           {isComplete && (
-                            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-400/20 text-yellow-700 text-xs font-bold">
-                              <Trophy size={12} />
-                              全員達成
+                            <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-yellow-400/20 text-yellow-700 text-[10px] font-bold">
+                              <Trophy size={10} />全員達成
                             </span>
                           )}
                         </div>
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-20 h-1.5 bg-black/5 rounded-full overflow-hidden">
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-16 h-1 bg-black/5 rounded-full overflow-hidden">
                             <div
                               className="h-full rounded-full transition-all duration-500"
                               style={{
@@ -3591,20 +3517,19 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
                               }}
                             />
                           </div>
-                          <span className="text-xs font-medium text-[#8B8B8B] w-8 text-right">{Math.round(rate * 100)}%</span>
+                          <span className="text-[10px] font-medium text-[#8B8B8B] w-7 text-right">{Math.round(rate * 100)}%</span>
                         </div>
                       </div>
 
-                      {/* Student grid：高密度 2xl grid-cols-10 */}
-                      <div className={`px-4 pb-3 pt-2 2xl:px-2 2xl:pb-1.5 2xl:pt-1 ${isComplete ? 'bg-gradient-to-b from-amber-50/50 to-white' : 'bg-white/40'}`}>
-                        <div className="grid grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-3 2xl:gap-1.5">
+                      {/* Student grid: fixed 3 columns */}
+                      <div className={`px-2 pb-2 pt-1 ${isComplete ? 'bg-gradient-to-b from-amber-50/50 to-white' : 'bg-white/40'}`}>
+                        <div className="grid grid-cols-3 gap-2 2xl:gap-1.5">
                           {groupStudents.map((student) => (
                             <VillagerCard
                               key={student.id}
                               student={student}
                               tasks={tasks}
                               studentStatus={studentStatus}
-                              onToggleStatus={toggleStatus}
                               onClick={() => setSelectedStudent(student)}
                               hasOverdue={checkOverdue(student.id)}
                             />
@@ -3619,14 +3544,6 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
           </div>
         </main>
       </div>
-
-      <footer className="mt-10 2xl:mt-1 text-center text-[#8B8B8B] text-sm 2xl:hidden shrink-0">
-        <p className="flex items-center justify-center gap-2">
-          <PawPrint size={16} className="text-[#A8D8B9]" />
-          呼嚕嚕小鎮 Purr Purr Town v3.0.1 © 2026
-          <PawPrint size={16} className="text-[#A8D8B9]" />
-        </p>
-      </footer>
 
       {/* Modals */}
       {selectedStudent && (
@@ -3726,12 +3643,6 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
 function App() {
   const [localClasses, setLocalClasses] = useState(() => loadLocalClasses())
   const [selectedClass, setSelectedClass] = useState(null)
-  const [hasStarted, setHasStarted] = useState(false)
-
-  const handleLocalMode = () => {
-    setHasStarted(true)
-    setSelectedClass(null)
-  }
 
   const handleCreateLocalClass = (payload) => {
     const classId = `${payload.year}_${Math.floor(Math.random() * 1000)}`
@@ -3749,12 +3660,14 @@ function App() {
     setLocalClasses(nextClasses)
     saveLocalClasses(nextClasses)
 
+    const squadCount = payload.squadCount || 6
+    const groupLetters = ['A', 'B', 'C', 'D', 'E', 'F'].slice(0, squadCount)
     const students = Array.from({ length: studentCount }).map((_, i) => ({
       uuid: `s_${classId}_${i + 1}`,
       id: `s_${classId}_${i + 1}`,
       number: i + 1,
       name: `${i + 1}號村民`,
-      group: 'A',
+      group: groupLetters[i % squadCount],
       gender: 'neutral'
     }))
     saveClassCache(classId, {
@@ -3778,10 +3691,6 @@ function App() {
     if (selectedClass?.id === classId) {
       setSelectedClass(null)
     }
-  }
-
-  if (!hasStarted) {
-    return <WelcomeView onLocalMode={handleLocalMode} />
   }
 
   if (!selectedClass) {
