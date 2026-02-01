@@ -914,7 +914,6 @@ function TeamManagementModal({ students, settings, onClose, onSave, onSettingsUp
                         )}
                       </div>
                     </div>
-                  </div>
                   )
                 })}
               </div>
