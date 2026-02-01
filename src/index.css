@@ -503,7 +503,7 @@ body {
   }
 
   .react-calendar-compact .react-calendar__tile {
-    padding: 0.25rem;
+    padding: 0.125rem;
     font-size: 0.7rem;
     aspect-ratio: 1;
     min-height: 0;
@@ -516,10 +516,10 @@ body {
   }
 }
 
-/* 3xl 以上更緊湊行事曆 */
-@media (min-width: 1920px) {
+/* 2xl/3xl 以上更緊湊行事曆 (1920px+) */
+@media (min-width: 1536px) {
   .react-calendar-compact .react-calendar__tile {
-    padding: 0.15rem;
+    padding: 0.1rem;
     font-size: 0.65rem;
   }
 }

@@ -2289,10 +2289,10 @@ function VillagerCard({ student, tasks, studentStatus, onClick, hasOverdue }) {
   return (
     <div
       onClick={onClick}
-      className={`relative ${getBgStyle()} rounded-xl 2xl:rounded-lg 3xl:rounded-md p-2.5 2xl:p-1.5 3xl:p-1 cursor-pointer group transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md border`}
+      className={`relative ${getBgStyle()} rounded-xl 2xl:rounded-lg p-2.5 2xl:p-1.5 cursor-pointer group transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md border`}
     >
       {/* 座號標籤 */}
-      <div className={`absolute -top-1.5 -left-1.5 w-6 h-6 2xl:w-5 2xl:h-5 3xl:w-4 3xl:h-4 rounded-md flex items-center justify-center text-white font-bold text-[10px] 2xl:text-[8px] 3xl:text-[7px] shadow-sm z-10 ${
+      <div className={`absolute -top-1.5 -left-1.5 w-6 h-6 2xl:w-5 2xl:h-5 rounded-md flex items-center justify-center text-white font-bold text-[10px] 2xl:text-[9px] shadow-sm z-10 ${
         allDone ? 'bg-[#7BC496]' : hasIncomplete ? 'bg-[#FFBF69]' : 'bg-[#C8C8C8]'
       }`}>
         {studentNumber || '?'}
@@ -2300,27 +2300,27 @@ function VillagerCard({ student, tasks, studentStatus, onClick, hasOverdue }) {
 
       {/* 欠交警示 */}
       {hasOverdue && (
-        <div className="absolute -top-1 -right-1 w-5 h-5 2xl:w-4 2xl:h-4 3xl:w-3.5 3xl:h-3.5 rounded-full bg-[#D64545] flex items-center justify-center z-20 animate-pulse shadow-sm">
+        <div className="absolute -top-1 -right-1 w-5 h-5 2xl:w-4 2xl:h-4 rounded-full bg-[#D64545] flex items-center justify-center z-20 animate-pulse shadow-sm">
           <AlertCircle size={10} className="text-white" />
         </div>
       )}
 
-      {/* 頭像區 */}
-      <div className="relative w-full aspect-square mb-1.5 2xl:mb-1 3xl:mb-0.5 rounded-lg overflow-hidden bg-white/60">
+      {/* 頭像區：高密度下放大頭像、佔滿寬度 */}
+      <div className="relative w-full aspect-square mb-1.5 2xl:mb-0.5 rounded-lg overflow-hidden bg-white/60">
         <AvatarEmoji
           seed={student.uuid || student.id}
-          className="w-full h-full rounded-lg text-5xl 2xl:text-3xl 3xl:text-2xl transition-transform duration-200 group-hover:scale-105"
+          className="w-full h-full rounded-lg text-5xl 2xl:text-4xl transition-transform duration-200 group-hover:scale-105"
         />
 
         {/* 完成狀態指示器 */}
         {hasTasks && (
-          <div className="absolute bottom-1 right-1 3xl:bottom-0.5 3xl:right-0.5">
+          <div className="absolute bottom-0.5 right-0.5 2xl:bottom-0 2xl:right-0">
             {allDone ? (
-              <div className="w-5 h-5 3xl:w-4 3xl:h-4 rounded-full bg-[#7BC496] flex items-center justify-center shadow-sm">
+              <div className="w-5 h-5 2xl:w-4 2xl:h-4 rounded-full bg-[#7BC496] flex items-center justify-center shadow-sm">
                 <Check size={10} className="text-white" />
               </div>
             ) : (
-              <div className="bg-white/90 backdrop-blur-sm text-[10px] 3xl:text-[8px] px-1.5 py-0.5 3xl:px-1 3xl:py-0 rounded-md flex items-center gap-0.5 shadow-sm border border-black/5">
+              <div className="bg-white/90 backdrop-blur-sm text-[10px] 2xl:text-[8px] px-1 py-0.5 rounded flex items-center gap-0.5 shadow-sm border border-black/5">
                 <span className="font-bold text-[#FFBF69]">{completedCount}/{totalTasks}</span>
               </div>
             )}
@@ -2329,15 +2329,15 @@ function VillagerCard({ student, tasks, studentStatus, onClick, hasOverdue }) {
       </div>
 
       {/* 名字 */}
-      <div className="text-center">
-        <h3 className={`text-xs 2xl:text-[10px] 3xl:text-[9px] font-bold truncate ${hasDefaultName ? 'text-[#C0C0C0] italic' : 'text-[#5D5D5D]'}`}>
+      <div className="text-center 2xl:min-h-0">
+        <h3 className={`text-xs 2xl:text-[11px] font-bold truncate leading-tight ${hasDefaultName ? 'text-[#C0C0C0] italic' : 'text-[#5D5D5D]'}`}>
           {student.name || '未命名'}
         </h3>
       </div>
 
       {/* 任務進度條 */}
       {hasTasks && !allDone && (
-        <div className="mt-1.5 2xl:mt-1 3xl:mt-0.5 h-1 bg-black/5 rounded-full overflow-hidden">
+        <div className="mt-1 2xl:mt-0.5 h-1 bg-black/5 rounded-full overflow-hidden">
           <div
             className="h-full rounded-full bg-[#7BC496] transition-all duration-500"
             style={{ width: `${(completedCount / totalTasks) * 100}%` }}
@@ -3393,7 +3393,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
                 <p className="text-[#8B8B8B]">目前沒有村民資料</p>
               </div>
             ) : (
-              <div className="space-y-5 2xl:space-y-2 3xl:space-y-1.5 overflow-y-auto flex-1 min-h-0">
+              <div className="space-y-5 2xl:space-y-3 overflow-y-auto flex-1 min-h-0">
                 {Object.entries(groupedStudents).map(([group, groupStudents], gi) => {
                   const rate = getGroupCompletionRate(groupStudents)
                   const isComplete = rate === 1 && tasks.length > 0
@@ -3410,19 +3410,19 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
                           : 'shadow-sm'
                       }`}
                     >
-                      {/* Group header bar */}
-                      <div className={`px-4 py-3 2xl:px-3 2xl:py-2 3xl:px-2 3xl:py-1.5 flex items-center justify-between ${
+                      {/* Group header bar：高密度壓縮 */}
+                      <div className={`px-4 py-3 2xl:px-3 2xl:py-1.5 flex items-center justify-between ${
                         isComplete
                           ? 'bg-gradient-to-r from-yellow-50 to-amber-50'
                           : 'bg-[#fdfbf7]'
                       }`}>
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{
+                        <div className="flex items-center gap-2 2xl:gap-1.5">
+                          <div className="w-8 h-8 2xl:w-6 2xl:h-6 rounded-lg flex items-center justify-center shrink-0" style={{
                             background: isComplete ? '#FBBF24' : `${accent}30`
                           }}>
-                            <Flag size={16} className={isComplete ? 'text-white' : ''} style={isComplete ? {} : { color: accent }} />
+                            <Flag size={16} className={`2xl:!w-3.5 2xl:!h-3.5 ${isComplete ? 'text-white' : ''}`} style={isComplete ? {} : { color: accent }} />
                           </div>
-                          <h3 className="font-bold text-[#5D5D5D]">{groupName}</h3>
+                          <h3 className="font-bold text-[#5D5D5D] 2xl:text-sm">{groupName}</h3>
                           {isComplete && (
                             <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-400/20 text-yellow-700 text-xs font-bold">
                               <Trophy size={12} />
@@ -3446,9 +3446,9 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
                         </div>
                       </div>
 
-                      {/* Student grid */}
-                      <div className={`px-4 pb-4 pt-3 2xl:px-3 2xl:pb-3 2xl:pt-2 3xl:px-2 3xl:pb-2 3xl:pt-1.5 ${isComplete ? 'bg-gradient-to-b from-amber-50/50 to-white' : 'bg-white/40'}`}>
-                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 3xl:grid-cols-10 gap-3 2xl:gap-2 3xl:gap-1.5">
+                      {/* Student grid：高密度 2xl grid-cols-10 */}
+                      <div className={`px-4 pb-4 pt-3 2xl:px-3 2xl:pb-2 2xl:pt-1.5 ${isComplete ? 'bg-gradient-to-b from-amber-50/50 to-white' : 'bg-white/40'}`}>
+                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-10 gap-3 2xl:gap-2">
                           {groupStudents.map((student) => (
                             <VillagerCard
                               key={student.id}
