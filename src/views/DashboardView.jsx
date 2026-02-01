@@ -227,7 +227,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
   if (loading) return <LoadingScreen message="正在進入村莊..." />
 
   return (
-    <div className="h-screen 2xl:overflow-hidden p-4 md:p-6 lg:p-8 2xl:p-3 3xl:p-2 bg-[#fdfbf7] flex flex-col">
+    <div className="min-h-screen lg:h-screen lg:overflow-hidden p-4 md:p-6 lg:p-8 2xl:p-3 3xl:p-2 bg-[#fdfbf7] flex flex-col">
       <Header
         todayStr={formatDate(currentDate)}
         completionRate={completionRate}
@@ -248,7 +248,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
             <div className="shrink-0">
               <div className="flex items-center h-10 mb-2 shrink-0">
                 <h2 className="text-xl font-bold text-[#5D5D5D] flex items-center gap-2">
-                  <CalendarIcon size={18} className="text-[#A8D8B9]" />村莊日誌
+                  <CalendarIcon size={18} className="text-[#A0C4FF]" />村莊日誌
                 </h2>
               </div>
               <CalendarNav currentDate={currentDate} onDateChange={setCurrentDate} />
@@ -263,7 +263,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
           <footer className="mt-2 text-center text-[#8B8B8B] text-xs shrink-0 py-1">
             <p className="flex items-center justify-center gap-1.5">
               <PawPrint size={10} className="text-[#A8D8B9]" />
-              呼嚕嚕小鎮 v3.2.1
+              呼嚕嚕小鎮 v3.3.0
               <PawPrint size={10} className="text-[#A8D8B9]" />
             </p>
           </footer>
@@ -292,7 +292,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
           <div className="bg-white/60 backdrop-blur-sm rounded-3xl p-4 2xl:p-3 shadow-lg border border-white/50 flex-1 min-h-0 flex flex-col overflow-hidden">
             <div className="flex items-center h-10 mb-2 shrink-0 justify-between">
               <h2 className="text-xl font-bold text-[#5D5D5D] flex items-center gap-2">
-                <Users size={18} className="text-[#A8D8B9]" />村民廣場
+                <Users size={18} className="text-[#FFADAD]" />村民廣場
               </h2>
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#A8D8B9]/15">

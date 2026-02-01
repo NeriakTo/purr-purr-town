@@ -32,7 +32,7 @@ function BulletinBoard({ announcements = [], onOpenAnnouncements }) {
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                   <Pin size={14} className="text-[#D97706]" />
                 </div>
-                <div className="text-sm whitespace-pre-wrap leading-relaxed">
+                <div className="text-base whitespace-pre-wrap leading-relaxed">
                   {item.text}
                 </div>
               </div>

@@ -80,8 +80,8 @@ function SquadGrid({ students, tasks, studentStatus, settings, onSelectStudent, 
               </div>
             </div>
 
-            <div className={`px-2 pb-2 pt-1 ${isComplete ? 'bg-gradient-to-b from-amber-50/50 to-white' : 'bg-white/40'}`}>
-              <div className="grid grid-cols-3 gap-2 2xl:gap-1.5">
+            <div className={`px-3 pb-3 pt-3 ${isComplete ? 'bg-gradient-to-b from-amber-50/50 to-white' : 'bg-white/40'}`}>
+              <div className="grid grid-cols-3 gap-3 2xl:gap-2">
                 {groupStudents.map((student) => (
                   <VillagerCard
                     key={student.id}
