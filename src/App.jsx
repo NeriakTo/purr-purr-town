@@ -2389,11 +2389,11 @@ function VillagerCard({ student, tasks, studentStatus, onClick, onToggleStatus, 
           className="w-full h-full rounded-lg text-3xl 2xl:text-2xl transition-transform duration-200 group-hover:scale-105"
         />
 
-        {/* 完成狀態指示器 - 左鍵切換 null/on_time */}
+        {/* 完成狀態指示器 - 僅綠色勾勾可點擊切換 null/on_time */}
         {hasTasks && (
           <div
-            onClick={handleStatusClick}
-            className="absolute bottom-0 right-0 cursor-pointer"
+            onClick={allDone ? handleStatusClick : undefined}
+            className={`absolute bottom-0 right-0 ${allDone ? 'cursor-pointer' : 'cursor-default'}`}
           >
             {allDone ? (
               <div className="w-5 h-5 rounded-full bg-[#7BC496] flex items-center justify-center shadow-sm">
@@ -3495,8 +3495,8 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
       />
       
       <div className="flex flex-col lg:flex-row gap-6 2xl:gap-3 3xl:gap-2 flex-1 min-h-0">
-        <aside className="w-full lg:w-[350px] 2xl:w-[300px] 3xl:w-[260px] lg:shrink-0 lg:sticky lg:top-3 lg:self-start lg:max-h-[calc(100vh-80px)] 2xl:max-h-[calc(100vh-60px)]">
-          <div className="bg-white/60 backdrop-blur-sm rounded-3xl p-4 2xl:p-3 3xl:p-2 shadow-lg border border-white/50 flex flex-col max-h-full">
+        <aside className="w-full lg:w-[350px] 2xl:w-[300px] 3xl:w-[260px] lg:shrink-0 lg:h-[calc(100vh-2rem)] lg:sticky lg:top-4 lg:self-start">
+          <div className="h-full max-h-full overflow-hidden flex flex-col bg-white/60 backdrop-blur-sm rounded-3xl p-4 2xl:p-3 3xl:p-2 shadow-lg border border-white/50">
             <div className="shrink-0">
               <h2 className="text-lg 3xl:text-base font-bold text-[#5D5D5D] mb-4 2xl:mb-2 3xl:mb-1 flex items-center gap-2">
                 <CalendarIcon size={20} className="text-[#A8D8B9]" />村莊日誌
@@ -3597,7 +3597,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
 
                       {/* Student grid：高密度 2xl grid-cols-10 */}
                       <div className={`px-4 pb-3 pt-2 2xl:px-2 2xl:pb-1.5 2xl:pt-1 ${isComplete ? 'bg-gradient-to-b from-amber-50/50 to-white' : 'bg-white/40'}`}>
-                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-6 gap-3 2xl:gap-1.5">
+                        <div className="grid grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-3 2xl:gap-1.5">
                           {groupStudents.map((student) => (
                             <VillagerCard
                               key={student.id}
