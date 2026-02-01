@@ -95,7 +95,7 @@ function TaskBoard({ tasks, students, studentStatus, onTasksUpdate, onAddTask, o
               onChange={(e) => setNewTaskDueDate(e.target.value)}
               className="w-full px-4 py-2.5 rounded-xl border-2 border-[#E8E8E8] focus:border-[#A8D8B9] outline-none bg-white text-[#5D5D5D]"
             />
-            <p className="text-xs text-[#8B8B8B]">📅 今日發布，明日到期</p>
+            <p className="text-xs text-[#8B8B8B]">📅 今日發布，可調整截止日期</p>
             <div className="flex gap-2">
               <button onClick={handleAddTask} className="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#A8D8B9] to-[#7BC496] text-white font-medium">發布</button>
               <button onClick={() => setShowAddTask(false)} className="px-4 py-2.5 rounded-xl bg-[#E8E8E8] text-[#5D5D5D] font-medium">取消</button>

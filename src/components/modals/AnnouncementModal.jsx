@@ -61,19 +61,19 @@ function AnnouncementModal({ announcements = [], onClose, onSave }) {
               <Pin size={22} />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-[#5D5D5D]">?????</h2>
-              <p className="text-sm text-[#8B8B8B]">??????????</p>
+              <h2 className="text-2xl font-bold text-[#5D5D5D]">公佈欄管理</h2>
+              <p className="text-sm text-[#8B8B8B]">新增、編輯或刪除公告</p>
             </div>
           </div>
 
           <div className="mb-4 space-y-3">
-            <label className="text-sm font-medium text-[#5D5D5D]">????</label>
+            <label className="text-sm font-medium text-[#5D5D5D]">新增公告</label>
             <div className="flex gap-2">
               <input
                 type="text"
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
-                placeholder="??????..."
+                placeholder="輸入公告內容..."
                 className="flex-1 px-4 py-2.5 rounded-xl border-2 border-[#E8E8E8] focus:border-[#A8D8B9] outline-none"
               />
               <button
@@ -88,7 +88,7 @@ function AnnouncementModal({ announcements = [], onClose, onSave }) {
 
           <div className="space-y-3 max-h-[45vh] overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}>
             {items.length === 0 ? (
-              <div className="text-center py-10 text-sm text-[#8B8B8B]">??????</div>
+              <div className="text-center py-10 text-sm text-[#8B8B8B]">目前沒有公告</div>
             ) : (
               items.map(item => (
                 <div key={item.id} className="bg-white rounded-2xl p-4 shadow-sm border border-[#F0F0F0]">
@@ -103,7 +103,7 @@ function AnnouncementModal({ announcements = [], onClose, onSave }) {
                     <button
                       onClick={() => handleDelete(item.id)}
                       className="p-2 rounded-xl hover:bg-[#FFADAD]/20"
-                      title="????"
+                      title="刪除公告"
                     >
                       <Trash2 size={16} className="text-[#D64545]" />
                     </button>
@@ -115,11 +115,11 @@ function AnnouncementModal({ announcements = [], onClose, onSave }) {
 
           <div className="mt-6 flex justify-end gap-3">
             <button onClick={onClose} className="px-5 py-2.5 rounded-xl bg-[#E8E8E8] text-[#5D5D5D] font-medium">
-              ??
+              取消
             </button>
             <button onClick={handleSave} className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#A8D8B9] to-[#7BC496] text-white font-medium flex items-center gap-2">
               <Save size={16} />
-              ??
+              儲存
             </button>
           </div>
         </div>

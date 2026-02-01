@@ -5,12 +5,12 @@ function BulletinBoard({ announcements = [], onOpenAnnouncements }) {
     <div className="rounded-2xl p-4 shadow-md border border-[#C8A070] cork-texture">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-bold text-[#5D5D5D] flex items-center gap-2">
-          <Pin size={16} className="text-[#D97706]" />???
+          <Pin size={16} className="text-[#D97706]" />公佈欄
         </h3>
         <button
           onClick={onOpenAnnouncements}
           className="p-2 rounded-xl bg-white/70 hover:bg-white transition-colors"
-          title="????"
+          title="管理公告"
         >
           <Settings size={16} className="text-[#5D5D5D]" />
         </button>
@@ -18,7 +18,7 @@ function BulletinBoard({ announcements = [], onOpenAnnouncements }) {
 
       {announcements.length === 0 ? (
         <div className="text-xs text-[#5D5D5D]/70 bg-white/60 rounded-xl p-3 text-center">
-          ????????????????
+          尚無公告，點擊右上角齒輪新增吧！
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-3">
