@@ -3540,7 +3540,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
                 <p className="text-[#8B8B8B]">目前沒有村民資料</p>
               </div>
             ) : (
-              <div className="space-y-5 2xl:space-y-3 overflow-y-auto flex-1 min-h-0">
+              <div className="grid grid-cols-1 2xl:grid-cols-2 gap-4 2xl:gap-2 overflow-y-auto flex-1 min-h-0">
                 {Object.entries(groupedStudents).map(([group, groupStudents], gi) => {
                   const rate = getGroupCompletionRate(groupStudents)
                   const isComplete = rate === 1 && tasks.length > 0
@@ -3558,7 +3558,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
                       }`}
                     >
                       {/* Group header bar：高密度壓縮 */}
-                      <div className={`px-4 py-3 2xl:px-3 2xl:py-1.5 flex items-center justify-between ${
+                      <div className={`px-4 py-2 2xl:px-3 2xl:py-1 flex items-center justify-between ${
                         isComplete
                           ? 'bg-gradient-to-r from-yellow-50 to-amber-50'
                           : 'bg-[#fdfbf7]'
@@ -3594,8 +3594,8 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
                       </div>
 
                       {/* Student grid：高密度 2xl grid-cols-10 */}
-                      <div className={`px-4 pb-4 pt-3 2xl:px-3 2xl:pb-2 2xl:pt-1.5 ${isComplete ? 'bg-gradient-to-b from-amber-50/50 to-white' : 'bg-white/40'}`}>
-                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-10 gap-3 2xl:gap-2">
+                      <div className={`px-4 pb-3 pt-2 2xl:px-2 2xl:pb-1.5 2xl:pt-1 ${isComplete ? 'bg-gradient-to-b from-amber-50/50 to-white' : 'bg-white/40'}`}>
+                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-5 gap-3 2xl:gap-1.5">
                           {groupStudents.map((student) => (
                             <VillagerCard
                               key={student.id}
