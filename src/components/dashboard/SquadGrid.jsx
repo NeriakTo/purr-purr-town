@@ -59,8 +59,8 @@ function SquadGrid({ students, tasks, studentStatus, settings, onSelectStudent, 
                 </div>
                 <h3 className="font-black text-lg text-[#4A4A4A]">{groupName}</h3>
                 {isComplete && (
-                  <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-yellow-400/20 text-yellow-700 text-[10px] font-bold">
-                    <Trophy size={10} />????
+                  <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-yellow-400/20 text-yellow-700 text-[12px] font-bold">
+                    <Trophy size={12} />全員達成！
                   </span>
                 )}
               </div>

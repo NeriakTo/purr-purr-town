@@ -28,7 +28,7 @@ function VillagerCard({ student, tasks, studentStatus, onClick, hasOverdue }) {
   return (
     <div
       onClick={onClick}
-      className={`relative h-full ${getBgStyle()} rounded-xl 2xl:rounded-lg p-2 2xl:p-1.5 cursor-pointer group transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md border flex flex-col`}
+      className={`relative h-full m-1 ${getBgStyle()} rounded-xl 2xl:rounded-lg p-2 2xl:p-1.5 cursor-pointer group transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md border flex flex-col`}
     >
       {/* 座號標籤 */}
       <div className={`absolute -top-1.5 -left-1.5 w-8 h-8 rounded-md flex items-center justify-center text-white text-sm font-extrabold shadow-sm z-10 ${
@@ -39,8 +39,8 @@ function VillagerCard({ student, tasks, studentStatus, onClick, hasOverdue }) {
 
       {/* 欠交警示 */}
       {hasOverdue && (
-        <div className="absolute -bottom-1 -left-1 w-4 h-4 rounded-full bg-[#D64545] flex items-center justify-center z-20 animate-pulse shadow-sm">
-          <AlertCircle size={8} className="text-white" />
+        <div className="absolute -top-2 -right-2 w-4 h-4 rounded-full bg-[#D64545] flex items-center justify-center z-20 animate-pulse shadow-sm">
+          <AlertCircle size={10} className="text-white" />
         </div>
       )}
 

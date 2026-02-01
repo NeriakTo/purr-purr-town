@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { X, Pencil, Clock, XCircle, AlertTriangle, Check, ScrollText } from 'lucide-react'
+import { X, Pencil, Clock, XCircle, AlertTriangle, Check, ScrollText, Coffee, CircleMinus } from 'lucide-react'
 import AvatarEmoji from '../common/AvatarEmoji'
 import { STATUS_VALUES } from '../../utils/constants'
 import { formatDate, formatDateDisplay, getTaskDueDate, getTodayStr, isDoneStatus, normalizeStatus, parseDate, getTaskIcon, getStatusVisual } from '../../utils/helpers'
@@ -186,15 +186,15 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); onToggleStatus(student.id, task.id, 'leave'); }}
-                        className="px-2 py-1 text-xs rounded-lg bg-[#E8E8E8] text-[#5D5D5D] hover:bg-[#D8D8D8]"
+                        className="px-2 py-1 text-xs rounded-lg bg-[#E8E8E8] text-[#5D5D5D] hover:bg-[#D8D8D8] flex items-center gap-0.5"
                       >
-                        請假
+                        <Coffee size={12} />請假
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); onToggleStatus(student.id, task.id, 'exempt'); }}
-                        className="px-2 py-1 text-xs rounded-lg bg-[#F0F0F0] text-[#A0A0A0] hover:bg-[#E0E0E0]"
+                        className="px-2 py-1 text-xs rounded-lg bg-[#F3F4F6] text-[#9CA3AF] hover:bg-[#E5E7EB] flex items-center gap-0.5"
                       >
-                        免交
+                        <CircleMinus size={12} />免交
                       </button>
                     </div>
                   </div>
@@ -240,15 +240,15 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); onToggleStatus(student.id, item.task.id, 'leave', item.date); }}
-                        className="px-2 py-1 text-xs rounded-lg bg-[#E8E8E8] text-[#5D5D5D] hover:bg-[#D8D8D8]"
+                        className="px-2 py-1 text-xs rounded-lg bg-[#E8E8E8] text-[#5D5D5D] hover:bg-[#D8D8D8] flex items-center gap-0.5"
                       >
-                        請假
+                        <Coffee size={12} />請假
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); onToggleStatus(student.id, item.task.id, 'exempt', item.date); }}
-                        className="px-2 py-1 text-xs rounded-lg bg-[#F0F0F0] text-[#A0A0A0] hover:bg-[#E0E0E0]"
+                        className="px-2 py-1 text-xs rounded-lg bg-[#F3F4F6] text-[#9CA3AF] hover:bg-[#E5E7EB] flex items-center gap-0.5"
                       >
-                        免交
+                        <CircleMinus size={12} />免交
                       </button>
                     </div>
                   </label>
@@ -291,15 +291,15 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
                         </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); onToggleStatus(student.id, item.task.id, 'leave', item.date); }}
-                          className="px-2 py-1 text-xs rounded-lg bg-[#E8E8E8] text-[#5D5D5D] hover:bg-[#D8D8D8]"
+                          className="px-2 py-1 text-xs rounded-lg bg-[#E8E8E8] text-[#5D5D5D] hover:bg-[#D8D8D8] flex items-center gap-0.5"
                         >
-                          請假
+                          <Coffee size={12} />請假
                         </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); onToggleStatus(student.id, item.task.id, 'exempt', item.date); }}
-                          className="px-2 py-1 text-xs rounded-lg bg-[#FFD6A5]/60 text-[#8B6914] hover:bg-[#FFD6A5]"
+                          className="px-2 py-1 text-xs rounded-lg bg-[#F3F4F6] text-[#9CA3AF] hover:bg-[#E5E7EB] flex items-center gap-0.5"
                         >
-                          免交
+                          <CircleMinus size={12} />免交
                         </button>
                       </div>
                     </label>
