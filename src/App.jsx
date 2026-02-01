@@ -1845,7 +1845,7 @@ function CalendarNav({ currentDate, onDateChange }) {
 // 任務板
 // ============================================
 
-function TaskBoard({ tasks, students, studentStatus, onTasksUpdate, onAddTask, taskTypes, onOpenFocus, currentDateStr }) {
+function TaskBoard({ tasks, students, studentStatus, onTasksUpdate, onAddTask, onDeleteTask, taskTypes, onOpenFocus, currentDateStr }) {
   const [showAddTask, setShowAddTask] = useState(false)
   const [newTaskTitle, setNewTaskTitle] = useState('')
   const [newTaskType, setNewTaskType] = useState(taskTypes?.[0] || '作業')
@@ -1863,13 +1863,11 @@ function TaskBoard({ tasks, students, studentStatus, onTasksUpdate, onAddTask, t
     }
     setNewTaskTitle('')
     setNewTaskType(taskTypes?.[0] || '作業')
-    setNewTaskDueDate(getNextDay(getTodayStr()))
     setShowAddTask(false)
   }
 
   const handleDeleteTask = (taskId) => {
-    const updatedTasks = tasks.filter(t => t.id !== taskId)
-    if (onTasksUpdate) onTasksUpdate(updatedTasks)
+    if (onDeleteTask) onDeleteTask(taskId)
   }
 
   const getTaskCompletion = (taskId) => {
@@ -1887,13 +1885,13 @@ function TaskBoard({ tasks, students, studentStatus, onTasksUpdate, onAddTask, t
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between gap-3">
+      <div className="flex items-center h-10 mb-2 shrink-0 justify-between gap-3">
         <h2 className="text-base font-bold text-[#5D5D5D] flex items-center gap-2">
           <ClipboardList size={18} className="text-[#A8D8B9]" />今日任務
         </h2>
         <button
           onClick={onOpenFocus}
-          className="p-3 rounded-2xl bg-[#fdfbf7] hover:bg-[#A8D8B9]/20 transition-colors"
+          className="p-2 rounded-2xl bg-[#fdfbf7] hover:bg-[#A8D8B9]/20 transition-colors"
           title="投影模式"
         >
           <Projector size={22} className="text-[#5D5D5D]" />
@@ -2349,7 +2347,7 @@ function VillagerCard({ student, tasks, studentStatus, onClick, hasOverdue }) {
       className={`relative h-full ${getBgStyle()} rounded-xl 2xl:rounded-lg p-2 2xl:p-1.5 cursor-pointer group transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md border flex flex-col`}
     >
       {/* 座號標籤 */}
-      <div className={`absolute -top-1.5 -left-1.5 w-7 h-7 2xl:w-6 2xl:h-6 rounded-md flex items-center justify-center text-white font-extrabold text-xs 2xl:text-[10px] shadow-sm z-10 ${
+      <div className={`absolute -top-1.5 -left-1.5 w-8 h-8 rounded-md flex items-center justify-center text-white text-sm font-extrabold shadow-sm z-10 ${
         allDone ? 'bg-[#7BC496]' : hasIncomplete ? 'bg-[#FFBF69]' : 'bg-[#C8C8C8]'
       }`}>
         {studentNumber || '?'}
@@ -2366,7 +2364,7 @@ function VillagerCard({ student, tasks, studentStatus, onClick, hasOverdue }) {
       <div className="relative w-full flex-1 min-h-0 rounded-lg overflow-hidden bg-white/60">
         <AvatarEmoji
           seed={student.uuid || student.id}
-          className="w-full h-full rounded-lg text-3xl 2xl:text-2xl transition-transform duration-200 group-hover:scale-105"
+          className="w-full h-full rounded-lg text-4xl 2xl:text-5xl transition-transform duration-200 group-hover:scale-105"
         />
 
         {/* 完成狀態指示器（僅顯示，不可點擊） */}
@@ -2386,7 +2384,7 @@ function VillagerCard({ student, tasks, studentStatus, onClick, hasOverdue }) {
       </div>
 
       {/* 名字 */}
-      <div className="text-center mt-0.5 shrink-0">
+      <div className="text-center mt-1 shrink-0">
         <h3 className={`text-sm font-bold truncate leading-tight ${hasDefaultName ? 'text-[#C0C0C0] italic' : 'text-[#5D5D5D]'}`}>
           {student.name || '未命名'}
         </h3>
@@ -3305,20 +3303,6 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
     })
   }, [classId, students, allLogs, settings])
 
-  const handleTasksUpdate = useCallback((updatedTasks) => {
-    const dateStr = formatDate(currentDate)
-    const normDate = normalizeDate(dateStr)
-    setAllLogs(prev => {
-      const idx = prev.findIndex(l => normalizeDate(l.date) === normDate)
-      if (idx >= 0) {
-        const newLogs = [...prev]
-        newLogs[idx] = { ...newLogs[idx], tasks: updatedTasks }
-        return newLogs
-      }
-      return [...prev, { date: normDate, tasks: updatedTasks, status: {} }]
-    })
-  }, [currentDate, normalizeDate])
-
   // v3.0.1: 新增任務 - 存入今天 log (createdAt=今天, dueDate=明天)
   const handleAddTask = useCallback((newTask) => {
     const todayStr = getTodayStr()
@@ -3342,6 +3326,12 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
         : log
     ))
   }, [normalizeDate])
+
+  const handleDeleteTask = useCallback((taskId) => {
+    const targetTask = tasks.find(task => task.id === taskId)
+    if (!targetTask?._sourceLogDate) return
+    handleDeleteTaskFromLog(targetTask._sourceLogDate, taskId)
+  }, [handleDeleteTaskFromLog, tasks])
 
   const toggleStatus = useCallback((studentId, taskId, checked, dateOverride) => {
     // Status 2.0: normalize true → on_time
@@ -3449,9 +3439,11 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
         <aside className="w-full lg:w-[260px] lg:shrink-0 flex flex-col min-h-0">
           <div className="flex-1 min-h-0 flex flex-col bg-white/60 backdrop-blur-sm rounded-3xl p-4 2xl:p-3 shadow-lg border border-white/50">
             <div className="shrink-0">
-              <h2 className="text-base font-bold text-[#5D5D5D] mb-3 2xl:mb-2 flex items-center gap-2">
-                <CalendarIcon size={18} className="text-[#A8D8B9]" />村莊日誌
-              </h2>
+              <div className="flex items-center h-10 mb-2 shrink-0">
+                <h2 className="text-base font-bold text-[#5D5D5D] flex items-center gap-2">
+                  <CalendarIcon size={18} className="text-[#A8D8B9]" />村莊日誌
+                </h2>
+              </div>
               <CalendarNav currentDate={currentDate} onDateChange={setCurrentDate} />
             </div>
             <div className="flex-1 min-h-0 mt-3 2xl:mt-2 flex items-center justify-center">
@@ -3480,8 +3472,8 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
                 tasks={tasks}
                 students={students}
                 studentStatus={studentStatus}
-                onTasksUpdate={handleTasksUpdate}
                 onAddTask={handleAddTask}
+                onDeleteTask={handleDeleteTask}
                 taskTypes={settings.taskTypes}
                 onOpenFocus={() => setShowFocus(true)}
                 currentDateStr={formatDate(currentDate)}
@@ -3493,7 +3485,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
         {/* Column 3: 村民廣場 (Squad Grid) */}
         <main className="flex-1 min-w-0 min-h-0 flex flex-col">
           <div className="bg-white/60 backdrop-blur-sm rounded-3xl p-4 2xl:p-3 shadow-lg border border-white/50 flex-1 min-h-0 flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between mb-3 2xl:mb-2 shrink-0">
+            <div className="flex items-center h-10 mb-2 shrink-0 justify-between">
               <h2 className="text-base font-bold text-[#5D5D5D] flex items-center gap-2">
                 <Users size={18} className="text-[#A8D8B9]" />村民廣場
               </h2>
@@ -3530,8 +3522,8 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
                       }`}
                     >
                       {/* Group header */}
-                      <div className={`px-2.5 py-1 flex items-center justify-between ${
-                        isComplete ? 'bg-gradient-to-r from-yellow-50 to-amber-50' : 'bg-[#fdfbf7]'
+                      <div className={`px-2.5 py-1.5 flex items-center justify-between ${
+                        isComplete ? 'bg-gradient-to-r from-yellow-100 to-amber-100' : 'bg-[#f4ede3]'
                       }`}>
                         <div className="flex items-center gap-1.5">
                           <div className="w-6 h-6 rounded-md flex items-center justify-center shrink-0" style={{
@@ -3539,7 +3531,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
                           }}>
                             <Flag size={12} className={isComplete ? 'text-white' : ''} style={isComplete ? {} : { color: accent }} />
                           </div>
-                          <h3 className="font-bold text-sm text-[#4A4A4A]">{groupName}</h3>
+                          <h3 className="font-black text-lg text-[#4A4A4A]">{groupName}</h3>
                           {isComplete && (
                             <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-yellow-400/20 text-yellow-700 text-[10px] font-bold">
                               <Trophy size={10} />全員達成
