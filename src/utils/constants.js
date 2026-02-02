@@ -4,17 +4,33 @@ export const DEFAULT_CURRENCY_RATES = { fish: 100, cookie: 1000 }
 // v3.4.0: 貨幣單位識別
 export const CURRENCY_UNITS = { POINT: 'point', FISH: 'fish', COOKIE: 'cookie' }
 
+// v3.4.2: 薪資發放週期
+export const JOB_CYCLES = {
+  weekly: '每週',
+  monthly: '每月',
+  semester: '每學期',
+  once: '一次性',
+}
+
 // v3.4.0: 預設班級職務
 export const DEFAULT_JOBS = [
-  { id: 'job_class_leader', title: '班長', salary: 300, icon: '👑' },
-  { id: 'job_health_leader', title: '衛生長', salary: 200, icon: '🧹' },
-  { id: 'job_line_leader', title: '路隊長', salary: 100, icon: '🚶' },
+  { id: 'job_class_leader', title: '班長', salary: 300, icon: '👑', cycle: 'weekly' },
+  { id: 'job_health_leader', title: '衛生長', salary: 200, icon: '🧹', cycle: 'weekly' },
+  { id: 'job_line_leader', title: '路隊長', salary: 100, icon: '🚶', cycle: 'weekly' },
+]
+
+// v3.4.2: 預設行為規則類別
+export const DEFAULT_RULE_CATEGORIES = [
+  { id: 'cat_homework', name: '作業', icon: '📚' },
+  { id: 'cat_discipline', name: '秩序', icon: '📏' },
+  { id: 'cat_class', name: '課堂表現', icon: '🎯' },
+  { id: 'cat_hygiene', name: '整潔', icon: '🧹' },
 ]
 
 // v3.4.0: 預設行為加扣分規則
 export const DEFAULT_BEHAVIOR_RULES = [
-  { id: 'rule_missing_hw', label: '作業缺交', amount: -200, type: 'fine', icon: '📕' },
-  { id: 'rule_good_speak', label: '發表優良', amount: 100, type: 'bonus', icon: '🌟' },
+  { id: 'rule_missing_hw', label: '作業缺交', amount: -200, type: 'fine', icon: '📕', category: '作業' },
+  { id: 'rule_good_speak', label: '發表優良', amount: 100, type: 'bonus', icon: '🌟', category: '課堂表現' },
 ]
 
 // v3.4.0: 預設商店商品 (空，由老師自行上架)
@@ -28,6 +44,8 @@ export const DEFAULT_SETTINGS = {
   behaviorRules: DEFAULT_BEHAVIOR_RULES,
   storeItems: DEFAULT_STORE_ITEMS,
   currencyRates: DEFAULT_CURRENCY_RATES,
+  ruleCategories: DEFAULT_RULE_CATEGORIES,
+  jobAssignments: {},
 }
 
 export const STATUS_VALUES = {

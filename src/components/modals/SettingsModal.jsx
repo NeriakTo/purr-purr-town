@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { X, Save, Link, Download, Plus, Trash2, Settings, ClipboardList, Briefcase, Scale, Coins } from 'lucide-react'
-import { DEFAULT_SETTINGS } from '../../utils/constants'
+import { X, Save, Link, Download, Plus, Trash2, Settings, ClipboardList, Briefcase, Scale, Coins, Banknote, ChevronDown } from 'lucide-react'
+import { DEFAULT_SETTINGS, JOB_CYCLES, DEFAULT_RULE_CATEGORIES } from '../../utils/constants'
 import { saveClassCache, generateId } from '../../utils/helpers'
 
-function SettingsModal({ classId, className, settings, students, allLogs, onClose, onSave, onRestoreFromBackup, onClearLocalClass }) {
+function SettingsModal({ classId, className, settings, students, allLogs, onClose, onSave, onRestoreFromBackup, onClearLocalClass, onProcessPayroll }) {
   const [activeTab, setActiveTab] = useState('general')
   const [localSettings, setLocalSettings] = useState({
     taskTypes: settings?.taskTypes || DEFAULT_SETTINGS.taskTypes,
@@ -13,6 +13,8 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
     behaviorRules: settings?.behaviorRules || DEFAULT_SETTINGS.behaviorRules,
     storeItems: settings?.storeItems || DEFAULT_SETTINGS.storeItems,
     currencyRates: settings?.currencyRates || DEFAULT_SETTINGS.currencyRates,
+    ruleCategories: settings?.ruleCategories || DEFAULT_SETTINGS.ruleCategories,
+    jobAssignments: settings?.jobAssignments || DEFAULT_SETTINGS.jobAssignments,
   })
   const [newTaskType, setNewTaskType] = useState('')
   const [backupUrl, setBackupUrl] = useState(() => localStorage.getItem('ppt_backup_url') || '')
@@ -21,6 +23,9 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
   const [backupMsg, setBackupMsg] = useState(null)
   const [backupMeta, setBackupMeta] = useState(null)
   const [fileMsg, setFileMsg] = useState(null)
+  const [showPayroll, setShowPayroll] = useState(false)
+  const [selectedPayrollCycles, setSelectedPayrollCycles] = useState([])
+  const [newCategoryName, setNewCategoryName] = useState('')
   const fileInputRef = useRef(null)
 
   useEffect(() => {
@@ -112,6 +117,8 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
         behaviorRules: restored.settings?.behaviorRules || prev.behaviorRules,
         storeItems: restored.settings?.storeItems || prev.storeItems,
         currencyRates: restored.settings?.currencyRates || prev.currencyRates,
+        ruleCategories: restored.settings?.ruleCategories || prev.ruleCategories,
+        jobAssignments: restored.settings?.jobAssignments || prev.jobAssignments,
       }))
       localStorage.setItem('ppt_backup_url', backupUrl.trim())
       localStorage.setItem('ppt_backup_token', backupToken.trim() || 'meow1234')
@@ -201,6 +208,8 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
           behaviorRules: restored.settings?.behaviorRules || prev.behaviorRules,
           storeItems: restored.settings?.storeItems || prev.storeItems,
           currencyRates: restored.settings?.currencyRates || prev.currencyRates,
+          ruleCategories: restored.settings?.ruleCategories || prev.ruleCategories,
+          jobAssignments: restored.settings?.jobAssignments || prev.jobAssignments,
         }))
         setFileMsg('✅ 還原成功！')
       } catch (err) {
@@ -221,17 +230,68 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
   const updateJob = (jobId, field, value) => {
     setLocalSettings(p => ({
       ...p,
-      jobs: p.jobs.map(j => j.id === jobId ? { ...j, [field]: field === 'salary' ? (parseInt(value) || 0) : value } : j)
+      jobs: p.jobs.map(j => {
+        if (j.id !== jobId) return j
+        if (field === 'salary') return { ...j, salary: parseInt(value) || 0 }
+        return { ...j, [field]: value }
+      })
     }))
   }
   const addJob = () => {
     setLocalSettings(p => ({
       ...p,
-      jobs: [...p.jobs, { id: generateId('job'), title: '', salary: 100, icon: '📋' }]
+      jobs: [...p.jobs, { id: generateId('job'), title: '', salary: 100, icon: '📋', cycle: 'weekly' }]
     }))
   }
   const removeJob = (jobId) => {
-    setLocalSettings(p => ({ ...p, jobs: p.jobs.filter(j => j.id !== jobId) }))
+    setLocalSettings(p => ({
+      ...p,
+      jobs: p.jobs.filter(j => j.id !== jobId),
+      jobAssignments: { ...p.jobAssignments, [jobId]: undefined },
+    }))
+  }
+
+  // --- Job Assignments ---
+  const addStudentToJob = (jobId, studentId) => {
+    setLocalSettings(p => ({
+      ...p,
+      jobAssignments: {
+        ...p.jobAssignments,
+        [jobId]: [...(p.jobAssignments[jobId] || []), studentId],
+      }
+    }))
+  }
+  const removeStudentFromJob = (jobId, studentId) => {
+    setLocalSettings(p => ({
+      ...p,
+      jobAssignments: {
+        ...p.jobAssignments,
+        [jobId]: (p.jobAssignments[jobId] || []).filter(id => id !== studentId),
+      }
+    }))
+  }
+
+  // --- Payroll ---
+  const payrollPreview = () => {
+    const entries = []
+    localSettings.jobs.forEach(job => {
+      if (!selectedPayrollCycles.includes(job.cycle)) return
+      const assignedIds = localSettings.jobAssignments[job.id] || []
+      assignedIds.forEach(sid => {
+        const student = students.find(s => s.id === sid)
+        if (!student) return
+        entries.push({ studentId: sid, studentName: student.name, amount: job.salary, reason: `${job.title} 薪資 (${JOB_CYCLES[job.cycle] || job.cycle})` })
+      })
+    })
+    return entries
+  }
+
+  const handleProcessPayroll = () => {
+    const entries = payrollPreview()
+    if (entries.length === 0) return
+    if (onProcessPayroll) onProcessPayroll(entries)
+    setShowPayroll(false)
+    setSelectedPayrollCycles([])
   }
 
   // --- Behavior Rules CRUD ---
@@ -248,16 +308,62 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
       })
     }))
   }
-  const addRule = (type) => {
+  const addRule = (type, category = '') => {
+    const catMeta = (localSettings.ruleCategories || []).find(c => c.name === category)
     const amount = type === 'fine' ? -100 : 100
     setLocalSettings(p => ({
       ...p,
-      behaviorRules: [...p.behaviorRules, { id: generateId('rule'), label: '', amount, type, icon: type === 'fine' ? '⚠️' : '⭐' }]
+      behaviorRules: [...p.behaviorRules, {
+        id: generateId('rule'),
+        label: '',
+        amount,
+        type,
+        icon: catMeta?.icon || (type === 'fine' ? '⚠️' : '⭐'),
+        category: category || '未分類',
+      }]
     }))
   }
   const removeRule = (ruleId) => {
     setLocalSettings(p => ({ ...p, behaviorRules: p.behaviorRules.filter(r => r.id !== ruleId) }))
   }
+
+  // --- Rule Categories CRUD ---
+  const addCategory = () => {
+    if (!newCategoryName.trim()) return
+    setLocalSettings(p => ({
+      ...p,
+      ruleCategories: [...(p.ruleCategories || []), { id: generateId('cat'), name: newCategoryName.trim(), icon: '📋' }]
+    }))
+    setNewCategoryName('')
+  }
+  const updateCategory = (catId, field, value) => {
+    setLocalSettings(p => ({
+      ...p,
+      ruleCategories: (p.ruleCategories || []).map(c => c.id === catId ? { ...c, [field]: value } : c)
+    }))
+  }
+  const removeCategory = (catId) => {
+    const cat = (localSettings.ruleCategories || []).find(c => c.id === catId)
+    if (!cat) return
+    setLocalSettings(p => ({
+      ...p,
+      ruleCategories: (p.ruleCategories || []).filter(c => c.id !== catId),
+      behaviorRules: p.behaviorRules.map(r => r.category === cat.name ? { ...r, category: '未分類' } : r)
+    }))
+  }
+
+  // Group rules by category
+  const rulesByCategory = (() => {
+    const cats = (localSettings.ruleCategories || []).map(c => c.name)
+    const groups = {}
+    cats.forEach(name => { groups[name] = { bonus: [], fine: [] } })
+    localSettings.behaviorRules.forEach(rule => {
+      const cat = rule.category || '未分類'
+      if (!groups[cat]) groups[cat] = { bonus: [], fine: [] }
+      groups[cat][rule.type === 'fine' ? 'fine' : 'bonus'].push(rule)
+    })
+    return groups
+  })()
 
   const tabs = [
     { key: 'general', label: '一般設定', icon: Settings },
@@ -465,46 +571,91 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
           {/* ===== 職務設定 ===== */}
           {activeTab === 'jobs' && (
             <div className="p-6 space-y-6">
-              <div className="space-y-2">
-                <h3 className="text-sm font-bold text-[#5D5D5D] flex items-center gap-2">
-                  <Briefcase size={16} className="text-[#FFD6A5]" />
-                  班級職務
-                </h3>
-                <p className="text-xs text-[#8B8B8B]">設定班級職務與每週薪水（積分），可指派給村民</p>
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <h3 className="text-sm font-bold text-[#5D5D5D] flex items-center gap-2">
+                    <Briefcase size={16} className="text-[#FFD6A5]" />
+                    班級職務
+                  </h3>
+                  <p className="text-xs text-[#8B8B8B]">設定班級職務、薪資與發放週期，並指派村民</p>
+                </div>
+                <button
+                  onClick={() => { setSelectedPayrollCycles([]); setShowPayroll(true) }}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#FFD6A5] to-[#FFBF69] text-white font-bold text-sm shadow-md hover:shadow-lg transition-all flex items-center gap-1.5"
+                >
+                  <Banknote size={16} />
+                  發放薪資
+                </button>
               </div>
 
               <div className="space-y-3">
                 {localSettings.jobs.map(job => (
-                  <div key={job.id} className="flex items-center gap-3 p-3 bg-white rounded-xl border border-[#E8E8E8] hover:border-[#FFD6A5] transition-colors">
-                    <input
-                      type="text"
-                      value={job.icon}
-                      onChange={e => updateJob(job.id, 'icon', e.target.value)}
-                      className="w-12 text-center text-2xl bg-transparent outline-none"
-                      maxLength={2}
-                    />
-                    <input
-                      type="text"
-                      value={job.title}
-                      onChange={e => updateJob(job.id, 'title', e.target.value)}
-                      className="flex-1 px-3 py-2 rounded-lg border border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-sm font-medium"
-                      placeholder="職務名稱"
-                    />
-                    <div className="flex items-center gap-1">
+                  <div key={job.id} className="p-3 bg-white rounded-xl border border-[#E8E8E8] hover:border-[#FFD6A5] transition-colors space-y-2">
+                    <div className="flex items-center gap-3">
                       <input
-                        type="number"
-                        value={job.salary}
-                        onChange={e => updateJob(job.id, 'salary', e.target.value)}
-                        className="w-20 px-2 py-2 rounded-lg border border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-sm text-center font-bold"
+                        type="text"
+                        value={job.icon}
+                        onChange={e => updateJob(job.id, 'icon', e.target.value)}
+                        className="w-12 text-center text-2xl bg-transparent outline-none"
+                        maxLength={2}
                       />
-                      <span className="text-xs text-[#8B8B8B] whitespace-nowrap">pt/週</span>
+                      <input
+                        type="text"
+                        value={job.title}
+                        onChange={e => updateJob(job.id, 'title', e.target.value)}
+                        className="flex-1 px-3 py-2 rounded-lg border border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-sm font-medium"
+                        placeholder="職務名稱"
+                      />
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          value={job.salary}
+                          onChange={e => updateJob(job.id, 'salary', e.target.value)}
+                          className="w-20 px-2 py-2 rounded-lg border border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-sm text-center font-bold"
+                        />
+                        <span className="text-xs text-[#8B8B8B] whitespace-nowrap">pt</span>
+                      </div>
+                      <select
+                        value={job.cycle || 'weekly'}
+                        onChange={e => updateJob(job.id, 'cycle', e.target.value)}
+                        className="px-2 py-2 rounded-lg border border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-xs font-medium"
+                      >
+                        {Object.entries(JOB_CYCLES).map(([k, v]) => (
+                          <option key={k} value={k}>{v}</option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={() => removeJob(job.id)}
+                        className="p-1.5 rounded-lg hover:bg-[#FFADAD]/20 text-[#8B8B8B] hover:text-[#D64545] transition-colors"
+                      >
+                        <Trash2 size={16} />
+                      </button>
                     </div>
-                    <button
-                      onClick={() => removeJob(job.id)}
-                      className="p-1.5 rounded-lg hover:bg-[#FFADAD]/20 text-[#8B8B8B] hover:text-[#D64545] transition-colors"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                    {/* Student assignments */}
+                    <div className="flex flex-wrap items-center gap-1.5 ml-12">
+                      {(localSettings.jobAssignments[job.id] || []).map(sid => {
+                        const s = students.find(x => x.id === sid)
+                        if (!s) return null
+                        return (
+                          <span key={sid} className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#FFD6A5]/20 rounded-full text-xs font-medium text-[#8B6914]">
+                            {s.number}號 {s.name}
+                            <button onClick={() => removeStudentFromJob(job.id, sid)} className="hover:text-[#D64545]">
+                              <X size={10} />
+                            </button>
+                          </span>
+                        )
+                      })}
+                      <select
+                        value=""
+                        onChange={e => { if (e.target.value) addStudentToJob(job.id, e.target.value) }}
+                        className="text-xs px-2 py-1 rounded-lg border border-dashed border-[#E8E8E8] outline-none text-[#8B8B8B] hover:border-[#FFD6A5] cursor-pointer bg-transparent"
+                      >
+                        <option value="">+ 指派村民</option>
+                        {students.filter(s => !(localSettings.jobAssignments[job.id] || []).includes(s.id)).map(s => (
+                          <option key={s.id} value={s.id}>{s.number}號 {s.name}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -526,106 +677,161 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
                   <Scale size={16} className="text-[#FFADAD]" />
                   行為加扣分規則
                 </h3>
-                <p className="text-xs text-[#8B8B8B]">設定快速加扣分按鈕，將顯示在村民護照的存摺頁中</p>
+                <p className="text-xs text-[#8B8B8B]">按類別管理快速加扣分按鈕，將顯示在村民護照的存摺頁中</p>
               </div>
 
-              {/* 加分項目 */}
-              <div className="space-y-3">
-                <h4 className="text-xs font-bold text-[#4A7C59] flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-[#A8D8B9]" />
-                  加分項目
-                </h4>
-                {localSettings.behaviorRules.filter(r => r.type === 'bonus').map(rule => (
-                  <div key={rule.id} className="flex items-center gap-3 p-3 bg-[#A8D8B9]/10 rounded-xl border border-[#A8D8B9]/30">
-                    <input
-                      type="text"
-                      value={rule.icon}
-                      onChange={e => updateRule(rule.id, 'icon', e.target.value)}
-                      className="w-12 text-center text-xl bg-transparent outline-none"
-                      maxLength={2}
-                    />
-                    <input
-                      type="text"
-                      value={rule.label}
-                      onChange={e => updateRule(rule.id, 'label', e.target.value)}
-                      className="flex-1 px-3 py-2 rounded-lg border border-[#A8D8B9]/30 focus:border-[#A8D8B9] outline-none text-sm font-medium bg-white"
-                      placeholder="規則名稱"
-                    />
-                    <div className="flex items-center gap-1">
-                      <span className="text-[#4A7C59] font-bold text-sm">+</span>
+              {/* Category Management */}
+              <div className="p-4 bg-[#F9F9F9] rounded-xl border border-[#E8E8E8] space-y-3">
+                <div className="text-xs font-bold text-[#5D5D5D]">類別管理</div>
+                <div className="flex flex-wrap gap-2">
+                  {(localSettings.ruleCategories || []).map(cat => (
+                    <div key={cat.id} className="flex items-center gap-1.5 px-2 py-1 bg-white rounded-lg border border-[#E8E8E8]">
                       <input
-                        type="number"
-                        value={Math.abs(rule.amount)}
-                        onChange={e => updateRule(rule.id, 'amount', e.target.value)}
-                        className="w-20 px-2 py-2 rounded-lg border border-[#A8D8B9]/30 focus:border-[#A8D8B9] outline-none text-sm text-center font-bold bg-white"
-                        min="0"
+                        type="text"
+                        value={cat.icon}
+                        onChange={e => updateCategory(cat.id, 'icon', e.target.value)}
+                        className="w-7 text-center text-base bg-transparent outline-none"
+                        maxLength={2}
                       />
-                      <span className="text-xs text-[#8B8B8B]">pt</span>
+                      <input
+                        type="text"
+                        value={cat.name}
+                        onChange={e => updateCategory(cat.id, 'name', e.target.value)}
+                        className="w-16 px-1 py-0.5 text-xs font-medium bg-transparent outline-none border-b border-transparent focus:border-[#A8D8B9]"
+                      />
+                      <button onClick={() => removeCategory(cat.id)} className="text-[#8B8B8B] hover:text-[#D64545]">
+                        <X size={12} />
+                      </button>
                     </div>
-                    <button
-                      onClick={() => removeRule(rule.id)}
-                      className="p-1.5 rounded-lg hover:bg-[#FFADAD]/20 text-[#8B8B8B] hover:text-[#D64545] transition-colors"
-                    >
-                      <X size={16} />
-                    </button>
-                  </div>
-                ))}
-                <button
-                  onClick={() => addRule('bonus')}
-                  className="w-full py-2.5 rounded-xl border-2 border-dashed border-[#A8D8B9]/40 text-[#4A7C59]/60 font-medium hover:border-[#A8D8B9] hover:text-[#4A7C59] transition-colors flex items-center justify-center gap-2 text-sm"
-                >
-                  <Plus size={16} /> 新增加分項目
-                </button>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newCategoryName}
+                    onChange={e => setNewCategoryName(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') addCategory() }}
+                    className="flex-1 px-3 py-1.5 rounded-lg border border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-xs"
+                    placeholder="新類別名稱..."
+                  />
+                  <button onClick={addCategory} className="px-3 py-1.5 rounded-lg bg-[#A8D8B9] text-white text-xs font-bold">
+                    <Plus size={14} />
+                  </button>
+                </div>
               </div>
 
-              {/* 扣分項目 */}
-              <div className="space-y-3">
-                <h4 className="text-xs font-bold text-[#D64545] flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-[#FFADAD]" />
-                  扣分項目
-                </h4>
-                {localSettings.behaviorRules.filter(r => r.type === 'fine').map(rule => (
-                  <div key={rule.id} className="flex items-center gap-3 p-3 bg-[#FFADAD]/10 rounded-xl border border-[#FFADAD]/30">
-                    <input
-                      type="text"
-                      value={rule.icon}
-                      onChange={e => updateRule(rule.id, 'icon', e.target.value)}
-                      className="w-12 text-center text-xl bg-transparent outline-none"
-                      maxLength={2}
-                    />
-                    <input
-                      type="text"
-                      value={rule.label}
-                      onChange={e => updateRule(rule.id, 'label', e.target.value)}
-                      className="flex-1 px-3 py-2 rounded-lg border border-[#FFADAD]/30 focus:border-[#FFADAD] outline-none text-sm font-medium bg-white"
-                      placeholder="規則名稱"
-                    />
-                    <div className="flex items-center gap-1">
-                      <span className="text-[#D64545] font-bold text-sm">-</span>
-                      <input
-                        type="number"
-                        value={Math.abs(rule.amount)}
-                        onChange={e => updateRule(rule.id, 'amount', e.target.value)}
-                        className="w-20 px-2 py-2 rounded-lg border border-[#FFADAD]/30 focus:border-[#FFADAD] outline-none text-sm text-center font-bold bg-white"
-                        min="0"
-                      />
-                      <span className="text-xs text-[#8B8B8B]">pt</span>
+              {/* Rules grouped by category */}
+              {Object.entries(rulesByCategory).map(([catName, { bonus, fine }]) => {
+                const catMeta = (localSettings.ruleCategories || []).find(c => c.name === catName)
+                return (
+                  <div key={catName} className="rounded-xl border border-[#E8E8E8] overflow-hidden">
+                    <div className="px-4 py-2.5 bg-[#F9F9F9] flex items-center gap-2">
+                      <span className="text-base">{catMeta?.icon || '📋'}</span>
+                      <span className="text-sm font-bold text-[#5D5D5D]">{catName}</span>
                     </div>
-                    <button
-                      onClick={() => removeRule(rule.id)}
-                      className="p-1.5 rounded-lg hover:bg-[#FFADAD]/20 text-[#8B8B8B] hover:text-[#D64545] transition-colors"
-                    >
-                      <X size={16} />
-                    </button>
+
+                    <div className="p-4 space-y-4">
+                      {/* Bonus rules */}
+                      <div className="space-y-2">
+                        <h4 className="text-xs font-bold text-[#4A7C59] flex items-center gap-1">
+                          <span className="w-2 h-2 rounded-full bg-[#A8D8B9]" />
+                          加分項目
+                        </h4>
+                        {bonus.map(rule => (
+                          <div key={rule.id} className="flex items-center gap-3 p-2.5 bg-[#A8D8B9]/10 rounded-xl border border-[#A8D8B9]/30">
+                            <input
+                              type="text"
+                              value={rule.icon}
+                              onChange={e => updateRule(rule.id, 'icon', e.target.value)}
+                              className="w-10 text-center text-lg bg-transparent outline-none"
+                              maxLength={2}
+                            />
+                            <input
+                              type="text"
+                              value={rule.label}
+                              onChange={e => updateRule(rule.id, 'label', e.target.value)}
+                              className="flex-1 px-2 py-1.5 rounded-lg border border-[#A8D8B9]/30 focus:border-[#A8D8B9] outline-none text-sm font-medium bg-white"
+                              placeholder="規則名稱"
+                            />
+                            <div className="flex items-center gap-1">
+                              <span className="text-[#4A7C59] font-bold text-sm">+</span>
+                              <input
+                                type="number"
+                                value={Math.abs(rule.amount)}
+                                onChange={e => updateRule(rule.id, 'amount', e.target.value)}
+                                className="w-16 px-2 py-1.5 rounded-lg border border-[#A8D8B9]/30 focus:border-[#A8D8B9] outline-none text-sm text-center font-bold bg-white"
+                                min="0"
+                              />
+                              <span className="text-[10px] text-[#8B8B8B]">pt</span>
+                            </div>
+                            <button
+                              onClick={() => removeRule(rule.id)}
+                              className="p-1 rounded-lg hover:bg-[#FFADAD]/20 text-[#8B8B8B] hover:text-[#D64545] transition-colors"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ))}
+                        <button
+                          onClick={() => addRule('bonus', catName)}
+                          className="w-full py-2 rounded-xl border-2 border-dashed border-[#A8D8B9]/40 text-[#4A7C59]/60 font-medium hover:border-[#A8D8B9] hover:text-[#4A7C59] transition-colors flex items-center justify-center gap-1 text-xs"
+                        >
+                          <Plus size={14} /> 新增加分
+                        </button>
+                      </div>
+
+                      {/* Fine rules */}
+                      <div className="space-y-2">
+                        <h4 className="text-xs font-bold text-[#D64545] flex items-center gap-1">
+                          <span className="w-2 h-2 rounded-full bg-[#FFADAD]" />
+                          扣分項目
+                        </h4>
+                        {fine.map(rule => (
+                          <div key={rule.id} className="flex items-center gap-3 p-2.5 bg-[#FFADAD]/10 rounded-xl border border-[#FFADAD]/30">
+                            <input
+                              type="text"
+                              value={rule.icon}
+                              onChange={e => updateRule(rule.id, 'icon', e.target.value)}
+                              className="w-10 text-center text-lg bg-transparent outline-none"
+                              maxLength={2}
+                            />
+                            <input
+                              type="text"
+                              value={rule.label}
+                              onChange={e => updateRule(rule.id, 'label', e.target.value)}
+                              className="flex-1 px-2 py-1.5 rounded-lg border border-[#FFADAD]/30 focus:border-[#FFADAD] outline-none text-sm font-medium bg-white"
+                              placeholder="規則名稱"
+                            />
+                            <div className="flex items-center gap-1">
+                              <span className="text-[#D64545] font-bold text-sm">-</span>
+                              <input
+                                type="number"
+                                value={Math.abs(rule.amount)}
+                                onChange={e => updateRule(rule.id, 'amount', e.target.value)}
+                                className="w-16 px-2 py-1.5 rounded-lg border border-[#FFADAD]/30 focus:border-[#FFADAD] outline-none text-sm text-center font-bold bg-white"
+                                min="0"
+                              />
+                              <span className="text-[10px] text-[#8B8B8B]">pt</span>
+                            </div>
+                            <button
+                              onClick={() => removeRule(rule.id)}
+                              className="p-1 rounded-lg hover:bg-[#FFADAD]/20 text-[#8B8B8B] hover:text-[#D64545] transition-colors"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ))}
+                        <button
+                          onClick={() => addRule('fine', catName)}
+                          className="w-full py-2 rounded-xl border-2 border-dashed border-[#FFADAD]/40 text-[#D64545]/60 font-medium hover:border-[#FFADAD] hover:text-[#D64545] transition-colors flex items-center justify-center gap-1 text-xs"
+                        >
+                          <Plus size={14} /> 新增扣分
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                ))}
-                <button
-                  onClick={() => addRule('fine')}
-                  className="w-full py-2.5 rounded-xl border-2 border-dashed border-[#FFADAD]/40 text-[#D64545]/60 font-medium hover:border-[#FFADAD] hover:text-[#D64545] transition-colors flex items-center justify-center gap-2 text-sm"
-                >
-                  <Plus size={16} /> 新增扣分項目
-                </button>
-              </div>
+                )
+              })}
             </div>
           )}
 
@@ -707,6 +913,113 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
             取消
           </button>
         </div>
+
+        {/* Payroll Sub-Modal */}
+        {showPayroll && (
+          <div className="absolute inset-0 bg-black/30 flex items-center justify-center z-20">
+            <div className="bg-white rounded-2xl p-6 max-w-lg w-full mx-4 shadow-2xl max-h-[80vh] flex flex-col">
+              <div className="flex items-center justify-between mb-4 shrink-0">
+                <h3 className="text-lg font-bold text-[#5D5D5D] flex items-center gap-2">
+                  <Banknote size={20} className="text-[#FFD6A5]" />
+                  發放薪資
+                </h3>
+                <button onClick={() => setShowPayroll(false)} className="p-1.5 rounded-full hover:bg-[#E8E8E8]">
+                  <X size={18} className="text-[#5D5D5D]" />
+                </button>
+              </div>
+
+              <div className="flex-1 min-h-0 overflow-y-auto space-y-4" style={{ scrollbarWidth: 'thin' }}>
+                <p className="text-xs text-[#8B8B8B]">勾選要發放的薪資週期，系統會自動計算並批次入帳</p>
+
+                {/* Cycle checkboxes */}
+                <div className="space-y-2">
+                  {Object.entries(JOB_CYCLES).map(([cycleKey, cycleLabel]) => {
+                    const jobsInCycle = localSettings.jobs.filter(j => j.cycle === cycleKey)
+                    if (jobsInCycle.length === 0) return null
+                    const checked = selectedPayrollCycles.includes(cycleKey)
+                    return (
+                      <label key={cycleKey} className={`flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${checked ? 'border-[#FFD6A5] bg-[#FFD6A5]/10' : 'border-[#E8E8E8] hover:border-[#FFD6A5]/50'}`}>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            setSelectedPayrollCycles(prev =>
+                              prev.includes(cycleKey) ? prev.filter(c => c !== cycleKey) : [...prev, cycleKey]
+                            )
+                          }}
+                          className="mt-0.5 accent-[#FFD6A5]"
+                        />
+                        <div className="flex-1">
+                          <div className="text-sm font-bold text-[#5D5D5D]">{cycleLabel}</div>
+                          <div className="mt-1 space-y-1">
+                            {jobsInCycle.map(job => {
+                              const assigned = (localSettings.jobAssignments[job.id] || [])
+                                .map(sid => students.find(s => s.id === sid))
+                                .filter(Boolean)
+                              return (
+                                <div key={job.id} className="text-xs text-[#8B8B8B] flex items-center gap-2">
+                                  <span>{job.icon}</span>
+                                  <span className="font-medium text-[#5D5D5D]">{job.title}</span>
+                                  <span>({job.salary} pt)</span>
+                                  <span className="text-[10px]">
+                                    {assigned.length > 0 ? assigned.map(s => s.name).join(', ') : '(未指派)'}
+                                  </span>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      </label>
+                    )
+                  })}
+                </div>
+
+                {/* Preview */}
+                {selectedPayrollCycles.length > 0 && (() => {
+                  const entries = payrollPreview()
+                  if (entries.length === 0) return (
+                    <div className="p-3 rounded-xl bg-[#F9F9F9] text-center text-xs text-[#8B8B8B]">
+                      選中的週期沒有已指派村民的職務
+                    </div>
+                  )
+                  const total = entries.reduce((sum, e) => sum + e.amount, 0)
+                  return (
+                    <div className="p-4 rounded-xl bg-[#E8F5E9] border border-[#A8D8B9]/30 space-y-2">
+                      <div className="text-xs font-bold text-[#4A7C59]">發放預覽</div>
+                      {entries.map((entry, idx) => (
+                        <div key={idx} className="flex items-center justify-between text-xs">
+                          <span className="text-[#5D5D5D]">{entry.studentName}</span>
+                          <span className="font-bold text-[#4A7C59]">+{entry.amount} pt</span>
+                        </div>
+                      ))}
+                      <div className="border-t border-[#A8D8B9]/30 pt-2 flex items-center justify-between text-sm">
+                        <span className="font-bold text-[#5D5D5D]">總計</span>
+                        <span className="font-bold text-[#4A7C59]">+{total} pt</span>
+                      </div>
+                    </div>
+                  )
+                })()}
+              </div>
+
+              <div className="flex gap-3 mt-4 shrink-0">
+                <button
+                  onClick={() => setShowPayroll(false)}
+                  className="flex-1 py-2.5 rounded-xl bg-[#E8E8E8] text-[#5D5D5D] font-medium hover:bg-[#D8D8D8] transition-colors"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleProcessPayroll}
+                  disabled={payrollPreview().length === 0}
+                  className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[#FFD6A5] to-[#FFBF69] text-white font-bold shadow-md hover:shadow-lg transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+                >
+                  <Banknote size={16} />
+                  確認發放
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

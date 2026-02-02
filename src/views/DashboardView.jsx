@@ -16,7 +16,7 @@ import PassportModal from '../components/modals/PassportModal'
 import AnnouncementModal from '../components/modals/AnnouncementModal'
 import OrangeCatStoreModal from '../components/modals/OrangeCatStoreModal'
 import { DEFAULT_SETTINGS, STATUS_VALUES } from '../utils/constants'
-import { formatDate, formatDateDisplay, getTodayStr, getTasksForDate, getTasksCreatedToday, makeTaskId, normalizeStatus, getTaskDueDate, parseDate, isDoneStatus, isCountedInDenominator, loadClassCache, saveClassCache, ensureStudentBank, createTransaction, toPoints } from '../utils/helpers'
+import { formatDate, formatDateDisplay, getTodayStr, getTasksForDate, getTasksCreatedToday, makeTaskId, normalizeStatus, getTaskDueDate, parseDate, isDoneStatus, isCountedInDenominator, loadClassCache, saveClassCache, ensureStudentBank, createTransaction, toPoints, generateId } from '../utils/helpers'
 
 function DashboardView({ classId, className, classAlias, onLogout, onClearLocalClass }) {
   const [students, setStudents] = useState([])
@@ -223,6 +223,47 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
     }))
   }, [])
 
+  // v3.4.2: 撤銷交易（更正模式，保留審計軌跡）
+  const handleUndoTransaction = useCallback((studentId, txId) => {
+    setStudents(prev => prev.map(s => {
+      if (s.id !== studentId) return s
+      const student = ensureStudentBank(s)
+      const originalTx = student.bank.transactions.find(tx => tx.id === txId)
+      if (!originalTx || originalTx.voided) return s
+      const updatedTransactions = student.bank.transactions.map(tx =>
+        tx.id === txId ? { ...tx, voided: true } : tx
+      )
+      const correctionAmount = -originalTx.amount
+      const newBalance = student.bank.balance + correctionAmount
+      const correctionTx = {
+        id: generateId('tx'),
+        date: new Date().toISOString(),
+        amount: correctionAmount,
+        reason: `撤銷：${originalTx.reason}`,
+        balance: newBalance,
+        type: 'correction',
+        correctedTxId: txId,
+      }
+      return { ...student, bank: { balance: newBalance, transactions: [...updatedTransactions, correctionTx] } }
+    }))
+  }, [])
+
+  // v3.4.2: 批次發薪
+  const handleProcessPayroll = useCallback((payrollEntries) => {
+    setStudents(prev => {
+      let updated = [...prev]
+      payrollEntries.forEach(({ studentId, amount, reason }) => {
+        updated = updated.map(s => {
+          if (s.id !== studentId) return s
+          const student = ensureStudentBank(s)
+          const newBank = createTransaction(student.bank, amount, reason)
+          return { ...student, bank: newBank }
+        })
+      })
+      return updated
+    })
+  }, [])
+
   // v3.4.0: 商店購買
   const handlePurchase = useCallback((studentId, item) => {
     const rates = settings.currencyRates || { fish: 100, cookie: 1000 }
@@ -394,9 +435,9 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
           onToggleStatus={toggleStatus}
           onStudentUpdate={(updated) => {
             setStudents(p => p.map(s => s.id === updated.id ? updated : s))
-            setSelectedStudentId(null)
           }}
           onBankTransaction={handleBankTransaction}
+          onUndoTransaction={handleUndoTransaction}
         />
       )}
       
@@ -419,6 +460,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
             setSettings(restored.settings ? { ...DEFAULT_SETTINGS, ...restored.settings } : DEFAULT_SETTINGS)
           }}
           onClearLocalClass={onClearLocalClass}
+          onProcessPayroll={handleProcessPayroll}
         />
       )}
       
