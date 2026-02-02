@@ -13,15 +13,6 @@ dist
 dist-ssr
 *.local
 
-# Environment variables (重要：包含所有環境變數檔案)
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-.env*.local
-# 但允許提交範例檔案
-!.env.example
 
 # Editor directories and files
 .vscode/*
