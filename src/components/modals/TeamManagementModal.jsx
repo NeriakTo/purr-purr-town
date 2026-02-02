@@ -137,7 +137,15 @@ function TeamManagementModal({ students, settings, onClose, onSave, onSettingsUp
       if (onSettingsUpdate) {
         onSettingsUpdate(newSettings)
       }
-      onClose()
+
+      // 若正在編輯特定小隊，返回列表；否則關閉 Modal
+      if (editingGroup) {
+        setEditingGroup(null)
+        setSearchTerm('')
+        setSelectedAvailable(new Set())
+      } else {
+        onClose()
+      }
     } catch (err) {
       console.error('儲存小隊失敗:', err)
     } finally {
