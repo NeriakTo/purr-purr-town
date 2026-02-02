@@ -16,7 +16,7 @@ function Header({ todayStr, completionRate, className, classAlias, onLogout, onO
   ]
 
   return (
-    <header className="bg-white/80 backdrop-blur-md rounded-3xl p-3 md:p-4 mb-4 2xl:mb-2 shadow-lg border border-white/50 shrink-0">
+    <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md rounded-3xl p-3 md:p-4 mb-4 2xl:mb-2 shadow-lg border border-white/50 shrink-0">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#A8D8B9] to-[#7BC496] flex items-center justify-center shadow-md">
