@@ -263,7 +263,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
           <footer className="mt-2 text-center text-[#8B8B8B] text-xs shrink-0 py-1">
             <p className="flex items-center justify-center gap-1.5">
               <PawPrint size={10} className="text-[#A8D8B9]" />
-              呼嚕嚕小鎮 v3.3.2
+              {`呼嚕嚕小鎮 v${__APP_VERSION__}`}
               <PawPrint size={10} className="text-[#A8D8B9]" />
             </p>
           </footer>
