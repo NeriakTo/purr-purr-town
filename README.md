@@ -1,6 +1,6 @@
 # 🐾 呼嚕嚕小鎮 (Purr Purr Town)
 
-![Version](https://img.shields.io/badge/version-3.3.2-A8D8B9?style=flat-square)
+![Version](https://img.shields.io/badge/version-3.3.4-A8D8B9?style=flat-square)
 ![React](https://img.shields.io/badge/React-19-blue?style=flat-square)
 [![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 

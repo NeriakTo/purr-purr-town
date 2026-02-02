@@ -33,7 +33,7 @@ function SquadGrid({ students, tasks, studentStatus, settings, onSelectStudent, 
   const groupColors = ['#A8D8B9', '#FFD6A5', '#FFADAD', '#A0C4FF', '#BDB2FF', '#FDE2F3']
 
   return (
-    <div className="grid grid-cols-1 2xl:grid-cols-2 gap-4 2xl:gap-3 overflow-y-auto flex-1 min-h-0" style={{ scrollbarWidth: 'thin' }}>
+    <div className="grid grid-cols-1 2xl:grid-cols-2 gap-4 2xl:gap-3 overflow-y-auto flex-1 min-h-0 p-1" style={{ scrollbarWidth: 'thin' }}>
       {Object.entries(groupedStudents).map(([group, groupStudents], gi) => {
         const rate = getGroupCompletionRate(groupStudents)
         const isComplete = rate === 1 && tasks.length > 0

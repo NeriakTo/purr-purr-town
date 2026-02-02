@@ -199,13 +199,53 @@ export function makeTaskId(dateStr, task, index) {
   return `task_${hashSeed(base).toString(36)}`
 }
 
+// --- Avatar Unique-First 演算法 (v3.3.4) ---
+
+function seededRng(seed) {
+  let h = hashSeed(seed)
+  return () => {
+    h = (h * 16807 + 1) >>> 0
+    return h / 0x100000000
+  }
+}
+
+function seededShuffle(arr, seed) {
+  const shuffled = [...arr]
+  const rng = seededRng(seed)
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1))
+    ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+  }
+  return shuffled
+}
+
+const _avatarPoolCache = {}
+
+function getAvatarPool(classSeed) {
+  if (!_avatarPoolCache[classSeed]) {
+    _avatarPoolCache[classSeed] = {
+      emojis: seededShuffle(AVATAR_EMOJIS, classSeed),
+      colors: seededShuffle(AVATAR_COLORS, classSeed),
+    }
+  }
+  return _avatarPoolCache[classSeed]
+}
+
 export function getAvatarMeta(seed) {
+  const str = String(seed ?? '')
+  const match = str.match(/^s_(.+)_(\d+)$/)
+  if (match) {
+    const classSeed = match[1]
+    const studentNum = parseInt(match[2], 10)
+    const pool = getAvatarPool(classSeed)
+    const idx = (studentNum - 1) % pool.emojis.length
+    const colorIdx = (studentNum - 1) % pool.colors.length
+    return { emoji: pool.emojis[idx], bg: pool.colors[colorIdx] }
+  }
   const hash = hashSeed(seed)
-  const emojiIndex = hash % AVATAR_EMOJIS.length
-  const colorIndex = (hash + 3) % AVATAR_COLORS.length
   return {
-    emoji: AVATAR_EMOJIS[emojiIndex],
-    bg: AVATAR_COLORS[colorIndex]
+    emoji: AVATAR_EMOJIS[hash % AVATAR_EMOJIS.length],
+    bg: AVATAR_COLORS[(hash + 3) % AVATAR_COLORS.length]
   }
 }
 

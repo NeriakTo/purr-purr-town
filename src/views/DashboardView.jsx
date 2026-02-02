@@ -227,7 +227,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
   if (loading) return <LoadingScreen message="正在進入村莊..." />
 
   return (
-    <div className="min-h-screen lg:h-screen lg:overflow-hidden p-4 md:p-6 lg:p-8 2xl:p-3 3xl:p-2 bg-[#fdfbf7] flex flex-col">
+    <div className="min-h-screen p-4 md:p-6 lg:p-8 2xl:p-3 3xl:p-2 bg-[#fdfbf7] flex flex-col">
       <Header
         todayStr={formatDate(currentDate)}
         completionRate={completionRate}
@@ -289,7 +289,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
 
         {/* Column 3: 村民廣場 (Squad Grid) */}
         <main className="flex-1 min-w-0 min-h-0 flex flex-col">
-          <div className="bg-white/60 backdrop-blur-sm rounded-3xl p-4 2xl:p-3 shadow-lg border border-white/50 flex-1 min-h-0 flex flex-col overflow-hidden">
+          <div className="bg-white/60 backdrop-blur-sm rounded-3xl p-4 2xl:p-3 shadow-lg border border-white/50 flex-1 min-h-0 flex flex-col">
             <div className="flex items-center h-10 mb-2 shrink-0 justify-between">
               <h2 className="text-xl font-bold text-[#5D5D5D] flex items-center gap-2">
                 <Users size={18} className="text-[#FFADAD]" />村民廣場
