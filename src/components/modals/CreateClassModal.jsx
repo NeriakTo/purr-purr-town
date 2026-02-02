@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { X, Home, Calendar as CalendarIcon, School, User, Sparkles, Users, Flag, Loader2, Plus } from 'lucide-react'
+import { X, Home, Calendar as CalendarIcon, School, User, Sparkles, Users, Loader2, Plus } from 'lucide-react'
 
 function CreateClassModal({ onClose, onSuccess, onCreateLocalClass }) {
   const [formData, setFormData] = useState({
@@ -7,8 +7,7 @@ function CreateClassModal({ onClose, onSuccess, onCreateLocalClass }) {
     className: '',
     teacher: '',
     alias: '',
-    studentCount: '30',
-    squadCount: '6'
+    studentCount: '30'
   })
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
@@ -30,10 +29,6 @@ function CreateClassModal({ onClose, onSuccess, onCreateLocalClass }) {
     if (!formData.studentCount.trim()) newErrors.studentCount = '請輸入村民人數'
     else if (!/^\d+$/.test(formData.studentCount.trim())) newErrors.studentCount = '請輸入數字'
     else if (parseInt(formData.studentCount.trim(), 10) < 1 || parseInt(formData.studentCount.trim(), 10) > 50) newErrors.studentCount = '人數需在 1-50 之間'
-
-    if (!formData.squadCount.trim()) newErrors.squadCount = '請輸入小隊數量'
-    else if (!/^\d+$/.test(formData.squadCount.trim())) newErrors.squadCount = '請輸入數字'
-    else if (parseInt(formData.squadCount.trim(), 10) < 1 || parseInt(formData.squadCount.trim(), 10) > 6) newErrors.squadCount = '小隊數需在 1-6 之間'
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -57,8 +52,7 @@ function CreateClassModal({ onClose, onSuccess, onCreateLocalClass }) {
         className: formData.className.trim(),
         teacher: formData.teacher.trim(),
         alias: formData.alias.trim(),
-        studentCount: parseInt(formData.studentCount.trim(), 10),
-        squadCount: parseInt(formData.squadCount.trim(), 10)
+        studentCount: parseInt(formData.studentCount.trim(), 10)
       })
       onSuccess()
     } catch (err) {
@@ -166,21 +160,6 @@ function CreateClassModal({ onClose, onSuccess, onCreateLocalClass }) {
                 className={`w-full px-4 py-3 rounded-2xl border-2 transition-all outline-none ${errors.studentCount ? 'border-[#FFADAD] bg-[#FFADAD]/5' : 'border-[#E8E8E8] focus:border-[#A8D8B9] bg-white'}`}
               />
               {errors.studentCount && <p className="mt-1 text-xs text-[#D64545]">{errors.studentCount}</p>}
-            </div>
-
-            <div>
-              <label className="flex items-center gap-2 text-sm font-medium text-[#5D5D5D] mb-2">
-                <Flag size={16} className="text-[#FFADAD]" />預計小隊數量 <span className="text-xs text-[#8B8B8B] font-normal">(1-6)</span>
-              </label>
-              <input
-                type="text"
-                value={formData.squadCount}
-                onChange={(e) => handleChange('squadCount', e.target.value.replace(/[^\d]/g, ''))}
-                placeholder="例如：6"
-                disabled={submitting}
-                className={`w-full px-4 py-3 rounded-2xl border-2 transition-all outline-none ${errors.squadCount ? 'border-[#FFADAD] bg-[#FFADAD]/5' : 'border-[#E8E8E8] focus:border-[#A8D8B9] bg-white'}`}
-              />
-              {errors.squadCount && <p className="mt-1 text-xs text-[#D64545]">{errors.squadCount}</p>}
             </div>
 
             <button

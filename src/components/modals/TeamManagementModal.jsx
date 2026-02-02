@@ -15,7 +15,7 @@ function TeamManagementModal({ students, settings, onClose, onSave, onSettingsUp
   const [assignments, setAssignments] = useState(() => {
     const initial = {}
     students.forEach(s => {
-      initial[s.id] = s.group || 'A'
+      initial[s.id] = s.group || 'unassigned'
     })
     return initial
   })
@@ -41,9 +41,11 @@ function TeamManagementModal({ students, settings, onClose, onSave, onSettingsUp
   const groupedStudents = useMemo(() => {
     const groups = {}
     defaultGroups.forEach(g => groups[g] = [])
+    groups['unassigned'] = []
     students.forEach(s => {
-      const g = assignments[s.id] || 'A'
-      if (groups[g]) groups[g].push(s)
+      const g = assignments[s.id] || 'unassigned'
+      if (!groups[g]) groups[g] = []
+      groups[g].push(s)
     })
     // 按座號排序
     Object.keys(groups).forEach(g => {
@@ -56,7 +58,7 @@ function TeamManagementModal({ students, settings, onClose, onSave, onSettingsUp
   const availableStudents = useMemo(() => {
     if (!editingGroup) return []
     return students
-      .filter(s => assignments[s.id] !== editingGroup)
+      .filter(s => assignments[s.id] === 'unassigned')
       .filter(s => {
         if (!searchTerm) return true
         return s.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -67,6 +69,7 @@ function TeamManagementModal({ students, settings, onClose, onSave, onSettingsUp
 
   // 獲取小隊顯示名稱
   const getGroupDisplayName = (group) => {
+    if (group === 'unassigned') return '待分配'
     return groupNames[group] || settings?.groupAliases?.[group] || `${group} 小隊`
   }
 
@@ -83,8 +86,7 @@ function TeamManagementModal({ students, settings, onClose, onSave, onSettingsUp
 
   // 將學生從當前小隊移除 (移到預設隊伍)
   const handleRemoveFromGroup = (studentId) => {
-    const fallback = editingGroup === 'A' ? 'B' : 'A'
-    setAssignments(prev => ({ ...prev, [studentId]: fallback }))
+    setAssignments(prev => ({ ...prev, [studentId]: 'unassigned' }))
   }
 
   // 清空當前小隊所有成員
@@ -94,10 +96,9 @@ function TeamManagementModal({ students, settings, onClose, onSave, onSettingsUp
     if (members.length === 0) return
     const confirmed = window.confirm(`確定要將「${getGroupDisplayName(editingGroup)}」的所有成員移出嗎？`)
     if (!confirmed) return
-    const fallback = editingGroup === 'A' ? 'B' : 'A'
     setAssignments(prev => {
       const next = { ...prev }
-      members.forEach(s => { next[s.id] = fallback })
+      members.forEach(s => { next[s.id] = 'unassigned' })
       return next
     })
   }
@@ -252,6 +253,15 @@ function TeamManagementModal({ students, settings, onClose, onSave, onSettingsUp
                   )
                 })}
               </div>
+              {(groupedStudents['unassigned']?.length || 0) > 0 && (
+                <div className="mt-4 p-4 rounded-xl bg-[#F9F9F9] border-2 border-dashed border-[#D8D8D8]">
+                  <div className="flex items-center gap-2 text-[#8B8B8B]">
+                    <Users size={18} />
+                    <span className="font-bold">待分配村民</span>
+                    <span className="text-sm">{groupedStudents['unassigned'].length} 人</span>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             /* 小隊編輯視圖 */
@@ -350,7 +360,7 @@ function TeamManagementModal({ students, settings, onClose, onSave, onSettingsUp
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="font-bold text-[#5D5D5D] flex items-center gap-2">
                     <UserPlus size={18} className="text-[#FFD6A5]" />
-                    從其他小隊移入
+                    待分配村民
                   </h3>
                   <span className="text-xs text-[#8B8B8B]">
                     勾選後點擊下方按鈕移入
@@ -362,13 +372,13 @@ function TeamManagementModal({ students, settings, onClose, onSave, onSettingsUp
                     <div className="text-center py-8">
                       <div className="text-4xl mb-2">🎉</div>
                       <p className="text-[#8B8B8B]">
-                        {searchTerm ? '找不到符合的村民' : '所有村民都已在此小隊中'}
+                        {searchTerm ? '找不到符合的村民' : '所有村民都已分配到小隊'}
                       </p>
                     </div>
                   ) : (
                     availableStudents.map(student => {
                       const currentGroup = assignments[student.id]
-                      const currentColors = groupColors[currentGroup]
+                      const currentColors = groupColors[currentGroup] || { light: 'bg-[#E8E8E8]/30', border: 'border-[#E8E8E8]' }
                       const isSelected = selectedAvailable.has(student.id)
 
                       return (
@@ -394,8 +404,8 @@ function TeamManagementModal({ students, settings, onClose, onSave, onSettingsUp
                           <div className="flex-1 min-w-0">
                             <div className="font-medium text-sm text-[#5D5D5D]">{student.number}. {student.name}</div>
                           </div>
-                          <span className={`px-1.5 py-0.5 rounded text-xs ${currentColors.light} font-medium text-[#5D5D5D] shrink-0`}>
-                            {getGroupDisplayName(currentGroup)}
+                          <span className={`px-1.5 py-0.5 rounded text-xs ${currentColors.light} font-medium text-[#8B8B8B] shrink-0`}>
+                            待分配
                           </span>
                         </div>
                       )

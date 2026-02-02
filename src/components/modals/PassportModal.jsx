@@ -7,7 +7,7 @@ import { formatDate, formatDateDisplay, getTaskDueDate, getTodayStr, isDoneStatu
 function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus, onStudentUpdate, hasOverdue, settings, allLogs, currentDateStr }) {
   const [isEditMode, setIsEditMode] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
-  const [editData, setEditData] = useState({ name: student.name || '', gender: student.gender || 'male', group: student.group || 'A' })
+  const [editData, setEditData] = useState({ name: student.name || '', gender: student.gender || 'male', group: student.group || 'unassigned' })
   const status = studentStatus[student.id] || {}
   const hasTasks = tasks.length > 0
   const completedCount = tasks.filter(t => isDoneStatus(status[t.id])).length
@@ -85,6 +85,7 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
                     onChange={e => setEditData(p => ({...p, group: e.target.value}))}
                     className="w-full px-3 py-2 rounded-xl border-2 border-[#E8E8E8] focus:border-[#A8D8B9] outline-none"
                   >
+                    <option key="unassigned" value="unassigned">待分配</option>
                     {['A', 'B', 'C', 'D', 'E', 'F'].map(g => (
                       <option key={g} value={g}>{settings?.groupAliases?.[g] || `${g} 小隊`}</option>
                     ))}
@@ -101,7 +102,7 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
                       {student.number} 號
                     </span>
                     <span className="text-sm px-2 py-0.5 rounded-full bg-[#A8D8B9]/30 text-[#4A7C59] font-medium">
-                      {settings?.groupAliases?.[student.group] || `${student.group || 'A'} 小隊`}
+                      {student.group === 'unassigned' ? '待分配' : (settings?.groupAliases?.[student.group] || `${student.group || 'A'} 小隊`)}
                     </span>
                   </div>
                   <h3 className="text-2xl font-bold mb-2 text-[#5D5D5D]">{student.name}</h3>

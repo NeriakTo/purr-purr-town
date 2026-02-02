@@ -24,14 +24,12 @@ function App() {
     setLocalClasses(nextClasses)
     saveLocalClasses(nextClasses)
 
-    const squadCount = payload.squadCount || 6
-    const groupLetters = ['A', 'B', 'C', 'D', 'E', 'F'].slice(0, squadCount)
     const students = Array.from({ length: studentCount }).map((_, i) => ({
       uuid: `s_${classId}_${i + 1}`,
       id: `s_${classId}_${i + 1}`,
       number: i + 1,
       name: `${i + 1}號村民`,
-      group: groupLetters[i % squadCount],
+      group: 'unassigned',
       gender: 'neutral'
     }))
     saveClassCache(classId, {
