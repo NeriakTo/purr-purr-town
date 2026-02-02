@@ -72,6 +72,14 @@ function VillagerCard({ student, tasks, studentStatus, onClick, hasOverdue }) {
         <h3 className={`text-sm font-bold truncate leading-tight ${hasDefaultName ? 'text-[#C0C0C0] italic' : 'text-[#5D5D5D]'}`}>
           {student.name || '未命名'}
         </h3>
+        {/* v3.4.0: 迷你餘額顯示 */}
+        {(student.bank?.balance || 0) > 0 && (
+          <span className="text-[9px] font-bold text-[#8B6914] bg-[#FFD6A5]/30 px-1.5 py-0.5 rounded-full inline-block mt-0.5">
+            {student.bank.balance >= 1000 ? `${Math.floor(student.bank.balance / 1000)}🍪` :
+             student.bank.balance >= 100 ? `${Math.floor(student.bank.balance / 100)}🐟` :
+             `${student.bank.balance}pt`}
+          </span>
+        )}
       </div>
     </div>
   )

@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { PawPrint, LogOut, Menu, ListTodo, ScrollText, Sparkles, Flag, Settings } from 'lucide-react'
+import { PawPrint, LogOut, Menu, ListTodo, ScrollText, Sparkles, Flag, Settings, ShoppingCart } from 'lucide-react'
 import { formatDateDisplay } from '../../utils/helpers'
 
-function Header({ todayStr, completionRate, className, classAlias, onLogout, onOpenSettings, onOpenTeamManagement, onOpenTaskOverview, onOpenGadgets, onOpenHistory }) {
+function Header({ todayStr, completionRate, className, classAlias, onLogout, onOpenSettings, onOpenTeamManagement, onOpenTaskOverview, onOpenGadgets, onOpenHistory, onOpenStore }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const displayName = classAlias || className
 
@@ -10,6 +10,7 @@ function Header({ todayStr, completionRate, className, classAlias, onLogout, onO
   const menuItems = [
     { onClick: onOpenTaskOverview, icon: ListTodo, label: '任務總覽' },
     { onClick: onOpenHistory, icon: ScrollText, label: '村莊歷史' },
+    { onClick: onOpenStore, icon: ShoppingCart, label: '橘貓商店' },
     { onClick: onOpenGadgets, icon: Sparkles, label: '課堂法寶' },
     { onClick: onOpenTeamManagement, icon: Flag, label: '小隊管理' },
     { onClick: onOpenSettings, icon: Settings, label: '村莊設定' },

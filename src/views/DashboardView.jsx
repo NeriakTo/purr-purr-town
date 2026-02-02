@@ -14,8 +14,9 @@ import GadgetsModal from '../components/modals/GadgetsModal'
 import HistoryModal from '../components/modals/HistoryModal'
 import PassportModal from '../components/modals/PassportModal'
 import AnnouncementModal from '../components/modals/AnnouncementModal'
+import OrangeCatStoreModal from '../components/modals/OrangeCatStoreModal'
 import { DEFAULT_SETTINGS, STATUS_VALUES } from '../utils/constants'
-import { formatDate, formatDateDisplay, getTodayStr, getTasksForDate, getTasksCreatedToday, makeTaskId, normalizeStatus, getTaskDueDate, parseDate, isDoneStatus, isCountedInDenominator, loadClassCache, saveClassCache } from '../utils/helpers'
+import { formatDate, formatDateDisplay, getTodayStr, getTasksForDate, getTasksCreatedToday, makeTaskId, normalizeStatus, getTaskDueDate, parseDate, isDoneStatus, isCountedInDenominator, loadClassCache, saveClassCache, ensureStudentBank, createTransaction, toPoints } from '../utils/helpers'
 
 function DashboardView({ classId, className, classAlias, onLogout, onClearLocalClass }) {
   const [students, setStudents] = useState([])
@@ -24,7 +25,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
   useEffect(() => { allLogsRef.current = allLogs }, [allLogs])
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
   const [loading, setLoading] = useState(true)
-  const [selectedStudent, setSelectedStudent] = useState(null)
+  const [selectedStudentId, setSelectedStudentId] = useState(null)
   const [currentDate, setCurrentDate] = useState(new Date())
   const [showSettings, setShowSettings] = useState(false)
   const [showTeamManagement, setShowTeamManagement] = useState(false)
@@ -33,6 +34,13 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
   const [showGadgets, setShowGadgets] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
   const [showAnnouncements, setShowAnnouncements] = useState(false)
+  const [showStore, setShowStore] = useState(false)
+
+  // v3.4.0: 從 students array 派生 selectedStudent，避免快照過期
+  const selectedStudent = useMemo(
+    () => students.find(s => s.id === selectedStudentId) || null,
+    [students, selectedStudentId]
+  )
 
   const normalizeDate = useCallback((date) => {
     if (typeof date === 'string') {
@@ -45,7 +53,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
     if (!classId) return
     const cached = loadClassCache(classId)
     if (cached) {
-      const normStudents = (cached.students || []).map((s, i) => ({ ...s, id: s.id || s.uuid || `student_${i}` }))
+      const normStudents = (cached.students || []).map((s, i) => ensureStudentBank({ ...s, id: s.id || s.uuid || `student_${i}` }))
       const normLogs = (cached.logs || []).map(log => {
         const dateStr = normalizeDate(log.date)
         const tasks = (log.tasks || []).map((t, i) => ({ ...t, id: t.id || makeTaskId(dateStr, t, i) }))
@@ -205,6 +213,45 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
     setStudents(prev => prev.map(s => ({ ...s, group: assignments[s.id] || s.group })))
   }, [])
 
+  // v3.4.0: 銀行交易 (行為加扣分 / 手動調整)
+  const handleBankTransaction = useCallback((studentId, amount, reason) => {
+    setStudents(prev => prev.map(s => {
+      if (s.id !== studentId) return s
+      const student = ensureStudentBank(s)
+      const newBank = createTransaction(student.bank, amount, reason)
+      return { ...student, bank: newBank }
+    }))
+  }, [])
+
+  // v3.4.0: 商店購買
+  const handlePurchase = useCallback((studentId, item) => {
+    const rates = settings.currencyRates || { fish: 100, cookie: 1000 }
+    const priceInPoints = toPoints(item.price, item.priceUnit, rates)
+
+    setStudents(prev => prev.map(s => {
+      if (s.id !== studentId) return s
+      const student = ensureStudentBank(s)
+      if (student.bank.balance < priceInPoints) return s
+      const newBank = createTransaction(student.bank, -priceInPoints, `購買 ${item.name}`)
+      const newInventory = [...(student.inventory || []), {
+        itemId: item.id,
+        name: item.name,
+        icon: item.icon,
+        purchasedAt: new Date().toISOString(),
+      }]
+      return { ...student, bank: newBank, inventory: newInventory }
+    }))
+
+    if (item.stock !== null && item.stock !== undefined && item.stock > 0) {
+      setSettings(prev => ({
+        ...prev,
+        storeItems: (prev.storeItems || []).map(si =>
+          si.id === item.id ? { ...si, stock: Math.max(0, (si.stock || 0) - 1) } : si
+        ),
+      }))
+    }
+  }, [settings.currencyRates])
+
   const purrCount = students.filter(s => {
     if (tasks.length === 0) return false
     const effective = tasks.filter(t => isCountedInDenominator(studentStatus[s.id]?.[t.id]))
@@ -239,6 +286,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
         onOpenTaskOverview={() => setShowTaskOverview(true)}
         onOpenGadgets={() => setShowGadgets(true)}
         onOpenHistory={() => setShowHistory(true)}
+        onOpenStore={() => setShowStore(true)}
       />
       
       <div className="flex flex-col lg:flex-row gap-4 2xl:gap-3 flex-1 min-h-0">
@@ -324,7 +372,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
                 tasks={tasks}
                 studentStatus={studentStatus}
                 settings={settings}
-                onSelectStudent={setSelectedStudent}
+                onSelectStudent={(s) => setSelectedStudentId(s.id)}
                 checkOverdue={checkOverdue}
               />
             )}
@@ -342,12 +390,13 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
           hasOverdue={checkOverdue(selectedStudent.id)}
           allLogs={allLogs}
           currentDateStr={formatDate(currentDate)}
-          onClose={() => setSelectedStudent(null)}
+          onClose={() => setSelectedStudentId(null)}
           onToggleStatus={toggleStatus}
           onStudentUpdate={(updated) => {
             setStudents(p => p.map(s => s.id === updated.id ? updated : s))
-            setSelectedStudent(null)
+            setSelectedStudentId(null)
           }}
+          onBankTransaction={handleBankTransaction}
         />
       )}
       
@@ -361,7 +410,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
           onClose={() => setShowSettings(false)}
           onSave={setSettings}
           onRestoreFromBackup={(restored) => {
-            setStudents((restored.students || []).map((s, i) => ({ ...s, id: s.id || s.uuid || `student_${i}` })))
+            setStudents((restored.students || []).map((s, i) => ensureStudentBank({ ...s, id: s.id || s.uuid || `student_${i}` })))
             setAllLogs((restored.logs || []).map(log => {
               const dateStr = normalizeDate(log.date)
               const tasks = (log.tasks || []).map((t, i) => ({ ...t, id: t.id || makeTaskId(dateStr, t, i) }))
@@ -427,6 +476,16 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
           onSave={(nextAnnouncements) => {
             setSettings(prev => ({ ...prev, announcements: nextAnnouncements }))
           }}
+        />
+      )}
+
+      {showStore && (
+        <OrangeCatStoreModal
+          students={students}
+          settings={settings}
+          onClose={() => setShowStore(false)}
+          onPurchase={handlePurchase}
+          onSettingsUpdate={setSettings}
         />
       )}
     </div>

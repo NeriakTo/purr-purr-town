@@ -260,5 +260,58 @@ export function isDefaultName(name, number) {
 }
 
 // ============================================
+// v3.4.0: 貨幣系統 (Currency System)
+// ============================================
+
+export function formatCurrency(points, rates = { fish: 100, cookie: 1000 }) {
+  const abs = Math.abs(points)
+  const sign = points < 0 ? '-' : ''
+  const cookies = Math.floor(abs / rates.cookie)
+  const remainder = abs % rates.cookie
+  const fish = Math.floor(remainder / rates.fish)
+  const raw = remainder % rates.fish
+
+  const parts = []
+  if (cookies > 0) parts.push(`${cookies} 🍪`)
+  if (fish > 0) parts.push(`${fish} 🐟`)
+  const display = `${sign}${parts.length > 0 ? parts.join(' ') + ' ' : ''}(${sign}${abs} pt)`
+  return { cookies, fish, raw, display }
+}
+
+export function toPoints(amount, unit, rates = { fish: 100, cookie: 1000 }) {
+  if (unit === 'cookie') return amount * rates.cookie
+  if (unit === 'fish') return amount * rates.fish
+  return amount
+}
+
+export function ensureStudentBank(student) {
+  if (student.bank && student.inventory) return student
+  return {
+    ...student,
+    bank: student.bank || { balance: 0, transactions: [] },
+    inventory: student.inventory || [],
+  }
+}
+
+export function createTransaction(bank, amount, reason) {
+  const newBalance = (bank.balance || 0) + amount
+  const tx = {
+    id: `tx_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    date: new Date().toISOString(),
+    amount,
+    reason,
+    balance: newBalance,
+  }
+  return {
+    balance: newBalance,
+    transactions: [...(bank.transactions || []), tx],
+  }
+}
+
+export function generateId(prefix = 'item') {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+}
+
+// ============================================
 // Loading 畫面元件
 // ============================================

@@ -30,7 +30,9 @@ function App() {
       number: i + 1,
       name: `${i + 1}號村民`,
       group: 'unassigned',
-      gender: 'neutral'
+      gender: 'neutral',
+      bank: { balance: 0, transactions: [] },
+      inventory: [],
     }))
     saveClassCache(classId, {
       classId,
