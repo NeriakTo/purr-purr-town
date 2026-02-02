@@ -135,7 +135,7 @@ function LoginView({ onSelectClass, localClasses, onCreateLocalClass }) {
       <footer className="text-center py-6 relative z-10">
         <p className="flex items-center justify-center gap-2 text-[#B8B8B8] text-xs">
           <PawPrint size={12} />
-          Purr Purr Town v3.3.1
+          Purr Purr Town v3.3.2
           <PawPrint size={12} />
         </p>
       </footer>
