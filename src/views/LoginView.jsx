@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { PawPrint, Plus, Home, School, ChevronRight } from 'lucide-react'
+import { PawPrint, Plus, Home, School, ChevronRight, Trophy, Users, ShoppingBag, Wallet, Calendar, AlertTriangle } from 'lucide-react'
 import CreateClassModal from '../components/modals/CreateClassModal'
 import { AVATAR_EMOJIS } from '../utils/constants'
 import { formatCurrency, formatDateShort, loadClassCache, resolveCurrency } from '../utils/helpers'
@@ -61,9 +61,9 @@ function LoginView({ onSelectClass, localClasses, onCreateLocalClass }) {
   }
 
   const features = [
-    { icon: '??', title: '????', desc: '????????????????', color: '#A8D8B9' },
-    { icon: '??', title: '????', desc: '????????????????', color: '#FFD6A5' },
-    { icon: '??', title: '????', desc: '???????????????????', color: '#FFADAD' },
+    { icon: Trophy, title: '榮譽制度', desc: '透過積分與貨幣系統，建立正向回饋循環', color: '#A8D8B9' },
+    { icon: Users, title: '村民互動', desc: '每個孩子化身動物村民，共同經營班級村莊', color: '#FFD6A5' },
+    { icon: ShoppingBag, title: '虛擬商店', desc: '累積資產兌換特權卡片，學習理財與自我管理', color: '#FFADAD' },
   ]
 
   return (
@@ -187,17 +187,17 @@ function LoginView({ onSelectClass, localClasses, onCreateLocalClass }) {
 
                       <div className="space-y-1 text-xs text-[#8B8B8B] mb-3">
                         <div className="flex items-center gap-1">
-                          <span>??</span>
-                          <span>???: {meta.totalAssetsDisplay || '?'}</span>
+                          <Wallet size={12} className="text-[#A8D8B9]" />
+                          <span>總資產: {meta.totalAssetsDisplay || '0'}</span>
                         </div>
                         <div className="flex items-center gap-1">
-                          <span>??</span>
-                          <span>????: {meta.lastActiveDate || '?'}</span>
+                          <Calendar size={12} className="text-[#FFD6A5]" />
+                          <span>最後活動: {meta.lastActiveDate || '無'}</span>
                         </div>
                         {meta.backupStale && (
                           <div className="flex items-center gap-1 text-[#D64545] font-semibold">
-                            <span>?</span>
-                            <span>?? 7 ????</span>
+                            <AlertTriangle size={12} />
+                            <span>逾 7 天未備份</span>
                           </div>
                         )}
                       </div>
