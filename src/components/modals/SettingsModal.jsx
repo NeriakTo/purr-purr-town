@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { X, Save, Link, Download, Plus, Trash2, Settings, ClipboardList, Briefcase, Scale, Coins, Banknote, ChevronDown } from 'lucide-react'
 import { DEFAULT_SETTINGS, JOB_CYCLES, DEFAULT_RULE_CATEGORIES } from '../../utils/constants'
 import { saveClassCache, generateId } from '../../utils/helpers'
+import IconPicker, { RenderIcon } from '../common/IconPicker'
 
 function SettingsModal({ classId, className, settings, students, allLogs, onClose, onSave, onRestoreFromBackup, onClearLocalClass, onProcessPayroll }) {
   const [activeTab, setActiveTab] = useState('general')
@@ -26,7 +27,9 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
   const [showPayroll, setShowPayroll] = useState(false)
   const [selectedPayrollCycles, setSelectedPayrollCycles] = useState([])
   const [newCategoryName, setNewCategoryName] = useState('')
+  const [openStudentDropdown, setOpenStudentDropdown] = useState(null)
   const fileInputRef = useRef(null)
+  const studentDropdownRef = useRef(null)
 
   useEffect(() => {
     if (!classId) return
@@ -37,6 +40,17 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
       setBackupMeta(null)
     }
   }, [classId])
+
+  useEffect(() => {
+    if (!openStudentDropdown) return
+    function handleClick(e) {
+      if (studentDropdownRef.current && !studentDropdownRef.current.contains(e.target)) {
+        setOpenStudentDropdown(null)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [openStudentDropdown])
 
   const handleSave = () => {
     if (onSave) onSave(localSettings)
@@ -270,6 +284,24 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
       }
     }))
   }
+  const selectAllStudentsForJob = (jobId) => {
+    setLocalSettings(p => ({
+      ...p,
+      jobAssignments: {
+        ...p.jobAssignments,
+        [jobId]: students.map(s => s.id),
+      }
+    }))
+  }
+  const clearAllStudentsForJob = (jobId) => {
+    setLocalSettings(p => ({
+      ...p,
+      jobAssignments: {
+        ...p.jobAssignments,
+        [jobId]: [],
+      }
+    }))
+  }
 
   // --- Payroll ---
   const payrollPreview = () => {
@@ -294,7 +326,7 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
     setSelectedPayrollCycles([])
   }
 
-  // --- Behavior Rules CRUD ---
+  // --- Behavior Standards CRUD ---
   const updateRule = (ruleId, field, value) => {
     setLocalSettings(p => ({
       ...p,
@@ -368,7 +400,7 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
   const tabs = [
     { key: 'general', label: '一般設定', icon: Settings },
     { key: 'jobs', label: '職務設定', icon: Briefcase },
-    { key: 'behavior', label: '行為規則', icon: Scale },
+    { key: 'behavior', label: '行為規範', icon: Scale },
     { key: 'currency', label: '貨幣設定', icon: Coins },
   ]
 
@@ -592,13 +624,7 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
                 {localSettings.jobs.map(job => (
                   <div key={job.id} className="p-3 bg-white rounded-xl border border-[#E8E8E8] hover:border-[#FFD6A5] transition-colors space-y-2">
                     <div className="flex items-center gap-3">
-                      <input
-                        type="text"
-                        value={job.icon}
-                        onChange={e => updateJob(job.id, 'icon', e.target.value)}
-                        className="w-12 text-center text-2xl bg-transparent outline-none"
-                        maxLength={2}
-                      />
+                      <IconPicker value={job.icon} onChange={v => updateJob(job.id, 'icon', v)} />
                       <input
                         type="text"
                         value={job.title}
@@ -645,16 +671,57 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
                           </span>
                         )
                       })}
-                      <select
-                        value=""
-                        onChange={e => { if (e.target.value) addStudentToJob(job.id, e.target.value) }}
-                        className="text-xs px-2 py-1 rounded-lg border border-dashed border-[#E8E8E8] outline-none text-[#8B8B8B] hover:border-[#FFD6A5] cursor-pointer bg-transparent"
-                      >
-                        <option value="">+ 指派村民</option>
-                        {students.filter(s => !(localSettings.jobAssignments[job.id] || []).includes(s.id)).map(s => (
-                          <option key={s.id} value={s.id}>{s.number}號 {s.name}</option>
-                        ))}
-                      </select>
+                      <div className="relative" ref={openStudentDropdown === job.id ? studentDropdownRef : null}>
+                        <button
+                          type="button"
+                          onClick={() => setOpenStudentDropdown(openStudentDropdown === job.id ? null : job.id)}
+                          className="text-xs px-2 py-1 rounded-lg border border-dashed border-[#E8E8E8] text-[#8B8B8B] hover:border-[#FFD6A5] cursor-pointer bg-transparent flex items-center gap-1"
+                        >
+                          <Plus size={10} /> 指派村民
+                          <ChevronDown size={10} className={`transition-transform ${openStudentDropdown === job.id ? 'rotate-180' : ''}`} />
+                        </button>
+                        {openStudentDropdown === job.id && (
+                          <div className="absolute z-50 top-full left-0 mt-1 w-56 bg-white rounded-xl shadow-xl border border-[#E8E8E8] overflow-hidden">
+                            <div className="sticky top-0 bg-[#F9F9F9] border-b border-[#E8E8E8] px-2 py-1.5 flex gap-2 z-10">
+                              <button
+                                type="button"
+                                onClick={() => selectAllStudentsForJob(job.id)}
+                                className="flex-1 py-1 rounded-lg bg-[#A8D8B9] text-white text-xs font-bold hover:bg-[#7BC496] transition-colors"
+                              >
+                                全選
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => clearAllStudentsForJob(job.id)}
+                                className="flex-1 py-1 rounded-lg bg-[#E8E8E8] text-[#5D5D5D] text-xs font-bold hover:bg-[#D8D8D8] transition-colors"
+                              >
+                                清空
+                              </button>
+                            </div>
+                            <div className="max-h-48 overflow-y-auto p-1.5 space-y-0.5" style={{ scrollbarWidth: 'thin' }}>
+                              {students.map(s => {
+                                const isAssigned = (localSettings.jobAssignments[job.id] || []).includes(s.id)
+                                return (
+                                  <label
+                                    key={s.id}
+                                    className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[#F9F9F9] cursor-pointer text-xs"
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={isAssigned}
+                                      onChange={() => isAssigned ? removeStudentFromJob(job.id, s.id) : addStudentToJob(job.id, s.id)}
+                                      className="accent-[#A8D8B9] shrink-0"
+                                    />
+                                    <span className={isAssigned ? 'font-bold text-[#5D5D5D]' : 'text-[#8B8B8B]'}>
+                                      {s.number}號 {s.name}
+                                    </span>
+                                  </label>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -669,13 +736,13 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
             </div>
           )}
 
-          {/* ===== 行為規則 ===== */}
+          {/* ===== 行為規範 ===== */}
           {activeTab === 'behavior' && (
             <div className="p-6 space-y-6">
               <div className="space-y-2">
                 <h3 className="text-sm font-bold text-[#5D5D5D] flex items-center gap-2">
                   <Scale size={16} className="text-[#FFADAD]" />
-                  行為加扣分規則
+                  行為加扣分規範
                 </h3>
                 <p className="text-xs text-[#8B8B8B]">按類別管理快速加扣分按鈕，將顯示在村民護照的存摺頁中</p>
               </div>
@@ -739,13 +806,7 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
                         </h4>
                         {bonus.map(rule => (
                           <div key={rule.id} className="flex items-center gap-3 p-2.5 bg-[#A8D8B9]/10 rounded-xl border border-[#A8D8B9]/30">
-                            <input
-                              type="text"
-                              value={rule.icon}
-                              onChange={e => updateRule(rule.id, 'icon', e.target.value)}
-                              className="w-10 text-center text-lg bg-transparent outline-none"
-                              maxLength={2}
-                            />
+                            <IconPicker value={rule.icon} onChange={v => updateRule(rule.id, 'icon', v)} />
                             <input
                               type="text"
                               value={rule.label}
@@ -788,13 +849,7 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
                         </h4>
                         {fine.map(rule => (
                           <div key={rule.id} className="flex items-center gap-3 p-2.5 bg-[#FFADAD]/10 rounded-xl border border-[#FFADAD]/30">
-                            <input
-                              type="text"
-                              value={rule.icon}
-                              onChange={e => updateRule(rule.id, 'icon', e.target.value)}
-                              className="w-10 text-center text-lg bg-transparent outline-none"
-                              maxLength={2}
-                            />
+                            <IconPicker value={rule.icon} onChange={v => updateRule(rule.id, 'icon', v)} />
                             <input
                               type="text"
                               value={rule.label}
@@ -958,7 +1013,7 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
                                 .filter(Boolean)
                               return (
                                 <div key={job.id} className="text-xs text-[#8B8B8B] flex items-center gap-2">
-                                  <span>{job.icon}</span>
+                                  <RenderIcon name={job.icon} size={14} />
                                   <span className="font-medium text-[#5D5D5D]">{job.title}</span>
                                   <span>({job.salary} pt)</span>
                                   <span className="text-[10px]">

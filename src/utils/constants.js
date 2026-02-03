@@ -19,7 +19,7 @@ export const DEFAULT_JOBS = [
   { id: 'job_line_leader', title: '路隊長', salary: 100, icon: '🚶', cycle: 'weekly' },
 ]
 
-// v3.4.2: 預設行為規則類別
+// v3.4.4: 預設行為規範類別
 export const DEFAULT_RULE_CATEGORIES = [
   { id: 'cat_homework', name: '作業', icon: '📚' },
   { id: 'cat_discipline', name: '秩序', icon: '📏' },

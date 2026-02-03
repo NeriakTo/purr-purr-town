@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
-import { X, Clock, XCircle, AlertTriangle, Check, Coffee, CircleMinus, Wallet, Undo2, TrendingUp, TrendingDown } from 'lucide-react'
+import { X, Clock, XCircle, AlertTriangle, Check, Coffee, CircleMinus, Wallet, Undo2, TrendingUp, TrendingDown, ChevronDown } from 'lucide-react'
 import AvatarEmoji from '../common/AvatarEmoji'
+import { RenderIcon } from '../common/IconPicker'
 import { STATUS_VALUES } from '../../utils/constants'
 import { formatDate, formatDateDisplay, getTaskDueDate, getTodayStr, isDoneStatus, normalizeStatus, parseDate, getTaskIcon, getStatusVisual, formatCurrency } from '../../utils/helpers'
 
@@ -9,6 +10,7 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
   const [editData, setEditData] = useState({ name: student.name || '', gender: student.gender || 'male', group: student.group || 'unassigned' })
   const [manualAmount, setManualAmount] = useState('')
   const [manualReason, setManualReason] = useState('')
+  const [quickActionsOpen, setQuickActionsOpen] = useState(false)
   const status = studentStatus[student.id] || {}
   const hasTasks = tasks.length > 0
   const completedCount = tasks.filter(t => isDoneStatus(status[t.id])).length
@@ -55,7 +57,7 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
     }
   }
 
-  // v3.4.2: 將行為規則依類別分組
+  // v3.4.4: 將行為規範依類別分組
   const groupedRules = useMemo(() => {
     const rules = settings?.behaviorRules || []
     const groups = {}
@@ -66,6 +68,14 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
     })
     return groups
   }, [settings?.behaviorRules])
+
+  const totalRulesCount = (settings?.behaviorRules || []).length
+
+  const studentJobs = useMemo(() => {
+    const jobs = settings?.jobs || []
+    const assignments = settings?.jobAssignments || {}
+    return jobs.filter(job => (assignments[job.id] || []).includes(student.id))
+  }, [settings, student.id])
 
   const tabs = [
     { key: 'tasks', label: '📋 任務' },
@@ -113,6 +123,18 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
                   </div>
                   <span className="text-xs font-medium text-[#5D5D5D]">{completedCount}/{tasks.length}</span>
                 </div>
+              )}
+            </div>
+
+            {/* Job Badges */}
+            <div className="mt-3 flex flex-wrap gap-2 justify-center shrink-0">
+              {studentJobs.length > 0 ? studentJobs.map(job => (
+                <span key={job.id} className="px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-sm flex items-center gap-1">
+                  <RenderIcon name={job.icon} size={14} />
+                  <span>{job.title}</span>
+                </span>
+              )) : (
+                <span className="text-xs text-[#B0B0B0]">尚未指派職務</span>
               )}
             </div>
 
@@ -304,59 +326,48 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
               {/* ===== Passbook Tab ===== */}
               {activeTab === 'passbook' && (
                 <div className="space-y-5">
-                  {/* Quick Actions - grouped by category */}
+                  {/* Quick Actions - Accordion */}
                   {Object.keys(groupedRules).length > 0 && (
-                    <div className="space-y-3">
-                      <div className="text-sm font-bold text-[#5D5D5D]">快速操作</div>
-                      {Object.entries(groupedRules).map(([category, { bonus, fine }]) => {
-                        const catMeta = (settings?.ruleCategories || []).find(c => c.name === category)
-                        return (
-                          <div key={category} className="rounded-xl border border-[#E8E8E8] overflow-hidden">
-                            <div className="px-3 py-2 bg-[#F9F9F9] text-xs font-bold text-[#5D5D5D] flex items-center gap-1.5">
-                              <span>{catMeta?.icon || '📋'}</span>
-                              {category}
-                            </div>
-                            <div className="p-2 space-y-2">
-                              {/* Bonus buttons */}
-                              {bonus.length > 0 && (
-                                <div className="grid grid-cols-2 lg:grid-cols-3 gap-1.5">
-                                  {bonus.map(rule => (
-                                    <button
-                                      key={rule.id}
-                                      onClick={() => onBankTransaction?.(student.id, rule.amount, rule.label)}
-                                      className="p-2.5 rounded-xl text-xs font-bold transition-all active:scale-95 bg-[#E8F5E9] border border-[#A8D8B9]/40 text-[#4A7C59] hover:bg-[#A8D8B9]/30"
-                                    >
-                                      <span className="text-base mr-0.5">{rule.icon}</span>
-                                      {rule.label}
-                                      <span className="block text-[10px] mt-0.5 opacity-75 flex items-center justify-center gap-0.5">
-                                        <TrendingUp size={10} />+{Math.abs(rule.amount)} pt
-                                      </span>
-                                    </button>
-                                  ))}
+                    <div className="rounded-xl border border-[#E8E8E8] overflow-hidden">
+                      <button
+                        onClick={() => setQuickActionsOpen(!quickActionsOpen)}
+                        className="w-full px-4 py-3 bg-[#F9F9F9] text-sm font-bold text-[#5D5D5D] flex items-center justify-between hover:bg-[#F0F0F0] transition-colors"
+                      >
+                        <span>⚡ 快速操作 (點擊展開) — 共 {totalRulesCount} 個項目</span>
+                        <ChevronDown size={16} className={`transition-transform ${quickActionsOpen ? 'rotate-180' : ''}`} />
+                      </button>
+                      {quickActionsOpen && (
+                        <div className="p-3 space-y-3">
+                          {Object.entries(groupedRules).map(([category, { bonus, fine }]) => {
+                            const catMeta = (settings?.ruleCategories || []).find(c => c.name === category)
+                            const allRules = [...bonus, ...fine]
+                            return (
+                              <div key={category}>
+                                <div className="text-xs font-bold text-[#8B8B8B] mb-1.5 flex items-center gap-1">
+                                  <span>{catMeta?.icon || '📋'}</span>
+                                  {category}
                                 </div>
-                              )}
-                              {/* Fine buttons */}
-                              {fine.length > 0 && (
-                                <div className="grid grid-cols-2 lg:grid-cols-3 gap-1.5">
-                                  {fine.map(rule => (
-                                    <button
-                                      key={rule.id}
-                                      onClick={() => onBankTransaction?.(student.id, rule.amount, rule.label)}
-                                      className="p-2.5 rounded-xl text-xs font-bold transition-all active:scale-95 bg-[#FFF0F0] border border-[#FFADAD]/40 text-[#D64545] hover:bg-[#FFADAD]/30"
-                                    >
-                                      <span className="text-base mr-0.5">{rule.icon}</span>
-                                      {rule.label}
-                                      <span className="block text-[10px] mt-0.5 opacity-75 flex items-center justify-center gap-0.5">
-                                        <TrendingDown size={10} />{rule.amount} pt
-                                      </span>
-                                    </button>
-                                  ))}
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                                  {allRules.map(rule => {
+                                    const isFine = rule.type === 'fine'
+                                    return (
+                                      <button
+                                        key={rule.id}
+                                        onClick={() => onBankTransaction?.(student.id, rule.amount, rule.label)}
+                                        className="h-10 text-sm flex items-center justify-center gap-2 border rounded-lg hover:bg-gray-50 transition-colors active:scale-95 bg-white"
+                                        style={{ borderLeftWidth: 3, borderLeftColor: isFine ? '#FFADAD' : '#A8D8B9' }}
+                                      >
+                                        <RenderIcon name={rule.icon} size={14} className={isFine ? 'text-[#D64545]' : 'text-[#4A7C59]'} />
+                                        <span className={isFine ? 'text-[#D64545]' : 'text-[#4A7C59]'}>{rule.label}</span>
+                                      </button>
+                                    )
+                                  })}
                                 </div>
-                              )}
-                            </div>
-                          </div>
-                        )
-                      })}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
                     </div>
                   )}
 
