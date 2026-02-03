@@ -171,6 +171,7 @@ function GadgetsModal({ students, onClose }) {
                   max="99"
                   value={customMin}
                   onChange={e => setCustomMin(e.target.value)}
+                  onFocus={e => e.target.select()}
                   className="w-16 px-2 py-1.5 rounded-lg border-2 border-[#E8E8E8] text-center font-bold text-[#5D5D5D] focus:border-[#A8D8B9] focus:outline-none transition-colors"
                 />
                 <span className="text-sm font-bold text-[#5D5D5D]">分</span>
@@ -180,6 +181,7 @@ function GadgetsModal({ students, onClose }) {
                   max="59"
                   value={customSec}
                   onChange={e => setCustomSec(e.target.value)}
+                  onFocus={e => e.target.select()}
                   className="w-16 px-2 py-1.5 rounded-lg border-2 border-[#E8E8E8] text-center font-bold text-[#5D5D5D] focus:border-[#A8D8B9] focus:outline-none transition-colors"
                 />
                 <span className="text-sm font-bold text-[#5D5D5D]">秒</span>

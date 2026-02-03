@@ -61,7 +61,12 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
       })
       setStudents(normStudents)
       setAllLogs(normLogs)
-      setSettings(cached.settings ? { ...DEFAULT_SETTINGS, ...cached.settings } : DEFAULT_SETTINGS)
+      const loadedSettings = cached.settings ? { ...DEFAULT_SETTINGS, ...cached.settings } : DEFAULT_SETTINGS
+      // v3.5.0: Migrate storeItems → shop.products
+      if (!loadedSettings.shop && loadedSettings.storeItems) {
+        loadedSettings.shop = { ...DEFAULT_SETTINGS.shop, products: loadedSettings.storeItems }
+      }
+      setSettings(loadedSettings)
       setLoading(false)
     }
   }, [classId, normalizeDate])
@@ -264,7 +269,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
     })
   }, [])
 
-  // v3.4.0: 商店購買
+  // v3.5.0: 商店購買
   const handlePurchase = useCallback((studentId, item) => {
     const rates = settings.currencyRates || { fish: 100, cookie: 1000 }
     const priceInPoints = toPoints(item.price, item.priceUnit, rates)
@@ -286,12 +291,29 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
     if (item.stock !== null && item.stock !== undefined && item.stock > 0) {
       setSettings(prev => ({
         ...prev,
-        storeItems: (prev.storeItems || []).map(si =>
-          si.id === item.id ? { ...si, stock: Math.max(0, (si.stock || 0) - 1) } : si
-        ),
+        shop: {
+          ...prev.shop,
+          products: (prev.shop?.products || []).map(si =>
+            si.id === item.id ? { ...si, stock: Math.max(0, (si.stock || 0) - 1) } : si
+          ),
+        },
       }))
     }
   }, [settings.currencyRates])
+
+  // v3.5.0: 道具核銷
+  const handleConsumeItem = useCallback((studentId, itemIndex) => {
+    setStudents(prev => prev.map(s => {
+      if (s.id !== studentId) return s
+      const student = ensureStudentBank(s)
+      const item = student.inventory?.[itemIndex]
+      if (!item) return s
+      const newInventory = [...student.inventory]
+      newInventory.splice(itemIndex, 1)
+      const newBank = createTransaction(student.bank, 0, `使用道具: ${item.name}`)
+      return { ...student, bank: newBank, inventory: newInventory }
+    }))
+  }, [])
 
   const purrCount = students.filter(s => {
     if (tasks.length === 0) return false
@@ -438,6 +460,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
           }}
           onBankTransaction={handleBankTransaction}
           onUndoTransaction={handleUndoTransaction}
+          onConsumeItem={handleConsumeItem}
         />
       )}
       
@@ -527,7 +550,6 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
           settings={settings}
           onClose={() => setShowStore(false)}
           onPurchase={handlePurchase}
-          onSettingsUpdate={setSettings}
         />
       )}
     </div>

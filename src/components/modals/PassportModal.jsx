@@ -5,12 +5,13 @@ import { RenderIcon } from '../common/IconPicker'
 import { STATUS_VALUES } from '../../utils/constants'
 import { formatDate, formatDateDisplay, getTaskDueDate, getTodayStr, isDoneStatus, normalizeStatus, parseDate, getTaskIcon, getStatusVisual, formatCurrency } from '../../utils/helpers'
 
-function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus, onStudentUpdate, hasOverdue, settings, allLogs, currentDateStr, onBankTransaction, onUndoTransaction }) {
+function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus, onStudentUpdate, hasOverdue, settings, allLogs, currentDateStr, onBankTransaction, onUndoTransaction, onConsumeItem }) {
   const [activeTab, setActiveTab] = useState('tasks')
   const [editData, setEditData] = useState({ name: student.name || '', gender: student.gender || 'male', group: student.group || 'unassigned' })
   const [manualAmount, setManualAmount] = useState('')
   const [manualReason, setManualReason] = useState('')
   const [quickActionsOpen, setQuickActionsOpen] = useState(false)
+  const [consumeConfirm, setConsumeConfirm] = useState(null)
   const status = studentStatus[student.id] || {}
   const hasTasks = tasks.length > 0
   const completedCount = tasks.filter(t => isDoneStatus(status[t.id])).length
@@ -159,13 +160,20 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
             {/* Inventory */}
             {(student.inventory || []).length > 0 && (
               <div className="mt-4 shrink-0">
-                <div className="text-xs font-bold text-[#8B8B8B] mb-2">道具背包</div>
+                <div className="text-xs font-bold text-[#8B8B8B] mb-2 flex items-center gap-1.5">
+                  <span>🎒</span> 道具背包 <span className="text-[#B0B0B0] font-normal">({student.inventory.length})</span>
+                </div>
                 <div className="flex flex-wrap gap-1.5">
                   {(student.inventory || []).map((item, idx) => (
-                    <div key={`${item.itemId}-${idx}`} className="flex items-center gap-1 px-2 py-1 bg-[#FFD6A5]/15 rounded-lg border border-[#FFD6A5]/30">
+                    <button
+                      key={`${item.itemId}-${idx}`}
+                      onClick={() => setConsumeConfirm({ item, index: idx })}
+                      className="flex items-center gap-1 px-2 py-1 bg-[#FFD6A5]/15 rounded-lg border border-[#FFD6A5]/30 hover:border-[#FFD6A5] hover:bg-[#FFD6A5]/25 transition-colors cursor-pointer"
+                      title="點擊核銷"
+                    >
                       <span className="text-sm">{item.icon || '🎁'}</span>
                       <span className="text-[10px] font-medium text-[#5D5D5D]">{item.name}</span>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -381,6 +389,7 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
                         type="number"
                         value={manualAmount}
                         onChange={e => setManualAmount(e.target.value)}
+                        onFocus={e => e.target.select()}
                         placeholder="金額 (正/負)"
                         className="w-28 px-3 py-2 rounded-xl border-2 border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-sm"
                       />
@@ -505,6 +514,35 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
             </div>
           </div>
         </div>
+        {/* Consume Item Confirmation */}
+        {consumeConfirm && (
+          <div className="absolute inset-0 bg-black/30 flex items-center justify-center z-20 animate-fade-in">
+            <div className="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl">
+              <div className="text-5xl text-center mb-3">{consumeConfirm.item.icon || '🎁'}</div>
+              <h3 className="text-lg font-bold text-center text-[#5D5D5D] mb-1">確認核銷</h3>
+              <p className="text-center text-[#8B8B8B] text-sm mb-4">
+                確定要核銷「{consumeConfirm.item.name}」嗎？核銷後道具將從背包中移除。
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setConsumeConfirm(null)}
+                  className="flex-1 py-2.5 rounded-xl bg-[#E8E8E8] text-[#5D5D5D] font-medium hover:bg-[#D8D8D8] transition-colors"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={() => {
+                    onConsumeItem?.(student.id, consumeConfirm.index)
+                    setConsumeConfirm(null)
+                  }}
+                  className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[#FFD6A5] to-[#FF8A8A] text-white font-bold shadow-md hover:shadow-lg transition-all"
+                >
+                  確認核銷
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

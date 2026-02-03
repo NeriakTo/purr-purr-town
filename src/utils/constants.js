@@ -33,8 +33,22 @@ export const DEFAULT_BEHAVIOR_RULES = [
   { id: 'rule_good_speak', label: '發表優良', amount: 100, type: 'bonus', icon: '🌟', category: '課堂表現' },
 ]
 
-// v3.4.0: 預設商店商品 (空，由老師自行上架)
-export const DEFAULT_STORE_ITEMS = []
+// v3.5.0: 預設商店商品
+export const DEFAULT_SHOP_PRODUCTS = [
+  { id: 'prod_homework_off', name: '減功課卡', icon: '📝', price: 1, priceUnit: 'cookie', stock: 10 },
+  { id: 'prod_nap_free', name: '午休免睡卡', icon: '😴', price: 2, priceUnit: 'cookie', stock: 5 },
+  { id: 'prod_nap_read', name: '午休閱讀卡', icon: '📖', price: 3, priceUnit: 'cookie', stock: 5 },
+  { id: 'prod_nap_game', name: '午休桌遊卡', icon: '🎲', price: 4, priceUnit: 'cookie', stock: 3 },
+  { id: 'prod_nap_camp', name: '午休露營卡', icon: '⛺', price: 5, priceUnit: 'cookie', stock: 1 },
+  { id: 'prod_nap_tablet', name: '午休平板卡', icon: '📱', price: 6, priceUnit: 'cookie', stock: 1 },
+]
+
+// v3.5.0: 預設商店設定
+export const DEFAULT_SHOP = {
+  name: '橘喵商店',
+  icon: '🐱',
+  products: DEFAULT_SHOP_PRODUCTS,
+}
 
 export const DEFAULT_SETTINGS = {
   taskTypes: ['作業', '訂正', '攜帶物品', '考試', '通知單', '回條'],
@@ -42,7 +56,7 @@ export const DEFAULT_SETTINGS = {
   announcements: [],
   jobs: DEFAULT_JOBS,
   behaviorRules: DEFAULT_BEHAVIOR_RULES,
-  storeItems: DEFAULT_STORE_ITEMS,
+  shop: DEFAULT_SHOP,
   currencyRates: DEFAULT_CURRENCY_RATES,
   ruleCategories: DEFAULT_RULE_CATEGORIES,
   jobAssignments: {},

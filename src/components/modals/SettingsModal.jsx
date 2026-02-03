@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { X, Save, Link, Download, Plus, Trash2, Settings, ClipboardList, Briefcase, Scale, Coins, Banknote, ChevronDown } from 'lucide-react'
-import { DEFAULT_SETTINGS, JOB_CYCLES, DEFAULT_RULE_CATEGORIES } from '../../utils/constants'
+import { X, Save, Link, Download, Plus, Trash2, Settings, ClipboardList, Briefcase, Scale, Coins, Banknote, ChevronDown, ShoppingBag } from 'lucide-react'
+import { DEFAULT_SETTINGS, JOB_CYCLES, DEFAULT_RULE_CATEGORIES, DEFAULT_SHOP } from '../../utils/constants'
 import { saveClassCache, generateId } from '../../utils/helpers'
 import IconPicker, { RenderIcon } from '../common/IconPicker'
 
@@ -12,7 +12,7 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
     announcements: settings?.announcements || [],
     jobs: settings?.jobs || DEFAULT_SETTINGS.jobs,
     behaviorRules: settings?.behaviorRules || DEFAULT_SETTINGS.behaviorRules,
-    storeItems: settings?.storeItems || DEFAULT_SETTINGS.storeItems,
+    shop: settings?.shop || (settings?.storeItems ? { ...DEFAULT_SHOP, products: settings.storeItems } : DEFAULT_SHOP),
     currencyRates: settings?.currencyRates || DEFAULT_SETTINGS.currencyRates,
     ruleCategories: settings?.ruleCategories || DEFAULT_SETTINGS.ruleCategories,
     jobAssignments: settings?.jobAssignments || DEFAULT_SETTINGS.jobAssignments,
@@ -131,7 +131,7 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
         announcements: restored.settings?.announcements || prev.announcements,
         jobs: restored.settings?.jobs || prev.jobs,
         behaviorRules: restored.settings?.behaviorRules || prev.behaviorRules,
-        storeItems: restored.settings?.storeItems || prev.storeItems,
+        shop: restored.settings?.shop || (restored.settings?.storeItems ? { ...DEFAULT_SHOP, products: restored.settings.storeItems } : prev.shop),
         currencyRates: restored.settings?.currencyRates || prev.currencyRates,
         ruleCategories: restored.settings?.ruleCategories || prev.ruleCategories,
         jobAssignments: restored.settings?.jobAssignments || prev.jobAssignments,
@@ -222,7 +222,7 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
           announcements: restored.settings?.announcements || prev.announcements,
           jobs: restored.settings?.jobs || prev.jobs,
           behaviorRules: restored.settings?.behaviorRules || prev.behaviorRules,
-          storeItems: restored.settings?.storeItems || prev.storeItems,
+          shop: restored.settings?.shop || (restored.settings?.storeItems ? { ...DEFAULT_SHOP, products: restored.settings.storeItems } : prev.shop),
           currencyRates: restored.settings?.currencyRates || prev.currencyRates,
           ruleCategories: restored.settings?.ruleCategories || prev.ruleCategories,
           jobAssignments: restored.settings?.jobAssignments || prev.jobAssignments,
@@ -385,6 +385,34 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
     }))
   }
 
+  // --- Shop Product CRUD ---
+  const addProduct = () => {
+    setLocalSettings(p => ({
+      ...p,
+      shop: { ...p.shop, products: [...(p.shop?.products || []), { id: generateId('prod'), name: '', icon: '🎁', price: 1, priceUnit: 'cookie', stock: 10 }] }
+    }))
+  }
+  const updateProduct = (prodId, field, value) => {
+    setLocalSettings(p => ({
+      ...p,
+      shop: {
+        ...p.shop,
+        products: (p.shop?.products || []).map(item => {
+          if (item.id !== prodId) return item
+          if (field === 'price') return { ...item, price: parseInt(value) || 0 }
+          if (field === 'stock') return { ...item, stock: parseInt(value) || 0 }
+          return { ...item, [field]: value }
+        })
+      }
+    }))
+  }
+  const removeProduct = (prodId) => {
+    setLocalSettings(p => ({
+      ...p,
+      shop: { ...p.shop, products: (p.shop?.products || []).filter(item => item.id !== prodId) }
+    }))
+  }
+
   // Group rules by category
   const rulesByCategory = (() => {
     const cats = (localSettings.ruleCategories || []).map(c => c.name)
@@ -402,6 +430,7 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
     { key: 'general', label: '一般設定', icon: Settings },
     { key: 'jobs', label: '職務設定', icon: Briefcase },
     { key: 'behavior', label: '行為規範', icon: Scale },
+    { key: 'shop', label: '商店設定', icon: ShoppingBag },
     { key: 'currency', label: '貨幣設定', icon: Coins },
   ]
 
@@ -638,6 +667,7 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
                           type="number"
                           value={job.salary}
                           onChange={e => updateJob(job.id, 'salary', e.target.value)}
+                          onFocus={e => e.target.select()}
                           className="w-20 px-2 py-2 rounded-lg border border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-sm text-center font-bold"
                         />
                         <span className="text-xs text-[#8B8B8B] whitespace-nowrap">pt</span>
@@ -824,6 +854,7 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
                                 type="number"
                                 value={Math.abs(rule.amount)}
                                 onChange={e => updateRule(rule.id, 'amount', e.target.value)}
+                                onFocus={e => e.target.select()}
                                 className="w-16 px-2 py-1.5 rounded-lg border border-[#A8D8B9]/30 focus:border-[#A8D8B9] outline-none text-sm text-center font-bold bg-white"
                                 min="0"
                               />
@@ -867,6 +898,7 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
                                 type="number"
                                 value={Math.abs(rule.amount)}
                                 onChange={e => updateRule(rule.id, 'amount', e.target.value)}
+                                onFocus={e => e.target.select()}
                                 className="w-16 px-2 py-1.5 rounded-lg border border-[#FFADAD]/30 focus:border-[#FFADAD] outline-none text-sm text-center font-bold bg-white"
                                 min="0"
                               />
@@ -891,6 +923,101 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
                   </div>
                 )
               })}
+            </div>
+          )}
+
+          {/* ===== 商店設定 ===== */}
+          {activeTab === 'shop' && (
+            <div className="p-6 space-y-6">
+              <div className="space-y-2">
+                <h3 className="text-sm font-bold text-[#5D5D5D] flex items-center gap-2">
+                  <ShoppingBag size={16} className="text-[#FF8A8A]" />
+                  商店設定
+                </h3>
+                <p className="text-xs text-[#8B8B8B]">管理商店名稱、圖示與商品上架</p>
+              </div>
+
+              {/* Shop Name & Icon */}
+              <div className="p-4 bg-[#F9F9F9] rounded-xl border border-[#E8E8E8] space-y-3">
+                <div className="text-xs font-bold text-[#5D5D5D]">商店資訊</div>
+                <div className="flex items-center gap-3">
+                  <IconPicker value={localSettings.shop?.icon || '🐱'} onChange={v => setLocalSettings(p => ({ ...p, shop: { ...p.shop, icon: v } }))} />
+                  <input
+                    type="text"
+                    value={localSettings.shop?.name || ''}
+                    onChange={e => setLocalSettings(p => ({ ...p, shop: { ...p.shop, name: e.target.value } }))}
+                    className="flex-1 px-3 py-2 rounded-lg border border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-sm font-medium"
+                    placeholder="商店名稱"
+                  />
+                </div>
+              </div>
+
+              {/* Product List */}
+              <div className="space-y-3">
+                <div className="text-xs font-bold text-[#5D5D5D]">商品列表</div>
+                {(localSettings.shop?.products || []).length === 0 && (
+                  <div className="text-center py-8 text-[#8B8B8B] bg-[#F9F9F9] rounded-xl">
+                    <div className="text-4xl mb-2">📦</div>
+                    <p className="text-sm">尚無商品，點擊下方按鈕新增</p>
+                  </div>
+                )}
+                {(localSettings.shop?.products || []).map(item => (
+                  <div key={item.id} className="flex items-center gap-2 p-3 bg-white rounded-xl border border-[#E8E8E8] hover:border-[#FFD6A5] transition-colors">
+                    <IconPicker value={item.icon} onChange={v => updateProduct(item.id, 'icon', v)} />
+                    <input
+                      type="text"
+                      value={item.name}
+                      onChange={e => updateProduct(item.id, 'name', e.target.value)}
+                      className="flex-1 px-2 py-1.5 rounded-lg border border-[#E8E8E8] focus:border-[#FFD6A5] outline-none text-sm font-medium min-w-0"
+                      placeholder="商品名稱"
+                    />
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        value={item.stock}
+                        onChange={e => updateProduct(item.id, 'stock', e.target.value)}
+                        onFocus={e => e.target.select()}
+                        className="w-14 px-2 py-1.5 rounded-lg border border-[#E8E8E8] focus:border-[#FFD6A5] outline-none text-sm text-center font-bold"
+                        min="0"
+                        title="庫存"
+                      />
+                      <span className="text-[10px] text-[#8B8B8B]">庫存</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        value={item.price}
+                        onChange={e => updateProduct(item.id, 'price', e.target.value)}
+                        onFocus={e => e.target.select()}
+                        className="w-14 px-2 py-1.5 rounded-lg border border-[#E8E8E8] focus:border-[#FFD6A5] outline-none text-sm text-center font-bold"
+                        min="0"
+                      />
+                      <select
+                        value={item.priceUnit}
+                        onChange={e => updateProduct(item.id, 'priceUnit', e.target.value)}
+                        className="w-16 px-1 py-1.5 rounded-lg border border-[#E8E8E8] focus:border-[#FFD6A5] outline-none text-sm"
+                      >
+                        <option value="point">pt</option>
+                        <option value="fish">🐟</option>
+                        <option value="cookie">🍪</option>
+                      </select>
+                    </div>
+                    <button
+                      onClick={() => removeProduct(item.id)}
+                      className="p-1.5 rounded-lg hover:bg-[#FFADAD]/20 text-[#8B8B8B] hover:text-[#D64545] transition-colors shrink-0"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                ))}
+
+                <button
+                  onClick={addProduct}
+                  className="w-full py-3 rounded-xl border-2 border-dashed border-[#FFD6A5]/40 text-[#8B6914]/60 font-medium hover:border-[#FFD6A5] hover:text-[#8B6914] transition-colors flex items-center justify-center gap-2"
+                >
+                  <Plus size={18} /> 新增商品
+                </button>
+              </div>
             </div>
           )}
 
@@ -921,6 +1048,7 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
                         ...p,
                         currencyRates: { ...p.currencyRates, fish: parseInt(e.target.value) || 100 }
                       }))}
+                      onFocus={e => e.target.select()}
                       className="w-24 px-3 py-2 rounded-xl border-2 border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-center font-bold"
                       min="1"
                     />
@@ -943,6 +1071,7 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
                         ...p,
                         currencyRates: { ...p.currencyRates, cookie: parseInt(e.target.value) || 1000 }
                       }))}
+                      onFocus={e => e.target.select()}
                       className="w-24 px-3 py-2 rounded-xl border-2 border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-center font-bold"
                       min="1"
                     />
