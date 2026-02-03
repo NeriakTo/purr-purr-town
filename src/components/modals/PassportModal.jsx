@@ -340,12 +340,14 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
                         <div className="p-3 space-y-3">
                           {Object.entries(groupedRules).map(([category, { bonus, fine }]) => {
                             const catMeta = (settings?.ruleCategories || []).find(c => c.name === category)
+                            const catIcon = catMeta?.icon || '📋'
                             const allRules = [...bonus, ...fine]
                             return (
                               <div key={category}>
-                                <div className="text-xs font-bold text-[#8B8B8B] mb-1.5 flex items-center gap-1">
-                                  <span>{catMeta?.icon || '📋'}</span>
+                                <div className="text-xs font-bold text-[#5D5D5D] mb-1.5 flex items-center gap-1">
+                                  <span>{catIcon}</span>
                                   {category}
+                                  <span className="text-[#8B8B8B] font-normal ml-1">({allRules.length}項)</span>
                                 </div>
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                                   {allRules.map(rule => {
@@ -357,7 +359,7 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
                                         className="h-10 text-sm flex items-center justify-center gap-2 border rounded-lg hover:bg-gray-50 transition-colors active:scale-95 bg-white"
                                         style={{ borderLeftWidth: 3, borderLeftColor: isFine ? '#FFADAD' : '#A8D8B9' }}
                                       >
-                                        <RenderIcon name={rule.icon} size={14} className={isFine ? 'text-[#D64545]' : 'text-[#4A7C59]'} />
+                                        <span style={{ fontSize: 14, lineHeight: 1 }}>{catIcon}</span>
                                         <span className={isFine ? 'text-[#D64545]' : 'text-[#4A7C59]'}>{rule.label}</span>
                                       </button>
                                     )

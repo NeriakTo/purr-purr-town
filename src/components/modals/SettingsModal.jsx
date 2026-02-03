@@ -27,6 +27,7 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
   const [showPayroll, setShowPayroll] = useState(false)
   const [selectedPayrollCycles, setSelectedPayrollCycles] = useState([])
   const [newCategoryName, setNewCategoryName] = useState('')
+  const [newCategoryIcon, setNewCategoryIcon] = useState('🏷️')
   const [openStudentDropdown, setOpenStudentDropdown] = useState(null)
   const [dropdownAlignRight, setDropdownAlignRight] = useState(false)
   const fileInputRef = useRef(null)
@@ -342,7 +343,6 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
     }))
   }
   const addRule = (type, category = '') => {
-    const catMeta = (localSettings.ruleCategories || []).find(c => c.name === category)
     const amount = type === 'fine' ? -100 : 100
     setLocalSettings(p => ({
       ...p,
@@ -351,7 +351,6 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
         label: '',
         amount,
         type,
-        icon: catMeta?.icon || (type === 'fine' ? '⚠️' : '⭐'),
         category: category || '未分類',
       }]
     }))
@@ -365,9 +364,10 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
     if (!newCategoryName.trim()) return
     setLocalSettings(p => ({
       ...p,
-      ruleCategories: [...(p.ruleCategories || []), { id: generateId('cat'), name: newCategoryName.trim(), icon: '📋' }]
+      ruleCategories: [...(p.ruleCategories || []), { id: generateId('cat'), name: newCategoryName.trim(), icon: newCategoryIcon || '🏷️' }]
     }))
     setNewCategoryName('')
+    setNewCategoryIcon('🏷️')
   }
   const updateCategory = (catId, field, value) => {
     setLocalSettings(p => ({
@@ -761,14 +761,8 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
                 <div className="text-xs font-bold text-[#5D5D5D]">類別管理</div>
                 <div className="flex flex-wrap gap-2">
                   {(localSettings.ruleCategories || []).map(cat => (
-                    <div key={cat.id} className="flex items-center gap-1.5 px-2 py-1 bg-white rounded-lg border border-[#E8E8E8]">
-                      <input
-                        type="text"
-                        value={cat.icon}
-                        onChange={e => updateCategory(cat.id, 'icon', e.target.value)}
-                        className="w-7 text-center text-base bg-transparent outline-none"
-                        maxLength={2}
-                      />
+                    <div key={cat.id} className="flex items-center gap-1.5 pl-1 pr-2 py-1 bg-white rounded-lg border border-[#E8E8E8] hover:border-[#A8D8B9] transition-colors">
+                      <IconPicker value={cat.icon} onChange={v => updateCategory(cat.id, 'icon', v)} />
                       <input
                         type="text"
                         value={cat.name}
@@ -781,7 +775,8 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
                     </div>
                   ))}
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
+                  <IconPicker value={newCategoryIcon} onChange={setNewCategoryIcon} />
                   <input
                     type="text"
                     value={newCategoryName}
@@ -790,8 +785,8 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
                     className="flex-1 px-3 py-1.5 rounded-lg border border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-xs"
                     placeholder="新類別名稱..."
                   />
-                  <button onClick={addCategory} className="px-3 py-1.5 rounded-lg bg-[#A8D8B9] text-white text-xs font-bold">
-                    <Plus size={14} />
+                  <button onClick={addCategory} className="px-3 py-1.5 rounded-lg bg-[#A8D8B9] text-white text-xs font-bold flex items-center gap-1">
+                    <Plus size={14} /> 新增
                   </button>
                 </div>
               </div>
@@ -814,8 +809,8 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
                           加分項目
                         </h4>
                         {bonus.map(rule => (
-                          <div key={rule.id} className="flex items-center gap-3 p-2.5 bg-[#A8D8B9]/10 rounded-xl border border-[#A8D8B9]/30">
-                            <IconPicker value={rule.icon} onChange={v => updateRule(rule.id, 'icon', v)} />
+                          <div key={rule.id} className="flex items-center gap-2 p-2.5 bg-[#A8D8B9]/10 rounded-xl border border-[#A8D8B9]/30">
+                            <span className="text-base shrink-0" title={catName}>{catMeta?.icon || '📋'}</span>
                             <input
                               type="text"
                               value={rule.label}
@@ -857,8 +852,8 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
                           扣分項目
                         </h4>
                         {fine.map(rule => (
-                          <div key={rule.id} className="flex items-center gap-3 p-2.5 bg-[#FFADAD]/10 rounded-xl border border-[#FFADAD]/30">
-                            <IconPicker value={rule.icon} onChange={v => updateRule(rule.id, 'icon', v)} />
+                          <div key={rule.id} className="flex items-center gap-2 p-2.5 bg-[#FFADAD]/10 rounded-xl border border-[#FFADAD]/30">
+                            <span className="text-base shrink-0" title={catName}>{catMeta?.icon || '📋'}</span>
                             <input
                               type="text"
                               value={rule.label}
