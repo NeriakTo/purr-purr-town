@@ -127,7 +127,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
   }, [students, tasks, studentStatus])
 
   useEffect(() => {
-    if (!classId) return
+    if (!classId || loading) return  // 等待資料載入完成後才保存
     saveClassCache(classId, {
       classId,
       students,
@@ -135,7 +135,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
       settings,
       updatedAt: new Date().toISOString()
     })
-  }, [classId, students, allLogs, settings])
+  }, [classId, students, allLogs, settings, loading])
 
   // v3.0.1: 新增任務 - 存入今天 log (createdAt=今天, dueDate=明天)
   const handleAddTask = useCallback((newTask) => {
@@ -355,7 +355,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
         onOpenHistory={() => setShowHistory(true)}
         onOpenStore={() => setShowStore(true)}
       />
-      
+
       <div className="flex flex-col lg:flex-row gap-4 2xl:gap-3 flex-1 min-h-0">
         {/* Column 1: 村莊日誌 (Calendar) */}
         <aside className="w-full lg:w-[260px] lg:shrink-0 flex flex-col min-h-0">
@@ -467,7 +467,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
           onConsumeItem={handleConsumeItem}
         />
       )}
-      
+
       {showSettings && (
         <SettingsModal
           classId={classId}
@@ -490,7 +490,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
           onProcessPayroll={handleProcessPayroll}
         />
       )}
-      
+
       {showTeamManagement && (
         <TeamManagementModal
           students={students}
@@ -500,7 +500,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
           onSettingsUpdate={setSettings}
         />
       )}
-      
+
       {showTaskOverview && (
         <TaskOverviewModal
           allLogs={allLogs}
