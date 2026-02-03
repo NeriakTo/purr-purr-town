@@ -3,7 +3,7 @@ import { X, Clock, XCircle, AlertTriangle, Check, Coffee, CircleMinus, Wallet, U
 import AvatarEmoji from '../common/AvatarEmoji'
 import { RenderIcon } from '../common/IconPicker'
 import { STATUS_VALUES } from '../../utils/constants'
-import { formatDate, formatDateDisplay, getTaskDueDate, getTodayStr, isDoneStatus, normalizeStatus, parseDate, getTaskIcon, getStatusVisual, formatCurrency } from '../../utils/helpers'
+import { formatDate, formatDateDisplay, getTaskDueDate, getTodayStr, isDoneStatus, normalizeStatus, parseDate, getTaskIcon, getStatusVisual, formatCurrency, resolveCurrency } from '../../utils/helpers'
 
 function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus, onStudentUpdate, hasOverdue, settings, allLogs, currentDateStr, onBankTransaction, onUndoTransaction, onConsumeItem }) {
   const [activeTab, setActiveTab] = useState('tasks')
@@ -17,9 +17,9 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
   const completedCount = tasks.filter(t => isDoneStatus(status[t.id])).length
   const isAllDone = hasTasks && completedCount === tasks.length
 
-  const rates = settings?.currencyRates || { fish: 100, cookie: 1000 }
+  const currency = resolveCurrency(settings)
   const balance = student.bank?.balance || 0
-  const currencyDisplay = formatCurrency(balance, rates)
+  const currencyDisplay = formatCurrency(balance, currency)
 
   const overdueItems = useMemo(() => {
     if (!allLogs) return []
@@ -149,10 +149,16 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
                 {currencyDisplay.display}
               </div>
               {balance > 0 && (
-                <div className="mt-1.5 flex items-center justify-center gap-3 text-xs text-[#8B8B8B]">
-                  {currencyDisplay.cookies > 0 && <span>{currencyDisplay.cookies} 🍪</span>}
-                  {currencyDisplay.fish > 0 && <span>{currencyDisplay.fish} 🐟</span>}
-                  {currencyDisplay.raw > 0 && <span>{currencyDisplay.raw} pt</span>}
+                <div className="mt-1.5 flex flex-wrap items-center justify-center gap-3 text-xs text-[#8B8B8B]">
+                  {currencyDisplay.tier2 > 0 && (
+                    <span>{currencyDisplay.tier2} {currency.tier2.icon} {currency.tier2.name}</span>
+                  )}
+                  {currencyDisplay.tier1 > 0 && (
+                    <span>{currencyDisplay.tier1} {currency.tier1.icon} {currency.tier1.name}</span>
+                  )}
+                  {currencyDisplay.raw > 0 && (
+                    <span>{currencyDisplay.raw} {currency.base.icon} {currency.base.name}</span>
+                  )}
                 </div>
               )}
             </div>

@@ -59,6 +59,16 @@ body {
     50% { transform: translateY(-10px); }
   }
 
+  @keyframes floatDrift {
+    0%, 100% { transform: translate3d(0, 0, 0) rotate(var(--float-rotate, 0deg)); }
+    50% { transform: translate3d(var(--float-drift, 24px), -18px, 0) rotate(calc(var(--float-rotate, 0deg) + 6deg)); }
+  }
+
+  @keyframes fadeSoft {
+    0%, 100% { opacity: 0.1; }
+    50% { opacity: 0.2; }
+  }
+
   @keyframes sparkle {
     0%, 100% { opacity: 1; transform: scale(1); }
     50% { opacity: 0.5; transform: scale(1.2); }
@@ -102,6 +112,17 @@ body {
 
   .animate-float {
     animation: float 3s ease-in-out infinite;
+  }
+
+  .floating-emoji {
+    position: absolute;
+    opacity: 0.12;
+    filter: blur(0.2px);
+    animation: floatDrift var(--float-duration, 14s) ease-in-out infinite,
+      fadeSoft var(--float-duration, 14s) ease-in-out infinite;
+    animation-delay: var(--float-delay, 0s);
+    pointer-events: none;
+    user-select: none;
   }
 
   .animate-sparkle {

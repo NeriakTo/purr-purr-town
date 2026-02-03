@@ -1,20 +1,20 @@
 import { useState } from 'react'
 import { X, ShoppingCart } from 'lucide-react'
 import AvatarEmoji from '../common/AvatarEmoji'
-import { formatCurrency, toPoints } from '../../utils/helpers'
+import { formatCurrency, toPoints, resolveCurrency, getCurrencyUnitMeta } from '../../utils/helpers'
 
 function OrangeCatStoreModal({ students, settings, onClose, onPurchase }) {
   const [selectedStudent, setSelectedStudent] = useState(null)
   const [confirmItem, setConfirmItem] = useState(null)
   const [purchaseMsg, setPurchaseMsg] = useState(null)
 
-  const rates = settings?.currencyRates || { fish: 100, cookie: 1000 }
+  const currency = resolveCurrency(settings)
   const shop = settings?.shop || { name: '橘喵商店', icon: '🐱', products: [] }
   const products = shop.products || []
 
   const handleConfirmPurchase = () => {
     if (!selectedStudent || !confirmItem) return
-    const priceInPoints = toPoints(confirmItem.price, confirmItem.priceUnit, rates)
+    const priceInPoints = toPoints(confirmItem.price, confirmItem.priceUnit, currency)
     const balance = selectedStudent.bank?.balance || 0
     if (balance < priceInPoints) {
       setPurchaseMsg('餘額不足！')
@@ -29,9 +29,8 @@ function OrangeCatStoreModal({ students, settings, onClose, onPurchase }) {
   }
 
   const unitLabel = (unit) => {
-    if (unit === 'cookie') return '🍪'
-    if (unit === 'fish') return '🐟'
-    return 'pt'
+    const meta = getCurrencyUnitMeta(unit, currency)
+    return `${meta.icon} ${meta.name}`
   }
 
   // Refresh selectedStudent reference from students array
@@ -91,7 +90,7 @@ function OrangeCatStoreModal({ students, settings, onClose, onPurchase }) {
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium truncate text-[#5D5D5D]">{s.name}</div>
                     <div className="text-[10px] text-[#8B8B8B] truncate">
-                      {formatCurrency(s.bank?.balance || 0, rates).display}
+                      {formatCurrency(s.bank?.balance || 0, currency).display}
                     </div>
                   </div>
                 </div>
@@ -120,14 +119,14 @@ function OrangeCatStoreModal({ students, settings, onClose, onPurchase }) {
                   <div>
                     <div className="text-sm font-bold text-[#5D5D5D]">{currentStudent.name}</div>
                     <div className="text-xs text-[#8B6914]">
-                      餘額：{formatCurrency(currentStudent.bank?.balance || 0, rates).display}
+                      餘額：{formatCurrency(currentStudent.bank?.balance || 0, currency).display}
                     </div>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   {products.map(item => {
-                    const priceInPoints = toPoints(item.price, item.priceUnit, rates)
+                    const priceInPoints = toPoints(item.price, item.priceUnit, currency)
                     const canAfford = (currentStudent.bank?.balance || 0) >= priceInPoints
                     const inStock = item.stock > 0
 
@@ -174,7 +173,7 @@ function OrangeCatStoreModal({ students, settings, onClose, onPurchase }) {
                 花費 {confirmItem.price} {unitLabel(confirmItem.priceUnit)}
                 {confirmItem.priceUnit !== 'point' && (
                   <span className="text-xs font-normal text-[#8B8B8B] ml-1">
-                    ({toPoints(confirmItem.price, confirmItem.priceUnit, rates)} pt)
+                    ({toPoints(confirmItem.price, confirmItem.priceUnit, currency)} {currency.base.icon} {currency.base.name})
                   </span>
                 )}
               </p>

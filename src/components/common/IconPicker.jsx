@@ -1,7 +1,17 @@
 import { useState, useRef, useEffect } from 'react'
+import { AVATAR_EMOJIS } from '../../utils/constants'
 
 // v3.4.6: Expanded Emoji icon library
+const AVATAR_CATEGORY = {
+  label: '????',
+  icons: AVATAR_EMOJIS.reduce((acc, emoji) => {
+    acc[emoji] = '????'
+    return acc
+  }, {})
+}
+
 export const ICON_CATEGORIES = [
+  AVATAR_CATEGORY,
   { label: '管理', icons: { '👑': '班長', '📢': '風紀', '🚩': '路隊', '📋': '點名', '💂': '值日', '⚖️': '公平', '🗣️': '司儀', '🕵️': '督察', '👮': '糾察', '🔔': '鐘聲' } },
   { label: '服務', icons: { '🧹': '衛生', '🚮': '回收', '🍱': '午餐', '🥣': '餐具', '🧼': '洗手', '🧽': '擦拭', '🪣': '拖地', '🤝': '服務', '🚚': '搬運', '🪴': '園藝' } },
   { label: '設施', icons: { '💡': '電燈', '🌬️': '電扇', '🚪': '門窗', '💻': '資訊', '🖱️': '滑鼠', '🔌': '插座', '🔋': '電池', '📺': '螢幕', '📶': '網路', '🌡️': '溫度' } },
@@ -83,7 +93,7 @@ function IconPicker({ value, onChange }) {
         {displayValue || '📋'}
       </button>
       {open && (
-        <div className="absolute z-50 top-full left-0 mt-1 w-64 bg-white rounded-xl shadow-xl border border-[#E8E8E8] p-3 space-y-2 max-h-80 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
+        <div className="absolute z-[120] top-full left-0 mt-1 w-64 bg-white rounded-xl shadow-xl border border-[#E8E8E8] p-3 space-y-2 max-h-80 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
           {ICON_CATEGORIES.map(cat => (
             <div key={cat.label}>
               <div className="text-[10px] font-bold text-[#8B8B8B] uppercase tracking-wider mb-1">{cat.label}</div>

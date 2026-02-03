@@ -1,20 +1,69 @@
-import { useState } from 'react'
-import { PawPrint, Plus, Home, Users, Sparkles, ListTodo, Trophy, School, ChevronRight } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { PawPrint, Plus, Home, School, ChevronRight } from 'lucide-react'
 import CreateClassModal from '../components/modals/CreateClassModal'
+import { AVATAR_EMOJIS } from '../utils/constants'
+import { formatCurrency, formatDateShort, loadClassCache, resolveCurrency } from '../utils/helpers'
 
 function LoginView({ onSelectClass, localClasses, onCreateLocalClass }) {
   const [showCreateModal, setShowCreateModal] = useState(false)
 
   const classes = localClasses || []
 
+  const floatingEmojis = useMemo(() => {
+    const count = Math.floor(Math.random() * 6) + 10
+    const pool = [...AVATAR_EMOJIS].sort(() => Math.random() - 0.5).slice(0, count)
+    return pool.map((emoji) => ({
+      emoji,
+      size: 18 + Math.random() * 26,
+      top: Math.random() * 100,
+      left: Math.random() * 100,
+      duration: 12 + Math.random() * 16,
+      delay: -Math.random() * 12,
+      drift: 14 + Math.random() * 36,
+      rotate: Math.floor(Math.random() * 24) - 12,
+    }))
+  }, [])
+
+  const classMeta = useMemo(() => {
+    const metaMap = {}
+    classes.forEach((cls) => {
+      const cache = loadClassCache(cls.id)
+      const currency = resolveCurrency(cache?.settings)
+      const totalAssets = (cache?.students || []).reduce((sum, s) => sum + (s.bank?.balance || 0), 0)
+      const totalAssetsDisplay = formatCurrency(totalAssets, currency).display
+      const lastActiveDate = cache?.updatedAt ? formatDateShort(cache.updatedAt) : ''
+
+      let backupStale = false
+      try {
+        const raw = localStorage.getItem(`ppt_backup_meta_${cls.id}`)
+        const meta = raw ? JSON.parse(raw) : null
+        if (meta?.updatedAt) {
+          const diffMs = Date.now() - new Date(meta.updatedAt).getTime()
+          backupStale = Math.floor(diffMs / (1000 * 60 * 60 * 24)) > 7
+        } else {
+          backupStale = true
+        }
+      } catch {
+        backupStale = true
+      }
+
+      metaMap[cls.id] = {
+        totalAssetsDisplay,
+        lastActiveDate,
+        backupStale,
+      }
+    })
+    return metaMap
+  }, [classes])
+
   const handleCreateSuccess = () => {
     setShowCreateModal(false)
   }
 
   const features = [
-    { icon: ListTodo, title: '任務管理', desc: '輕鬆發布每日作業與通知，一鍵追蹤繳交進度', color: '#A8D8B9' },
-    { icon: Sparkles, title: '課堂法寶', desc: '隨機抽籤、計時器等實用小工具，讓課堂更有趣', color: '#FFD6A5' },
-    { icon: Trophy, title: '小隊競賽', desc: '分組管理與即時排名，激發團隊合作精神', color: '#FFADAD' },
+    { icon: '??', title: '????', desc: '????????????????', color: '#A8D8B9' },
+    { icon: '??', title: '????', desc: '????????????????', color: '#FFD6A5' },
+    { icon: '??', title: '????', desc: '???????????????????', color: '#FFADAD' },
   ]
 
   return (
@@ -27,6 +76,23 @@ function LoginView({ onSelectClass, localClasses, onCreateLocalClass }) {
         <div className="absolute top-[15%] left-[8%] w-32 h-32 bg-[#BDB2FF]/6 rounded-full animate-float" style={{ animationDuration: '4s', animationDelay: '0.5s' }} />
         <div className="absolute bottom-[20%] right-[10%] w-56 h-56 bg-[#A0C4FF]/6 rounded-full animate-float" style={{ animationDuration: '5.5s', animationDelay: '3s' }} />
         <div className="absolute top-[60%] left-[45%] w-24 h-24 bg-[#FDE2F3]/10 rounded-full animate-float" style={{ animationDuration: '4.5s', animationDelay: '1s' }} />
+        {floatingEmojis.map((item, idx) => (
+          <span
+            key={`float-${idx}-${item.emoji}`}
+            className="floating-emoji"
+            style={{
+              top: `${item.top}%`,
+              left: `${item.left}%`,
+              fontSize: `${item.size}px`,
+              '--float-duration': `${item.duration}s`,
+              '--float-delay': `${item.delay}s`,
+              '--float-drift': `${item.drift}px`,
+              '--float-rotate': `${item.rotate}deg`,
+            }}
+          >
+            {item.emoji}
+          </span>
+        ))}
       </div>
 
       <div className="flex-1 p-6 md:p-10 relative z-10">
@@ -50,7 +116,11 @@ function LoginView({ onSelectClass, localClasses, onCreateLocalClass }) {
               return (
                 <div key={f.title} className="text-center px-3 py-4 rounded-2xl bg-white/50 backdrop-blur-sm border border-white/60">
                   <div className="w-10 h-10 mx-auto rounded-xl flex items-center justify-center mb-2" style={{ backgroundColor: `${f.color}20` }}>
+                  {typeof Icon === 'string' ? (
+                    <span className="text-lg">{Icon}</span>
+                  ) : (
                     <Icon size={20} style={{ color: f.color }} />
+                  )}
                   </div>
                   <h4 className="text-sm font-bold text-[#5D5D5D] mb-1">{f.title}</h4>
                   <p className="text-xs text-[#8B8B8B] leading-relaxed">{f.desc}</p>
@@ -87,13 +157,19 @@ function LoginView({ onSelectClass, localClasses, onCreateLocalClass }) {
                   const displayName = cls.alias || cls.name || `班級 ${cls.id}`
                   const fullClassName = cls.year && cls.name ? `${cls.year}學年 ${cls.name}` : cls.name || ''
                   const gradients = ['#A8D8B9, #7BC496', '#FFD6A5, #FFBF69', '#FFADAD, #FF8A8A', '#A0C4FF, #7EB0FF', '#BDB2FF, #9B8FFF']
+                  const meta = classMeta[cls.id] || {}
 
                   return (
                     <button
                       key={cls.id}
                       onClick={() => onSelectClass(cls.id, displayName, cls.alias)}
-                      className="group bg-white/80 backdrop-blur-sm rounded-2xl p-5 shadow-md border border-white/70 hover:shadow-2xl hover:border-[#A8D8B9]/60 hover:bg-white transition-all hover:-translate-y-1.5 text-left"
+                      className="group bg-white/80 backdrop-blur-sm rounded-2xl p-5 shadow-md border border-white/70 hover:shadow-2xl hover:border-[#A8D8B9]/60 hover:bg-white transition-all hover:-translate-y-1.5 text-left relative"
                     >
+                      {meta.backupStale && (
+                        <span className="absolute top-3 right-3 w-6 h-6 rounded-full bg-[#FFADAD] text-[#D64545] text-sm font-black flex items-center justify-center shadow-sm">
+                          !
+                        </span>
+                      )}
                       <div className="flex items-start gap-4 mb-4">
                         <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:rotate-3 transition-transform shadow-md" style={{ background: `linear-gradient(135deg, ${gradients[index % gradients.length]})` }}>
                           <School size={24} className="text-white" />
@@ -103,11 +179,28 @@ function LoginView({ onSelectClass, localClasses, onCreateLocalClass }) {
                           {cls.alias && fullClassName && <p className="text-[#A8D8B9] text-xs font-medium">{fullClassName}</p>}
                         </div>
                       </div>
-                      <p className="text-[#8B8B8B] text-sm mb-4">
+                      <p className="text-[#8B8B8B] text-sm mb-3">
                         {cls.teacher && <span>村長：{cls.teacher}</span>}
                         {cls.teacher && cls.studentCount !== undefined && <span> · </span>}
                         {cls.studentCount !== undefined && <span>{cls.studentCount} 位村民</span>}
                       </p>
+
+                      <div className="space-y-1 text-xs text-[#8B8B8B] mb-3">
+                        <div className="flex items-center gap-1">
+                          <span>??</span>
+                          <span>???: {meta.totalAssetsDisplay || '?'}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span>??</span>
+                          <span>????: {meta.lastActiveDate || '?'}</span>
+                        </div>
+                        {meta.backupStale && (
+                          <div className="flex items-center gap-1 text-[#D64545] font-semibold">
+                            <span>?</span>
+                            <span>?? 7 ????</span>
+                          </div>
+                        )}
+                      </div>
                       <div className="flex items-center gap-1 text-sm text-[#A8D8B9] font-bold group-hover:gap-2.5 transition-all">
                         <span>進入村莊</span><ChevronRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
                       </div>

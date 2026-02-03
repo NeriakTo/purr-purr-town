@@ -1,9 +1,10 @@
 import { useMemo } from 'react'
 import { Flag, Trophy, Users } from 'lucide-react'
 import VillagerCard from './VillagerCard'
-import { isDoneStatus, isCountedInDenominator } from '../../utils/helpers'
+import { isDoneStatus, isCountedInDenominator, resolveCurrency } from '../../utils/helpers'
 
 function SquadGrid({ students, tasks, studentStatus, settings, onSelectStudent, checkOverdue }) {
+  const currency = useMemo(() => resolveCurrency(settings), [settings])
   const groupedStudents = useMemo(() => {
     const groups = {}
     students.forEach(s => {
@@ -96,6 +97,7 @@ function SquadGrid({ students, tasks, studentStatus, settings, onSelectStudent, 
                       student={student}
                       tasks={tasks}
                       studentStatus={studentStatus}
+                      currency={currency}
                       onClick={() => onSelectStudent(student)}
                       hasOverdue={checkOverdue(student.id)}
                     />
@@ -126,6 +128,7 @@ function SquadGrid({ students, tasks, studentStatus, settings, onSelectStudent, 
                   student={student}
                   tasks={tasks}
                   studentStatus={studentStatus}
+                  currency={currency}
                   onClick={() => onSelectStudent(student)}
                   hasOverdue={checkOverdue(student.id)}
                 />

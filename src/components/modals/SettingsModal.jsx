@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { X, Save, Link, Download, Plus, Trash2, Settings, ClipboardList, Briefcase, Scale, Coins, Banknote, ChevronDown, ShoppingBag } from 'lucide-react'
 import { DEFAULT_SETTINGS, JOB_CYCLES, DEFAULT_RULE_CATEGORIES, DEFAULT_SHOP } from '../../utils/constants'
-import { saveClassCache, generateId } from '../../utils/helpers'
+import { saveClassCache, generateId, resolveCurrency, formatCurrency } from '../../utils/helpers'
 import IconPicker, { RenderIcon } from '../common/IconPicker'
 
 function SettingsModal({ classId, className, settings, students, allLogs, onClose, onSave, onRestoreFromBackup, onClearLocalClass, onProcessPayroll }) {
@@ -13,10 +13,12 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
     jobs: settings?.jobs || DEFAULT_SETTINGS.jobs,
     behaviorRules: settings?.behaviorRules || DEFAULT_SETTINGS.behaviorRules,
     shop: settings?.shop || (settings?.storeItems ? { ...DEFAULT_SHOP, products: settings.storeItems } : DEFAULT_SHOP),
-    currencyRates: settings?.currencyRates || DEFAULT_SETTINGS.currencyRates,
+    currency: resolveCurrency(settings),
     ruleCategories: settings?.ruleCategories || DEFAULT_SETTINGS.ruleCategories,
     jobAssignments: settings?.jobAssignments || DEFAULT_SETTINGS.jobAssignments,
   })
+  const currency = resolveCurrency(localSettings)
+  const currencyPreview = formatCurrency(6500, currency)
   const [newTaskType, setNewTaskType] = useState('')
   const [backupUrl, setBackupUrl] = useState(() => localStorage.getItem('ppt_backup_url') || '')
   const [backupToken, setBackupToken] = useState(() => localStorage.getItem('ppt_backup_token') || 'meow1234')
@@ -132,7 +134,7 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
         jobs: restored.settings?.jobs || prev.jobs,
         behaviorRules: restored.settings?.behaviorRules || prev.behaviorRules,
         shop: restored.settings?.shop || (restored.settings?.storeItems ? { ...DEFAULT_SHOP, products: restored.settings.storeItems } : prev.shop),
-        currencyRates: restored.settings?.currencyRates || prev.currencyRates,
+        currency: resolveCurrency(restored.settings || prev),
         ruleCategories: restored.settings?.ruleCategories || prev.ruleCategories,
         jobAssignments: restored.settings?.jobAssignments || prev.jobAssignments,
       }))
@@ -223,7 +225,7 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
           jobs: restored.settings?.jobs || prev.jobs,
           behaviorRules: restored.settings?.behaviorRules || prev.behaviorRules,
           shop: restored.settings?.shop || (restored.settings?.storeItems ? { ...DEFAULT_SHOP, products: restored.settings.storeItems } : prev.shop),
-          currencyRates: restored.settings?.currencyRates || prev.currencyRates,
+          currency: resolveCurrency(restored.settings || prev),
           ruleCategories: restored.settings?.ruleCategories || prev.ruleCategories,
           jobAssignments: restored.settings?.jobAssignments || prev.jobAssignments,
         }))
@@ -997,9 +999,9 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
                         onChange={e => updateProduct(item.id, 'priceUnit', e.target.value)}
                         className="w-16 px-1 py-1.5 rounded-lg border border-[#E8E8E8] focus:border-[#FFD6A5] outline-none text-sm"
                       >
-                        <option value="point">pt</option>
-                        <option value="fish">🐟</option>
-                        <option value="cookie">🍪</option>
+                        <option value="point">{currency.base.icon} {currency.base.name}</option>
+                        <option value="fish">{currency.tier1.icon} {currency.tier1.name}</option>
+                        <option value="cookie">{currency.tier2.icon} {currency.tier2.name}</option>
                       </select>
                     </div>
                     <button
@@ -1027,65 +1029,136 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
               <div className="space-y-2">
                 <h3 className="text-sm font-bold text-[#5D5D5D] flex items-center gap-2">
                   <Coins size={16} className="text-[#FFD6A5]" />
-                  貨幣匯率設定
+                  ????
                 </h3>
-                <p className="text-xs text-[#8B8B8B]">調整貨幣兌換比率（所有金額以積分為基底儲存）</p>
+                <p className="text-xs text-[#8B8B8B]">????????????????</p>
               </div>
 
               <div className="space-y-4">
-                <div className="flex items-center gap-4 p-4 bg-white rounded-xl border border-[#E8E8E8]">
-                  <span className="text-3xl">🐟</span>
-                  <div className="flex-1">
-                    <div className="text-sm font-bold text-[#5D5D5D]">小魚乾</div>
-                    <div className="text-xs text-[#8B8B8B]">基本兌換單位</div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-[#5D5D5D]">1 小魚乾 =</span>
+                <div className="p-4 bg-white rounded-xl border border-[#E8E8E8] space-y-3">
+                  <div className="text-xs font-bold text-[#5D5D5D]">????</div>
+                  <div className="flex items-center gap-3">
+                    <IconPicker
+                      value={localSettings.currency.base.icon}
+                      onChange={icon => setLocalSettings(p => ({
+                        ...p,
+                        currency: { ...p.currency, base: { ...p.currency.base, icon } }
+                      }))}
+                    />
                     <input
-                      type="number"
-                      value={localSettings.currencyRates.fish}
+                      type="text"
+                      value={localSettings.currency.base.name}
                       onChange={e => setLocalSettings(p => ({
                         ...p,
-                        currencyRates: { ...p.currencyRates, fish: parseInt(e.target.value) || 100 }
+                        currency: { ...p.currency, base: { ...p.currency.base, name: e.target.value } }
                       }))}
-                      onFocus={e => e.target.select()}
-                      className="w-24 px-3 py-2 rounded-xl border-2 border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-center font-bold"
-                      min="1"
+                      className="flex-1 px-3 py-2 rounded-lg border border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-sm font-medium"
+                      placeholder="??"
                     />
-                    <span className="text-sm text-[#8B8B8B]">積分</span>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-4 p-4 bg-white rounded-xl border border-[#E8E8E8]">
-                  <span className="text-3xl">🍪</span>
-                  <div className="flex-1">
-                    <div className="text-sm font-bold text-[#5D5D5D]">貓薄荷餅乾</div>
-                    <div className="text-xs text-[#8B8B8B]">高級兌換單位</div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-[#5D5D5D]">1 餅乾 =</span>
+                <div className="p-4 bg-white rounded-xl border border-[#E8E8E8] space-y-3">
+                  <div className="text-xs font-bold text-[#5D5D5D]">Tier 1</div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <IconPicker
+                      value={localSettings.currency.tier1.icon}
+                      onChange={icon => setLocalSettings(p => ({
+                        ...p,
+                        currency: { ...p.currency, tier1: { ...p.currency.tier1, icon } }
+                      }))}
+                    />
                     <input
-                      type="number"
-                      value={localSettings.currencyRates.cookie}
+                      type="text"
+                      value={localSettings.currency.tier1.name}
                       onChange={e => setLocalSettings(p => ({
                         ...p,
-                        currencyRates: { ...p.currencyRates, cookie: parseInt(e.target.value) || 1000 }
+                        currency: { ...p.currency, tier1: { ...p.currency.tier1, name: e.target.value } }
                       }))}
-                      onFocus={e => e.target.select()}
-                      className="w-24 px-3 py-2 rounded-xl border-2 border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-center font-bold"
-                      min="1"
+                      className="flex-1 min-w-[160px] px-3 py-2 rounded-lg border border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-sm font-medium"
+                      placeholder="???"
                     />
-                    <span className="text-sm text-[#8B8B8B]">積分</span>
+                    <div className="flex items-center gap-2 text-sm text-[#5D5D5D]">
+                      <span>1 {currency.tier1.icon} {currency.tier1.name} =</span>
+                      <input
+                        type="number"
+                        value={localSettings.currency.tier1.rate}
+                        onChange={e => setLocalSettings(p => ({
+                          ...p,
+                          currency: {
+                            ...p.currency,
+                            tier1: {
+                              ...p.currency.tier1,
+                              rate: Math.max(1, parseInt(e.target.value, 10) || p.currency.tier1.rate || 1)
+                            }
+                          }
+                        }))}
+                        onFocus={e => e.target.select()}
+                        className="w-24 px-3 py-2 rounded-lg border-2 border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-center font-bold"
+                        min="1"
+                      />
+                      <span>{currency.base.icon} {currency.base.name}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-white rounded-xl border border-[#E8E8E8] space-y-3">
+                  <div className="text-xs font-bold text-[#5D5D5D]">Tier 2</div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <IconPicker
+                      value={localSettings.currency.tier2.icon}
+                      onChange={icon => setLocalSettings(p => ({
+                        ...p,
+                        currency: { ...p.currency, tier2: { ...p.currency.tier2, icon } }
+                      }))}
+                    />
+                    <input
+                      type="text"
+                      value={localSettings.currency.tier2.name}
+                      onChange={e => setLocalSettings(p => ({
+                        ...p,
+                        currency: { ...p.currency, tier2: { ...p.currency.tier2, name: e.target.value } }
+                      }))}
+                      className="flex-1 min-w-[160px] px-3 py-2 rounded-lg border border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-sm font-medium"
+                      placeholder="???"
+                    />
+                    <div className="flex items-center gap-2 text-sm text-[#5D5D5D]">
+                      <span>1 {currency.tier2.icon} {currency.tier2.name} =</span>
+                      <input
+                        type="number"
+                        value={localSettings.currency.tier2.rate}
+                        onChange={e => setLocalSettings(p => ({
+                          ...p,
+                          currency: {
+                            ...p.currency,
+                            tier2: {
+                              ...p.currency.tier2,
+                              rate: Math.max(1, parseInt(e.target.value, 10) || p.currency.tier2.rate || 1)
+                            }
+                          }
+                        }))}
+                        onFocus={e => e.target.select()}
+                        className="w-24 px-3 py-2 rounded-lg border-2 border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-center font-bold"
+                        min="1"
+                      />
+                      <span>{currency.base.icon} {currency.base.name}</span>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Preview */}
               <div className="p-4 bg-[#FFD6A5]/10 rounded-xl border border-[#FFD6A5]/30">
-                <div className="text-xs font-bold text-[#8B6914] mb-2">換算預覽</div>
+                <div className="text-xs font-bold text-[#8B6914] mb-2">????</div>
                 <div className="text-sm text-[#5D5D5D] space-y-1">
-                  <div>6500 積分 = {Math.floor(6500 / localSettings.currencyRates.cookie)} 🍪 {Math.floor((6500 % localSettings.currencyRates.cookie) / localSettings.currencyRates.fish)} 🐟 {6500 % localSettings.currencyRates.cookie % localSettings.currencyRates.fish > 0 ? `${6500 % localSettings.currencyRates.cookie % localSettings.currencyRates.fish} pt` : ''}</div>
-                  <div>1 🍪 = {localSettings.currencyRates.cookie / localSettings.currencyRates.fish} 🐟</div>
+                  <div>
+                    6500 {currency.base.icon} {currency.base.name} =
+                    {currencyPreview.tier2 > 0 && ` ${currencyPreview.tier2} ${currency.tier2.icon} ${currency.tier2.name}`}
+                    {currencyPreview.tier1 > 0 && ` ${currencyPreview.tier1} ${currency.tier1.icon} ${currency.tier1.name}`}
+                    {currencyPreview.raw > 0 && ` ${currencyPreview.raw} ${currency.base.icon} ${currency.base.name}`}
+                  </div>
+                  <div>
+                    1 {currency.tier2.icon} {currency.tier2.name} = {Math.round(currency.tier2.rate / currency.tier1.rate)} {currency.tier1.icon} {currency.tier1.name}
+                  </div>
                 </div>
               </div>
             </div>

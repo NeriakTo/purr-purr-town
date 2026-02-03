@@ -1,4 +1,10 @@
 // v3.4.0: 貨幣匯率 (所有金額以積分為基底儲存)
+export const DEFAULT_CURRENCY = {
+  base: { name: '積分', icon: '💎' },
+  tier1: { name: '小魚乾', rate: 100, icon: '🐟' },
+  tier2: { name: '貓餅乾', rate: 1000, icon: '🍪' },
+}
+
 export const DEFAULT_CURRENCY_RATES = { fish: 100, cookie: 1000 }
 
 // v3.4.0: 貨幣單位識別
@@ -57,7 +63,7 @@ export const DEFAULT_SETTINGS = {
   jobs: DEFAULT_JOBS,
   behaviorRules: DEFAULT_BEHAVIOR_RULES,
   shop: DEFAULT_SHOP,
-  currencyRates: DEFAULT_CURRENCY_RATES,
+  currency: DEFAULT_CURRENCY,
   ruleCategories: DEFAULT_RULE_CATEGORIES,
   jobAssignments: {},
 }

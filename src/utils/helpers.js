@@ -1,5 +1,5 @@
 import { format } from 'date-fns'
-import { STATUS_VALUES, AVATAR_EMOJIS, AVATAR_COLORS } from './constants'
+import { STATUS_VALUES, AVATAR_EMOJIS, AVATAR_COLORS, DEFAULT_CURRENCY } from './constants'
 import { Check, Clock, XCircle, Coffee, CircleMinus, BookOpen, AlertTriangle, Palette, ScrollText } from 'lucide-react'
 
 export function getTodayStr() {
@@ -17,6 +17,15 @@ export function parseDate(dateStr) {
 
 export function formatDate(date) {
   return format(date, 'yyyy-MM-dd')
+}
+
+export function formatDateShort(dateInput) {
+  if (!dateInput) return ''
+  try {
+    return format(new Date(dateInput), 'yyyy/MM/dd')
+  } catch {
+    return ''
+  }
 }
 
 // --- Task Date Logic (v2.2.0) ---
@@ -260,28 +269,97 @@ export function isDefaultName(name, number) {
 }
 
 // ============================================
-// v3.4.0: 貨幣系統 (Currency System)
+// v3.5.1: ?????? (Currency System)
 // ============================================
 
-export function formatCurrency(points, rates = { fish: 100, cookie: 1000 }) {
-  const abs = Math.abs(points)
-  const sign = points < 0 ? '-' : ''
-  const cookies = Math.floor(abs / rates.cookie)
-  const remainder = abs % rates.cookie
-  const fish = Math.floor(remainder / rates.fish)
-  const raw = remainder % rates.fish
+export function resolveCurrency(input) {
+  if (!input) return DEFAULT_CURRENCY
+  const fromSettings = input.currency || input.currencyRates ? input : null
+  const currency = fromSettings ? (input.currency || input.currencyRates) : input
 
-  const parts = []
-  if (cookies > 0) parts.push(`${cookies} 🍪`)
-  if (fish > 0) parts.push(`${fish} 🐟`)
-  const display = `${sign}${parts.length > 0 ? parts.join(' ') + ' ' : ''}(${sign}${abs} pt)`
-  return { cookies, fish, raw, display }
+  if (currency?.base && currency?.tier1 && currency?.tier2) {
+    return {
+      base: { ...DEFAULT_CURRENCY.base, ...currency.base },
+      tier1: {
+        ...DEFAULT_CURRENCY.tier1,
+        ...currency.tier1,
+        rate: parseInt(currency.tier1?.rate, 10) > 0 ? parseInt(currency.tier1.rate, 10) : DEFAULT_CURRENCY.tier1.rate,
+      },
+      tier2: {
+        ...DEFAULT_CURRENCY.tier2,
+        ...currency.tier2,
+        rate: parseInt(currency.tier2?.rate, 10) > 0 ? parseInt(currency.tier2.rate, 10) : DEFAULT_CURRENCY.tier2.rate,
+      },
+    }
+  }
+
+  if (currency?.fish || currency?.cookie) {
+    return {
+      base: { ...DEFAULT_CURRENCY.base },
+      tier1: {
+        ...DEFAULT_CURRENCY.tier1,
+        rate: parseInt(currency.fish, 10) > 0 ? parseInt(currency.fish, 10) : DEFAULT_CURRENCY.tier1.rate,
+      },
+      tier2: {
+        ...DEFAULT_CURRENCY.tier2,
+        rate: parseInt(currency.cookie, 10) > 0 ? parseInt(currency.cookie, 10) : DEFAULT_CURRENCY.tier2.rate,
+      },
+    }
+  }
+
+  return DEFAULT_CURRENCY
 }
 
-export function toPoints(amount, unit, rates = { fish: 100, cookie: 1000 }) {
-  if (unit === 'cookie') return amount * rates.cookie
-  if (unit === 'fish') return amount * rates.fish
+export function getCurrencyUnitMeta(unit, currencyInput) {
+  const currency = resolveCurrency(currencyInput)
+  if (unit === 'cookie') return { unit: 'cookie', ...currency.tier2 }
+  if (unit === 'fish') return { unit: 'fish', ...currency.tier1 }
+  return { unit: 'point', rate: 1, ...currency.base }
+}
+
+export function formatCurrency(points, currencyInput) {
+  const currency = resolveCurrency(currencyInput)
+  const tier2Rate = parseInt(currency.tier2.rate, 10) > 0 ? parseInt(currency.tier2.rate, 10) : DEFAULT_CURRENCY.tier2.rate
+  const tier1Rate = parseInt(currency.tier1.rate, 10) > 0 ? parseInt(currency.tier1.rate, 10) : DEFAULT_CURRENCY.tier1.rate
+  const abs = Math.abs(points)
+  const sign = points < 0 ? '-' : ''
+  const tier2 = Math.floor(abs / tier2Rate)
+  const remainder = abs % tier2Rate
+  const tier1 = Math.floor(remainder / tier1Rate)
+  const raw = remainder % tier1Rate
+
+  const parts = []
+  if (tier2 > 0) parts.push(`${tier2} ${currency.tier2.icon} ${currency.tier2.name}`)
+  if (tier1 > 0) parts.push(`${tier1} ${currency.tier1.icon} ${currency.tier1.name}`)
+  const baseLabel = `${currency.base.icon ? `${currency.base.icon} ` : ''}${currency.base.name || '??'}`
+  const display = `${sign}${parts.length > 0 ? parts.join(' ') + ' ' : ''}(${sign}${abs} ${baseLabel})`
+
+  return {
+    tier2,
+    tier1,
+    raw,
+    cookies: tier2,
+    fish: tier1,
+    baseLabel,
+    display,
+  }
+}
+
+export function toPoints(amount, unit, currencyInput) {
+  const meta = getCurrencyUnitMeta(unit, currencyInput)
+  if (unit === 'cookie') return amount * (meta.rate || 1)
+  if (unit === 'fish') return amount * (meta.rate || 1)
   return amount
+}
+
+export function formatBalanceBadge(balance, currencyInput) {
+  const currency = resolveCurrency(currencyInput)
+  const tier2Rate = parseInt(currency.tier2.rate, 10) > 0 ? parseInt(currency.tier2.rate, 10) : DEFAULT_CURRENCY.tier2.rate
+  const tier1Rate = parseInt(currency.tier1.rate, 10) > 0 ? parseInt(currency.tier1.rate, 10) : DEFAULT_CURRENCY.tier1.rate
+
+  if (balance >= tier2Rate) return `${Math.floor(balance / tier2Rate)}${currency.tier2.icon}`
+  if (balance >= tier1Rate) return `${Math.floor(balance / tier1Rate)}${currency.tier1.icon}`
+  return `${balance}${currency.base.icon || ''}`
 }
 
 export function ensureStudentBank(student) {

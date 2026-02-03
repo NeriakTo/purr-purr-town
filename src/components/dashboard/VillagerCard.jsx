@@ -1,9 +1,9 @@
 import { AlertCircle, Check } from 'lucide-react'
 import AvatarEmoji from '../common/AvatarEmoji'
 import { STATUS_VALUES } from '../../utils/constants'
-import { isDoneStatus, isCountedInDenominator, normalizeStatus, isDefaultName } from '../../utils/helpers'
+import { isDoneStatus, isCountedInDenominator, normalizeStatus, isDefaultName, formatBalanceBadge } from '../../utils/helpers'
 
-function VillagerCard({ student, tasks, studentStatus, onClick, hasOverdue }) {
+function VillagerCard({ student, tasks, studentStatus, onClick, hasOverdue, currency }) {
   const status = studentStatus[student.id] || {}
   const hasTasks = tasks.length > 0
 
@@ -71,9 +71,7 @@ function VillagerCard({ student, tasks, studentStatus, onClick, hasOverdue }) {
       {(student.bank?.balance || 0) > 0 && (
         <div className="absolute bottom-0.5 right-0.5 z-10">
           <span className="text-[9px] font-bold text-[#8B6914] bg-[#FFD6A5]/70 backdrop-blur-sm px-1.5 py-0.5 rounded-full whitespace-nowrap shadow-sm">
-            {student.bank.balance >= 1000 ? `${Math.floor(student.bank.balance / 1000)}🍪` :
-             student.bank.balance >= 100 ? `${Math.floor(student.bank.balance / 100)}🐟` :
-             `${student.bank.balance}pt`}
+            {formatBalanceBadge(student.bank.balance, currency)}
           </span>
         </div>
       )}

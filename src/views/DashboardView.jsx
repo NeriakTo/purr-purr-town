@@ -16,7 +16,7 @@ import PassportModal from '../components/modals/PassportModal'
 import AnnouncementModal from '../components/modals/AnnouncementModal'
 import OrangeCatStoreModal from '../components/modals/OrangeCatStoreModal'
 import { DEFAULT_SETTINGS, STATUS_VALUES } from '../utils/constants'
-import { formatDate, formatDateDisplay, getTodayStr, getTasksForDate, getTasksCreatedToday, makeTaskId, normalizeStatus, getTaskDueDate, parseDate, isDoneStatus, isCountedInDenominator, loadClassCache, saveClassCache, ensureStudentBank, createTransaction, toPoints, generateId } from '../utils/helpers'
+import { formatDate, formatDateDisplay, getTodayStr, getTasksForDate, getTasksCreatedToday, makeTaskId, normalizeStatus, getTaskDueDate, parseDate, isDoneStatus, isCountedInDenominator, loadClassCache, saveClassCache, ensureStudentBank, createTransaction, toPoints, generateId, resolveCurrency } from '../utils/helpers'
 
 function DashboardView({ classId, className, classAlias, onLogout, onClearLocalClass }) {
   const [students, setStudents] = useState([])
@@ -65,6 +65,10 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
       // v3.5.0: Migrate storeItems → shop.products
       if (!loadedSettings.shop && loadedSettings.storeItems) {
         loadedSettings.shop = { ...DEFAULT_SETTINGS.shop, products: loadedSettings.storeItems }
+      }
+      // v3.5.1: Migrate currencyRates → currency
+      if (!cached.settings?.currency && cached.settings?.currencyRates) {
+        loadedSettings.currency = resolveCurrency({ currencyRates: cached.settings.currencyRates })
       }
       setSettings(loadedSettings)
       setLoading(false)
@@ -271,8 +275,8 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
 
   // v3.5.0: 商店購買
   const handlePurchase = useCallback((studentId, item) => {
-    const rates = settings.currencyRates || { fish: 100, cookie: 1000 }
-    const priceInPoints = toPoints(item.price, item.priceUnit, rates)
+    const currency = resolveCurrency(settings)
+    const priceInPoints = toPoints(item.price, item.priceUnit, currency)
 
     setStudents(prev => prev.map(s => {
       if (s.id !== studentId) return s
@@ -299,7 +303,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
         },
       }))
     }
-  }, [settings.currencyRates])
+  }, [settings])
 
   // v3.5.0: 道具核銷
   const handleConsumeItem = useCallback((studentId, itemIndex) => {
