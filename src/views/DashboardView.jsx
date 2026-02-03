@@ -168,6 +168,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
   }, [handleDeleteTaskFromLog, tasks])
 
   const toggleStatus = useCallback((studentId, taskId, checked, dateOverride) => {
+    const automation = settings.automation || DEFAULT_AUTOMATION
     // Status 2.0: normalize true → on_time
     let newValue = checked
     if (checked === true) newValue = STATUS_VALUES.ON_TIME
@@ -185,6 +186,56 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
     }
     const normDate = normalizeDate(targetLogDate)
 
+    // v3.6.0: Smart Automation - Get Old Status
+    const log = allLogsRef.current.find(l => normalizeDate(l.date) === normDate)
+    const oldStatus = log?.status?.[studentId]?.[taskId]
+    const normOld = normalizeStatus(oldStatus)
+    const normNew = normalizeStatus(newValue)
+
+    if (normOld === normNew) return // No change
+
+    // --- Helper to execute bank transaction ---
+    const runTransaction = (amt, reason) => {
+      setStudents(prev => prev.map(s => {
+        if (s.id !== studentId) return s
+        const student = ensureStudentBank(s)
+        const newBank = createTransaction(student.bank, amt, reason)
+        return { ...student, bank: newBank }
+      }))
+    }
+
+    // --- Phase 1: UNDO Old Status Effects ---
+    if (normOld === STATUS_VALUES.LATE && automation.latePenalty) {
+      runTransaction(Math.abs(automation.latePenalty), '更正：撤銷遲交扣分')
+    }
+    if (normOld === STATUS_VALUES.MISSING && automation.missingPenalty) {
+      runTransaction(Math.abs(automation.missingPenalty), '更正：撤銷缺交扣分')
+    }
+
+    // Revoke Daily Quest if streak broken
+    // Condition: Old was ON_TIME, and we are changing it to something else (already checked normOld !== normNew)
+    // We need to check if Daily Quest was awarded TODAY based on this streak
+    if (normOld === STATUS_VALUES.ON_TIME && automation.dailyQuestBonus) {
+      const student = students.find(s => s.id === studentId)
+      const todayStr = getTodayStr()
+      // Check if "Daily Quest" reward exists for today
+      // NOTE: This simple check assumes if they got it today, it was for today's tasks.
+      // A more robust check would verify if *this* specific task was the one that completed the set,
+      // but simpler is: "If you lose an ON_TIME task today, and you already got the bonus today, we revoke it."
+      const hasBonusToday = student?.bank?.transactions?.some(tx =>
+        tx.reason.includes('每日任務完成') &&
+        !tx.reason.includes('撤銷') &&
+        normalizeDate(tx.date) === normalizeDate(todayStr)
+      )
+
+      if (hasBonusToday) {
+        // If removing this ON_TIME task creates a hole in the perfect streak
+        // (Since we are removing it, it definitely creates a hole unless it wasn't counted, but on_time is always counted)
+        runTransaction(-Math.abs(automation.dailyQuestBonus), '更正：未達成每日任務 (回收獎勵)')
+      }
+    }
+
+    // --- Phase 2: UPDATE Status ---
     setAllLogs(prev => {
       const idx = prev.findIndex(l => normalizeDate(l.date) === normDate)
       if (idx >= 0) {
@@ -193,10 +244,86 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
         newLogs[idx] = { ...newLogs[idx], status: { ...currentStatus, [studentId]: { ...currentStatus[studentId], [taskId]: newValue } } }
         return newLogs
       }
-      const log = prev.find(l => normalizeDate(l.date) === normDate)
-      return [...prev, { date: normDate, tasks: log?.tasks || [], status: { [studentId]: { [taskId]: newValue } } }]
+      const logItem = prev.find(l => normalizeDate(l.date) === normDate)
+      return [...prev, { date: normDate, tasks: logItem?.tasks || [], status: { [studentId]: { [taskId]: newValue } } }]
     })
-  }, [currentDate, normalizeDate])
+
+    // --- Phase 3: REDO New Status Effects ---
+    // We need to wait for state update or calculate "future state".
+    // Since setStudents is functional, we can chain calls or just run them.
+    // However, for Daily Quest Check, we need to know the *new* full set of statuses.
+    // We can simulate the new status map for the Daily Quest check.
+
+    setTimeout(() => {
+      // Execute penalties immediately
+      if (normNew === STATUS_VALUES.LATE && automation.latePenalty) {
+        runTransaction(automation.latePenalty, '作業遲交')
+      }
+      if (normNew === STATUS_VALUES.MISSING && automation.missingPenalty) {
+        runTransaction(automation.missingPenalty, '作業缺交')
+      }
+
+      // Check Daily Quest Eligibility
+      if (normNew === STATUS_VALUES.ON_TIME && automation.dailyQuestBonus) {
+        // We need to fetch the latest logs to check all tasks
+        // Use functional state or references to be safe, but since this is inside a component, references might be stale inside timeout?
+        // Actually, allLogsRef.current is updated via useEffect, but might have slight delay.
+        // Better: Calculate 'isPerfect' based on current knowledge + the change we just made.
+
+        const dateTasks = getTasksForDate(allLogsRef.current, normalizeDate(currentDate), normalizeDate)
+        // Check if ALL tasks for this student on this date are ON_TIME
+        // We must override the *current* task status with our *newValue* because allLogsRef might not be updated yet.
+
+        const isAllOnTime = dateTasks.every(({ task, logDate }) => {
+          if (task.id === taskId) return normNew === STATUS_VALUES.ON_TIME
+          const l = allLogsRef.current.find(lg => normalizeDate(lg.date) === logDate)
+          const st = l?.status?.[studentId]?.[task.id]
+          const norm = normalizeStatus(st)
+          // Ignore exempt/leave? Usually Daily Quest means "All assigned duties done".
+          // If exempt, it shouldn't block. If leave, shouldn't block.
+          // Let's say: All *required* tasks must be ON_TIME.
+          // If status is LEAVE/EXEMPT, we skip checking it?
+          // Or strictly: Must be ON_TIME. 
+          // Current logic: "All tasks... are on_time" implies strictness.
+          // Let's stick to: count status. If not ON_TIME, fail. (Unless LEAVE/EXEMPT?)
+          // User requirement: "All tasks on_time triggers bonus".
+          // Let's assume LEAVE/EXEMPT tasks don't count towards "daily quest" or are neutral.
+          // Actually, usually Daily Quest implies "You did everything you had to do".
+          // If I have 3 tasks, 1 is ON_TIME, 2 are EXEMPT -> Did I finish my daily quest? Yes.
+          if (norm === STATUS_VALUES.EXEMPT || norm === STATUS_VALUES.LEAVE) return true
+          return norm === STATUS_VALUES.ON_TIME
+        })
+
+        if (isAllOnTime && dateTasks.length > 0) {
+          // Check if already awarded today (to avoid double payment)
+          // We need latest student state for this.
+          // Accessing student state in timeout: risky if closed? No, closure captures current scope 'students' which is old.
+          // Use a functional update to check inside? No, conditional logic inside setStudents is hard.
+          // We can't easily check "latest" student transaction inside timeout without a ref or functional update hack.
+
+          setStudents(currentStudents => {
+            const s = currentStudents.find(x => x.id === studentId)
+            if (!s) return currentStudents
+            const todayStr = getTodayStr()
+            const alreadyGot = s.bank?.transactions?.some(tx =>
+              tx.reason.includes('每日任務完成') &&
+              !tx.reason.includes('撤銷') &&
+              normalizeDate(tx.date) === normalizeDate(todayStr)
+            )
+
+            if (!alreadyGot) {
+              // Award it!
+              const student = ensureStudentBank(s)
+              const newBank = createTransaction(student.bank, automation.dailyQuestBonus, '每日任務完成 (Daily Quest)')
+              return currentStudents.map(curr => curr.id === studentId ? { ...curr, bank: newBank } : curr)
+            }
+            return currentStudents
+          })
+        }
+      }
+    }, 0)
+
+  }, [currentDate, normalizeDate, students, settings])
 
   const checkOverdue = useCallback((studentId) => {
     const todayStr = getTodayStr()

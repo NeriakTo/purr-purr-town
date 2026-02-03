@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { X, Clock, XCircle, AlertTriangle, Check, Coffee, CircleMinus, Wallet, Undo2, TrendingUp, TrendingDown, ChevronDown } from 'lucide-react'
+import { X, Clock, XCircle, AlertTriangle, Check, Coffee, CircleMinus, Wallet, Undo2, TrendingUp, TrendingDown, ChevronDown, CalendarDays } from 'lucide-react'
 import AvatarEmoji from '../common/AvatarEmoji'
 import { RenderIcon } from '../common/IconPicker'
 import { STATUS_VALUES } from '../../utils/constants'
@@ -12,6 +12,7 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
   const [manualReason, setManualReason] = useState('')
   const [quickActionsOpen, setQuickActionsOpen] = useState(false)
   const [consumeConfirm, setConsumeConfirm] = useState(null)
+
   const status = studentStatus[student.id] || {}
   const hasTasks = tasks.length > 0
   const completedCount = tasks.filter(t => isDoneStatus(status[t.id])).length
@@ -58,7 +59,48 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
     }
   }
 
-  // v3.4.4: 將行為規範依類別分組
+
+
+  // v3.6.0: Batch Leave (New Logic)
+  const handleBatchLeave = () => {
+    // Determine which date to process. If viewing history (allLogs, overdue), it's complex.
+    // The requirement says: "design a 'Leave' batch button in the tasks page... mark all tasks as leave"
+    // We assume this applies to the tasks CURRENTLY DISPLAYED for the selected date.
+
+    // In PassportModal, `tasks` prop usually contains tasks for `currentDateStr`.
+    // If the modal supports history navigation, we should use the date being viewed.
+    // However, the current PassportModal primarily shows "Tasks for Today" or "Overdue".
+    // Let's assume it applies to the standard task list passed in (`tasks` prop).
+
+    if (tasks.length === 0) return
+
+    if (window.confirm('確定要將今日所有任務標記為「請假」嗎？')) {
+      let count = 0
+      tasks.forEach(task => {
+        // Only toggle if not already leave to avoid unnecessary calls? 
+        // Or just force set it. onToggleStatus handles logic.
+        // Check if already 'leave' to avoid redundant operations/logs if backend handles it?
+        // But front-end logic in DashboardView toggleStatus usually handles "toggle off if same status".
+        // Here we want to FORCE SET to 'leave'. 
+        // DashboardView's toggleStatus: if (newStatus === oldStatus) -> toggle off (remove status).
+        // This might be tricky if we want to ensure they STAY 'leave'.
+        // Actually, if we pass a specific status value to toggleStatus, it toggles it.
+        // If current is 'leave', triggering 'leave' again might remove it (toggle off).
+
+        // Let's check current status
+        const currentSt = status[task.id]
+        const normSt = normalizeStatus(currentSt)
+
+        if (normSt !== 'leave') {
+          onToggleStatus(student.id, task.id, 'leave')
+          count++
+        }
+      })
+      if (count > 0) {
+        // Optional feedback
+      }
+    }
+  }
   const groupedRules = useMemo(() => {
     const rules = settings?.behaviorRules || []
     const groups = {}
@@ -81,6 +123,7 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
   const tabs = [
     { key: 'tasks', label: '📋 任務' },
     { key: 'passbook', label: '💰 存摺與操作' },
+
     { key: 'edit', label: '⚙️ 編輯資料' },
   ]
 
@@ -141,23 +184,43 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
 
             {/* Asset Overview */}
             <div className="mt-5 bg-gradient-to-br from-[#FFD6A5]/20 to-[#A8D8B9]/20 rounded-2xl p-4 border border-[#E8E8E8] shrink-0">
-              <div className="text-xs font-bold text-[#8B8B8B] mb-1 flex items-center gap-1.5">
+              <div className="text-xs font-bold text-[#8B8B8B] mb-2 flex items-center gap-1.5">
                 <Wallet size={14} className="text-[#FFD6A5]" />
                 資產總覽
               </div>
-              <div className="text-xl font-bold text-[#5D5D5D] text-center">
-                {currencyDisplay.display}
+
+              <div className="text-center mb-2">
+                <div className="text-3xl font-black text-[#5D5D5D] tracking-tight flex items-end justify-center gap-1 leading-none">
+                  {balance}
+                  <span className="text-sm text-[#8B8B8B] font-bold mb-1">{currency.base.name}</span>
+                </div>
               </div>
+
               {balance > 0 && (
-                <div className="mt-1.5 flex flex-wrap items-center justify-center gap-3 text-xs text-[#8B8B8B]">
+                <div className="space-y-1.5 bg-white/60 rounded-xl p-2.5 backdrop-blur-sm border border-white/50">
                   {currencyDisplay.tier2 > 0 && (
-                    <span>{currencyDisplay.tier2} {currency.tier2.icon} {currency.tier2.name}</span>
+                    <div className="flex items-center justify-between px-1">
+                      <span className="flex items-center gap-1.5 text-xs font-bold text-[#8B6914]">
+                        <span>{currency.tier2.icon}</span> {currency.tier2.name}
+                      </span>
+                      <span className="font-black text-[#5D5D5D]">{currencyDisplay.tier2}</span>
+                    </div>
                   )}
                   {currencyDisplay.tier1 > 0 && (
-                    <span>{currencyDisplay.tier1} {currency.tier1.icon} {currency.tier1.name}</span>
+                    <div className="flex items-center justify-between px-1">
+                      <span className="flex items-center gap-1.5 text-xs font-bold text-[#4A7C59]">
+                        <span>{currency.tier1.icon}</span> {currency.tier1.name}
+                      </span>
+                      <span className="font-black text-[#5D5D5D]">{currencyDisplay.tier1}</span>
+                    </div>
                   )}
-                  {currencyDisplay.raw > 0 && (
-                    <span>{currencyDisplay.raw} {currency.base.icon} {currency.base.name}</span>
+                  {(currencyDisplay.raw > 0 || (currencyDisplay.tier1 === 0 && currencyDisplay.tier2 === 0)) && (
+                    <div className={`flex items-center justify-between px-1 ${currencyDisplay.tier1 > 0 || currencyDisplay.tier2 > 0 ? 'pt-1.5 border-t border-black/5 mt-1' : ''}`}>
+                      <span className="flex items-center gap-1.5 text-xs text-[#8B8B8B]">
+                        <span>{currency.base.icon}</span> 剩餘{currency.base.name}
+                      </span>
+                      <span className="font-bold text-[#8B8B8B]">{currencyDisplay.raw}</span>
+                    </div>
                   )}
                 </div>
               )}
@@ -194,11 +257,10 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key)}
-                  className={`px-4 py-2.5 rounded-t-xl font-bold text-sm transition-all ${
-                    activeTab === tab.key
-                      ? 'bg-white text-[#5D5D5D] border border-[#E8E8E8] border-b-white -mb-px'
-                      : 'text-[#8B8B8B] hover:text-[#5D5D5D] hover:bg-[#F9F9F9]'
-                  }`}
+                  className={`px-4 py-2.5 rounded-t-xl font-bold text-sm transition-all ${activeTab === tab.key
+                    ? 'bg-white text-[#5D5D5D] border border-[#E8E8E8] border-b-white -mb-px'
+                    : 'text-[#8B8B8B] hover:text-[#5D5D5D] hover:bg-[#F9F9F9]'
+                    }`}
                 >
                   {tab.label}
                 </button>
@@ -211,6 +273,19 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
               {/* ===== Tasks Tab ===== */}
               {activeTab === 'tasks' && (
                 <div className="space-y-4">
+                  {/* Tasks Header / Controls */}
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs text-[#8B8B8B]">今日任務</div>
+                    <button
+                      onClick={handleBatchLeave}
+                      className="px-3 py-1.5 rounded-lg bg-[#E8E8E8] hover:bg-[#D8D8D8] text-[#5D5D5D] text-xs font-bold flex items-center gap-1 transition-colors"
+                      title="將今日所有任務標記為請假"
+                    >
+                      <Coffee size={14} />
+                      批次請假
+                    </button>
+                  </div>
+
                   <div className="space-y-2">
                     {tasks.length === 0 ? (
                       <div className="text-center py-12 bg-[#F9F9F9] rounded-2xl">
@@ -481,6 +556,61 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
                 </div>
               )}
 
+              {/* ===== Leave Tab ===== */}
+              {activeTab === 'leave' && (
+                <div className="space-y-6 max-w-md">
+                  <div className="bg-[#FFF8E1] p-4 rounded-xl border border-[#FFD6A5] flex gap-3 text-sm text-[#8B6914]">
+                    <Coffee className="shrink-0 mt-0.5" size={18} />
+                    <p>
+                      請假單可批次將指定日期區間內的所有任務狀態設為 <strong>「請假」</strong>。
+                      <br /><span className="text-xs opacity-75">請假狀態不會扣分，也不會計入小隊進度的分母。</span>
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-bold text-[#5D5D5D] mb-1 block">開始日期</label>
+                      <input
+                        type="date"
+                        value={leaveData.startDate}
+                        onChange={e => setLeaveData(p => ({ ...p, startDate: e.target.value }))}
+                        className="w-full px-4 py-2.5 rounded-xl border-2 border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-sm font-medium text-[#5D5D5D]"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-[#5D5D5D] mb-1 block">結束日期</label>
+                      <input
+                        type="date"
+                        value={leaveData.endDate}
+                        onChange={e => setLeaveData(p => ({ ...p, endDate: e.target.value }))}
+                        className="w-full px-4 py-2.5 rounded-xl border-2 border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-sm font-medium text-[#5D5D5D]"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-[#5D5D5D] mb-1 block">請假事由 (選填)</label>
+                    <input
+                      type="text"
+                      value={leaveData.reason}
+                      onChange={e => setLeaveData(p => ({ ...p, reason: e.target.value }))}
+                      placeholder="例如：事假、病假..."
+                      className="w-full px-4 py-2.5 rounded-xl border-2 border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-sm"
+                    />
+                  </div>
+
+                  <div className="pt-2">
+                    <button
+                      onClick={handleApplyLeave}
+                      className="w-full py-3 rounded-xl bg-[#A8D8B9] text-white font-bold hover:bg-[#7BC496] transition-colors flex items-center justify-center gap-2"
+                    >
+                      <CalendarDays size={18} />
+                      送出請假單
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* ===== Edit Tab ===== */}
               {activeTab === 'edit' && (
                 <div className="space-y-4 max-w-md">
@@ -489,7 +619,7 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
                     <input
                       type="text"
                       value={editData.name}
-                      onChange={e => setEditData(p => ({...p, name: e.target.value}))}
+                      onChange={e => setEditData(p => ({ ...p, name: e.target.value }))}
                       className="w-full px-4 py-2.5 rounded-xl border-2 border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-sm"
                       placeholder="村民姓名"
                     />
@@ -498,7 +628,7 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
                     <label className="text-xs font-bold text-[#5D5D5D] mb-1 block">所屬小隊</label>
                     <select
                       value={editData.group}
-                      onChange={e => setEditData(p => ({...p, group: e.target.value}))}
+                      onChange={e => setEditData(p => ({ ...p, group: e.target.value }))}
                       className="w-full px-4 py-2.5 rounded-xl border-2 border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-sm"
                     >
                       <option key="unassigned" value="unassigned">待分配</option>

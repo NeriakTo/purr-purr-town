@@ -116,11 +116,11 @@ function LoginView({ onSelectClass, localClasses, onCreateLocalClass }) {
               return (
                 <div key={f.title} className="text-center px-3 py-4 rounded-2xl bg-white/50 backdrop-blur-sm border border-white/60">
                   <div className="w-10 h-10 mx-auto rounded-xl flex items-center justify-center mb-2" style={{ backgroundColor: `${f.color}20` }}>
-                  {typeof Icon === 'string' ? (
-                    <span className="text-lg">{Icon}</span>
-                  ) : (
-                    <Icon size={20} style={{ color: f.color }} />
-                  )}
+                    {typeof Icon === 'string' ? (
+                      <span className="text-lg">{Icon}</span>
+                    ) : (
+                      <Icon size={20} style={{ color: f.color }} />
+                    )}
                   </div>
                   <h4 className="text-sm font-bold text-[#5D5D5D] mb-1">{f.title}</h4>
                   <p className="text-xs text-[#8B8B8B] leading-relaxed">{f.desc}</p>
@@ -186,10 +186,7 @@ function LoginView({ onSelectClass, localClasses, onCreateLocalClass }) {
                       </p>
 
                       <div className="space-y-1 text-xs text-[#8B8B8B] mb-3">
-                        <div className="flex items-center gap-1">
-                          <Wallet size={12} className="text-[#A8D8B9]" />
-                          <span>總資產: {meta.totalAssetsDisplay || '0'}</span>
-                        </div>
+
                         <div className="flex items-center gap-1">
                           <Calendar size={12} className="text-[#FFD6A5]" />
                           <span>最後活動: {meta.lastActiveDate || '無'}</span>

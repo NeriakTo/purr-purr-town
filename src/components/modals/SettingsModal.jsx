@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { X, Save, Link, Download, Plus, Trash2, Settings, ClipboardList, Briefcase, Scale, Coins, Banknote, ChevronDown, ShoppingBag } from 'lucide-react'
-import { DEFAULT_SETTINGS, JOB_CYCLES, DEFAULT_RULE_CATEGORIES, DEFAULT_SHOP } from '../../utils/constants'
+import { X, Save, Link, Download, Plus, Trash2, Settings, ClipboardList, Briefcase, Scale, Coins, Banknote, ChevronDown, ShoppingBag, Zap } from 'lucide-react'
+import { DEFAULT_SETTINGS, JOB_CYCLES, DEFAULT_RULE_CATEGORIES, DEFAULT_SHOP, DEFAULT_AUTOMATION } from '../../utils/constants'
 import { saveClassCache, generateId, resolveCurrency, formatCurrency } from '../../utils/helpers'
 import IconPicker, { RenderIcon } from '../common/IconPicker'
 
@@ -12,10 +12,12 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
     announcements: settings?.announcements || [],
     jobs: settings?.jobs || DEFAULT_SETTINGS.jobs,
     behaviorRules: settings?.behaviorRules || DEFAULT_SETTINGS.behaviorRules,
+
     shop: settings?.shop || (settings?.storeItems ? { ...DEFAULT_SHOP, products: settings.storeItems } : DEFAULT_SHOP),
     currency: resolveCurrency(settings),
     ruleCategories: settings?.ruleCategories || DEFAULT_SETTINGS.ruleCategories,
     jobAssignments: settings?.jobAssignments || DEFAULT_SETTINGS.jobAssignments,
+    automation: settings?.automation || DEFAULT_AUTOMATION,
   })
   const currency = resolveCurrency(localSettings)
   const currencyPreview = formatCurrency(6500, currency)
@@ -228,6 +230,7 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
           currency: resolveCurrency(restored.settings || prev),
           ruleCategories: restored.settings?.ruleCategories || prev.ruleCategories,
           jobAssignments: restored.settings?.jobAssignments || prev.jobAssignments,
+          automation: restored.settings?.automation || DEFAULT_AUTOMATION,
         }))
         setFileMsg('✅ 還原成功！')
       } catch (err) {
@@ -432,8 +435,10 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
     { key: 'general', label: '一般設定', icon: Settings },
     { key: 'jobs', label: '職務設定', icon: Briefcase },
     { key: 'behavior', label: '行為規範', icon: Scale },
+
     { key: 'shop', label: '商店設定', icon: ShoppingBag },
     { key: 'currency', label: '貨幣設定', icon: Coins },
+    { key: 'automation', label: '自動化設定', icon: Zap },
   ]
 
   return (
@@ -465,8 +470,8 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
               className={`px-4 py-2.5 rounded-t-xl font-bold text-sm transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === tab.key
-                  ? 'bg-white text-[#5D5D5D] border border-[#E8E8E8] border-b-white -mb-px'
-                  : 'text-[#8B8B8B] hover:text-[#5D5D5D] hover:bg-[#F9F9F9]'
+                ? 'bg-white text-[#5D5D5D] border border-[#E8E8E8] border-b-white -mb-px'
+                : 'text-[#8B8B8B] hover:text-[#5D5D5D] hover:bg-[#F9F9F9]'
                 }`}
             >
               <tab.icon size={16} />
@@ -477,6 +482,93 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
 
         {/* Tab Content */}
         <div className="flex-1 min-h-0 overflow-y-auto">
+          {/* ===== 自動化設定 ===== */}
+          {activeTab === 'automation' && (
+            <div className="p-6 space-y-6">
+              <div className="space-y-2">
+                <h3 className="text-sm font-bold text-[#5D5D5D] flex items-center gap-2">
+                  <Zap size={16} className="text-[#FFBF69]" />
+                  自動化獎懲與扣分
+                </h3>
+                <p className="text-xs text-[#8B8B8B]">設定系統自動執行的獎勵與扣分規則</p>
+              </div>
+
+              <div className="space-y-4">
+                {/* Daily Quest */}
+                <div className="p-4 bg-white rounded-xl border border-[#E8E8E8] space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-[#A8D8B9]/20 flex items-center justify-center text-lg">⚔️</div>
+                    <div>
+                      <h4 className="font-bold text-[#5D5D5D] text-sm">每日任務完成獎勵</h4>
+                      <p className="text-xs text-[#8B8B8B]">當日所有任務皆「準時」時自動發放</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 pl-10">
+                    <span className="text-xs font-bold text-[#4A7C59]">+</span>
+                    <input
+                      type="number"
+                      value={localSettings.automation.dailyQuestBonus}
+                      onChange={e => setLocalSettings(p => ({
+                        ...p,
+                        automation: { ...p.automation, dailyQuestBonus: parseInt(e.target.value) || 0 }
+                      }))}
+                      className="w-20 px-3 py-2 rounded-lg border border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-sm font-bold text-[#5D5D5D]"
+                    />
+                    <span className="text-xs text-[#8B8B8B]">pt</span>
+                  </div>
+                </div>
+
+                {/* Late Penalty */}
+                <div className="p-4 bg-white rounded-xl border border-[#E8E8E8] space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-[#FFD6A5]/20 flex items-center justify-center text-lg">🐢</div>
+                    <div>
+                      <h4 className="font-bold text-[#5D5D5D] text-sm">遲交扣分</h4>
+                      <p className="text-xs text-[#8B8B8B]">標記為「遲交」時自動扣除</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 pl-10">
+                    <span className="text-xs font-bold text-[#8B6914]">-</span>
+                    <input
+                      type="number"
+                      value={Math.abs(localSettings.automation.latePenalty)}
+                      onChange={e => setLocalSettings(p => ({
+                        ...p,
+                        automation: { ...p.automation, latePenalty: -Math.abs(parseInt(e.target.value) || 0) }
+                      }))}
+                      className="w-20 px-3 py-2 rounded-lg border border-[#E8E8E8] focus:border-[#FFD6A5] outline-none text-sm font-bold text-[#5D5D5D]"
+                    />
+                    <span className="text-xs text-[#8B8B8B]">pt</span>
+                  </div>
+                </div>
+
+                {/* Missing Penalty */}
+                <div className="p-4 bg-white rounded-xl border border-[#E8E8E8] space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-[#FFADAD]/20 flex items-center justify-center text-lg">⚠️</div>
+                    <div>
+                      <h4 className="font-bold text-[#5D5D5D] text-sm">缺交扣分</h4>
+                      <p className="text-xs text-[#8B8B8B]">標記為「未交」時自動扣除</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 pl-10">
+                    <span className="text-xs font-bold text-[#D64545]">-</span>
+                    <input
+                      type="number"
+                      value={Math.abs(localSettings.automation.missingPenalty)}
+                      onChange={e => setLocalSettings(p => ({
+                        ...p,
+                        automation: { ...p.automation, missingPenalty: -Math.abs(parseInt(e.target.value) || 0) }
+                      }))}
+                      className="w-20 px-3 py-2 rounded-lg border border-[#E8E8E8] focus:border-[#FFADAD] outline-none text-sm font-bold text-[#5D5D5D]"
+                    />
+                    <span className="text-xs text-[#8B8B8B]">pt</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* ===== 一般設定 ===== */}
           {activeTab === 'general' && (
             <div className="p-6 space-y-8">
@@ -963,52 +1055,75 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
                   </div>
                 )}
                 {(localSettings.shop?.products || []).map(item => (
-                  <div key={item.id} className="flex items-center gap-2 p-3 bg-white rounded-xl border border-[#E8E8E8] hover:border-[#FFD6A5] transition-colors">
-                    <IconPicker value={item.icon} onChange={v => updateProduct(item.id, 'icon', v)} />
-                    <input
-                      type="text"
-                      value={item.name}
-                      onChange={e => updateProduct(item.id, 'name', e.target.value)}
-                      className="flex-1 px-2 py-1.5 rounded-lg border border-[#E8E8E8] focus:border-[#FFD6A5] outline-none text-sm font-medium min-w-0"
-                      placeholder="商品名稱"
-                    />
-                    <div className="flex items-center gap-1">
+                  <div key={item.id} className="flex flex-col gap-1.5 p-3 bg-white rounded-xl border border-[#E8E8E8] hover:border-[#FFD6A5] transition-colors">
+                    {/* Row 1: Icon, Name, Stock, Price, Actions */}
+                    <div className="flex items-center gap-2">
+                      <IconPicker value={item.icon} onChange={v => updateProduct(item.id, 'icon', v)} />
+
                       <input
-                        type="number"
-                        value={item.stock}
-                        onChange={e => updateProduct(item.id, 'stock', e.target.value)}
-                        onFocus={e => e.target.select()}
-                        className="w-14 px-2 py-1.5 rounded-lg border border-[#E8E8E8] focus:border-[#FFD6A5] outline-none text-sm text-center font-bold"
-                        min="0"
-                        title="庫存"
+                        type="text"
+                        value={item.name}
+                        onChange={e => updateProduct(item.id, 'name', e.target.value)}
+                        className="flex-1 px-2 py-1.5 rounded-lg border border-[#E8E8E8] focus:border-[#FFD6A5] outline-none text-sm font-medium min-w-0"
+                        placeholder="商品名稱"
                       />
-                      <span className="text-[10px] text-[#8B8B8B]">庫存</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <input
-                        type="number"
-                        value={item.price}
-                        onChange={e => updateProduct(item.id, 'price', e.target.value)}
-                        onFocus={e => e.target.select()}
-                        className="w-14 px-2 py-1.5 rounded-lg border border-[#E8E8E8] focus:border-[#FFD6A5] outline-none text-sm text-center font-bold"
-                        min="0"
-                      />
-                      <select
-                        value={item.priceUnit}
-                        onChange={e => updateProduct(item.id, 'priceUnit', e.target.value)}
-                        className="w-16 px-1 py-1.5 rounded-lg border border-[#E8E8E8] focus:border-[#FFD6A5] outline-none text-sm"
+
+                      <div className="flex items-center gap-1 shrink-0 bg-[#F9F9F9] rounded-lg p-0.5 border border-[#E8E8E8]">
+                        <input
+                          type="number"
+                          value={item.stock}
+                          onChange={e => updateProduct(item.id, 'stock', e.target.value)}
+                          onFocus={e => e.target.select()}
+                          className="w-12 px-1.5 py-1 rounded-md bg-white border border-transparent focus:border-[#FFD6A5] outline-none text-sm text-center font-bold"
+                          min="0"
+                          title="庫存數量"
+                          placeholder="庫存"
+                        />
+                        <span className="text-[10px] text-[#B0B0B0] select-none pr-1">個</span>
+                      </div>
+
+                      <div className="flex items-center gap-1 shrink-0 bg-[#F9F9F9] rounded-lg p-0.5 border border-[#E8E8E8]">
+                        <input
+                          type="number"
+                          value={item.price}
+                          onChange={e => updateProduct(item.id, 'price', e.target.value)}
+                          onFocus={e => e.target.select()}
+                          className="w-12 px-1.5 py-1 rounded-md bg-white border border-transparent focus:border-[#FFD6A5] outline-none text-sm text-center font-bold"
+                          min="0"
+                          title="商品價格"
+                          placeholder="價格"
+                        />
+                        <select
+                          value={item.priceUnit}
+                          onChange={e => updateProduct(item.id, 'priceUnit', e.target.value)}
+                          className="w-28 px-1 py-1 rounded-md bg-transparent border-none outline-none text-xs font-medium text-[#5D5D5D] cursor-pointer"
+                          title="幣別"
+                        >
+                          <option value="point">{currency.base.icon} {currency.base.name}</option>
+                          <option value="fish">{currency.tier1.icon} {currency.tier1.name}</option>
+                          <option value="cookie">{currency.tier2.icon} {currency.tier2.name}</option>
+                        </select>
+                      </div>
+
+                      <button
+                        onClick={() => removeProduct(item.id)}
+                        className="p-1.5 rounded-lg hover:bg-[#FFADAD]/20 text-[#8B8B8B] hover:text-[#D64545] transition-colors shrink-0"
+                        title="刪除商品"
                       >
-                        <option value="point">{currency.base.icon} {currency.base.name}</option>
-                        <option value="fish">{currency.tier1.icon} {currency.tier1.name}</option>
-                        <option value="cookie">{currency.tier2.icon} {currency.tier2.name}</option>
-                      </select>
+                        <Trash2 size={16} />
+                      </button>
                     </div>
-                    <button
-                      onClick={() => removeProduct(item.id)}
-                      className="p-1.5 rounded-lg hover:bg-[#FFADAD]/20 text-[#8B8B8B] hover:text-[#D64545] transition-colors shrink-0"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+
+                    {/* Row 2: Description */}
+                    <div className="pl-10">
+                      <input
+                        type="text"
+                        value={item.description || ''}
+                        onChange={e => updateProduct(item.id, 'description', e.target.value)}
+                        className="w-full px-2 py-1 rounded-lg border border-[#E8E8E8]/60 focus:border-[#FFD6A5] outline-none text-xs text-[#8B8B8B] bg-[#FDFDFD]"
+                        placeholder="商品描述 (選填，例如：僅限午休時間使用)"
+                      />
+                    </div>
                   </div>
                 ))}
 

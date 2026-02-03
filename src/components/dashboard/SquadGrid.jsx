@@ -1,7 +1,8 @@
 import { useMemo } from 'react'
 import { Flag, Trophy, Users } from 'lucide-react'
 import VillagerCard from './VillagerCard'
-import { isDoneStatus, isCountedInDenominator, resolveCurrency } from '../../utils/helpers'
+import { isDoneStatus, isCountedInDenominator, resolveCurrency, normalizeStatus } from '../../utils/helpers'
+import { STATUS_VALUES } from '../../utils/constants'
 
 function SquadGrid({ students, tasks, studentStatus, settings, onSelectStudent, checkOverdue }) {
   const currency = useMemo(() => resolveCurrency(settings), [settings])
@@ -33,7 +34,8 @@ function SquadGrid({ students, tasks, studentStatus, settings, onSelectStudent, 
       const st = studentStatus[s.id]?.[t.id]
       if (!isCountedInDenominator(st)) return
       denom++
-      if (isDoneStatus(st)) num++
+      // v3.6.0: Only ON_TIME counts for 100% green check
+      if (normalizeStatus(st) === STATUS_VALUES.ON_TIME) num++
     }))
     return denom > 0 ? num / denom : 0
   }
@@ -52,13 +54,11 @@ function SquadGrid({ students, tasks, studentStatus, settings, onSelectStudent, 
           return (
             <div
               key={group}
-              className={`rounded-xl overflow-hidden transition-all shrink-0 ${
-                isComplete ? 'border-2 border-yellow-300 shadow-lg' : 'border border-transparent shadow-sm'
-              }`}
+              className={`rounded-xl overflow-hidden transition-all shrink-0 ${isComplete ? 'border-2 border-yellow-300 shadow-lg' : 'border border-transparent shadow-sm'
+                }`}
             >
-              <div className={`px-2.5 py-1.5 flex items-center justify-between ${
-                isComplete ? 'bg-gradient-to-r from-yellow-100 to-amber-100' : 'bg-[#f4ede3]'
-              }`}>
+              <div className={`px-2.5 py-1.5 flex items-center justify-between ${isComplete ? 'bg-gradient-to-r from-yellow-100 to-amber-100' : 'bg-[#f4ede3]'
+                }`}>
                 <div className="flex items-center gap-1.5">
                   <div
                     className="w-6 h-6 rounded-md flex items-center justify-center shrink-0"

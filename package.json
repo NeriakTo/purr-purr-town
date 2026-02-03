@@ -1,7 +1,7 @@
 {
   "name": "purr-purr-town",
   "private": true,
-  "version": "3.5.2",
+  "version": "3.6.0",
   "license": "CC-BY-NC-SA-4.0",
   "type": "module",
   "scripts": {

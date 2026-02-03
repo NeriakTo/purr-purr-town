@@ -5,7 +5,17 @@ export const DEFAULT_CURRENCY = {
   tier2: { name: '貓餅乾', rate: 1000, icon: '🍪' },
 }
 
+
 export const DEFAULT_CURRENCY_RATES = { fish: 100, cookie: 1000 }
+
+// v3.6.0: 預設自動化設定
+export const DEFAULT_AUTOMATION = {
+  dailyQuestBonus: 50,
+  latePenalty: -10,
+  missingPenalty: -20,
+}
+
+// v3.4.0: 貨幣單位識別
 
 // v3.4.0: 貨幣單位識別
 export const CURRENCY_UNITS = { POINT: 'point', FISH: 'fish', COOKIE: 'cookie' }
@@ -37,6 +47,7 @@ export const DEFAULT_RULE_CATEGORIES = [
 export const DEFAULT_BEHAVIOR_RULES = [
   { id: 'rule_missing_hw', label: '作業缺交', amount: -200, type: 'fine', icon: '📕', category: '作業' },
   { id: 'rule_good_speak', label: '發表優良', amount: 100, type: 'bonus', icon: '🌟', category: '課堂表現' },
+  { id: 'rule_attendance', label: '全勤獎勵', amount: 500, type: 'bonus', icon: '🗓️', category: '秩序' },
 ]
 
 // v3.5.0: 預設商店商品
@@ -66,6 +77,7 @@ export const DEFAULT_SETTINGS = {
   currency: DEFAULT_CURRENCY,
   ruleCategories: DEFAULT_RULE_CATEGORIES,
   jobAssignments: {},
+  automation: DEFAULT_AUTOMATION,
 }
 
 export const STATUS_VALUES = {
