@@ -28,6 +28,7 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
   const [selectedPayrollCycles, setSelectedPayrollCycles] = useState([])
   const [newCategoryName, setNewCategoryName] = useState('')
   const [openStudentDropdown, setOpenStudentDropdown] = useState(null)
+  const [dropdownAlignRight, setDropdownAlignRight] = useState(false)
   const fileInputRef = useRef(null)
   const studentDropdownRef = useRef(null)
 
@@ -658,30 +659,38 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
                       </button>
                     </div>
                     {/* Student assignments */}
-                    <div className="flex flex-wrap items-center gap-1.5 ml-12">
-                      {(localSettings.jobAssignments[job.id] || []).map(sid => {
-                        const s = students.find(x => x.id === sid)
-                        if (!s) return null
-                        return (
-                          <span key={sid} className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#FFD6A5]/20 rounded-full text-xs font-medium text-[#8B6914]">
-                            {s.number}號 {s.name}
-                            <button onClick={() => removeStudentFromJob(job.id, sid)} className="hover:text-[#D64545]">
-                              <X size={10} />
-                            </button>
-                          </span>
-                        )
-                      })}
+                    <div className="ml-12 space-y-1.5">
+                      {(localSettings.jobAssignments[job.id] || []).length > 0 && (
+                        <div className="flex flex-wrap items-center gap-1.5 max-h-[100px] overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
+                          {(localSettings.jobAssignments[job.id] || []).map(sid => {
+                            const s = students.find(x => x.id === sid)
+                            if (!s) return null
+                            return (
+                              <span key={sid} className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#FFD6A5]/20 rounded-full text-xs font-medium text-[#8B6914]">
+                                {s.number}號 {s.name}
+                                <button onClick={() => removeStudentFromJob(job.id, sid)} className="hover:text-[#D64545]">
+                                  <X size={10} />
+                                </button>
+                              </span>
+                            )
+                          })}
+                        </div>
+                      )}
                       <div className="relative" ref={openStudentDropdown === job.id ? studentDropdownRef : null}>
                         <button
                           type="button"
-                          onClick={() => setOpenStudentDropdown(openStudentDropdown === job.id ? null : job.id)}
+                          onClick={(e) => {
+                            const rect = e.currentTarget.getBoundingClientRect()
+                            setDropdownAlignRight(rect.left > window.innerWidth / 2)
+                            setOpenStudentDropdown(openStudentDropdown === job.id ? null : job.id)
+                          }}
                           className="text-xs px-2 py-1 rounded-lg border border-dashed border-[#E8E8E8] text-[#8B8B8B] hover:border-[#FFD6A5] cursor-pointer bg-transparent flex items-center gap-1"
                         >
                           <Plus size={10} /> 指派村民
                           <ChevronDown size={10} className={`transition-transform ${openStudentDropdown === job.id ? 'rotate-180' : ''}`} />
                         </button>
                         {openStudentDropdown === job.id && (
-                          <div className="absolute z-50 top-full left-0 mt-1 w-56 bg-white rounded-xl shadow-xl border border-[#E8E8E8] overflow-hidden">
+                          <div className={`absolute z-50 top-full mt-1 w-56 bg-white rounded-xl shadow-xl border border-[#E8E8E8] overflow-hidden ${dropdownAlignRight ? 'right-0' : 'left-0'}`}>
                             <div className="sticky top-0 bg-[#F9F9F9] border-b border-[#E8E8E8] px-2 py-1.5 flex gap-2 z-10">
                               <button
                                 type="button"

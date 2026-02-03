@@ -1,34 +1,58 @@
 import { useState, useRef, useEffect } from 'react'
-import {
-  Crown, Star, Megaphone, Flag, Gavel,
-  Brush, Trash2, Utensils, Soup, Sparkles, Truck,
-  Lightbulb, Fan, DoorOpen, Monitor, Wifi,
-  BookOpen, PenTool, Palette, Music, Calculator,
-  HeartHandshake, Trophy, CalendarCheck, Coins,
-  AlertTriangle, Clock, FileWarning, Ban
-} from 'lucide-react'
 
+// v3.4.5: Emoji-based icon system (replaced Lucide SVG icons)
 export const ICON_CATEGORIES = [
-  { label: '管理', icons: { Crown, Star, Megaphone, Flag, Gavel } },
-  { label: '服務', icons: { Brush, Trash2, Utensils, Soup, Sparkles, Truck } },
-  { label: '設施', icons: { Lightbulb, Fan, DoorOpen, Monitor, Wifi } },
-  { label: '學藝', icons: { BookOpen, PenTool, Palette, Music, Calculator } },
-  { label: '行為', icons: { HeartHandshake, Trophy, CalendarCheck, Coins } },
-  { label: '負面', icons: { AlertTriangle, Clock, FileWarning, Ban } },
+  { label: '管理', icons: { '👑': '班長', '📢': '風紀', '🚩': '路隊', '📋': '點名' } },
+  { label: '服務', icons: { '🧹': '衛生', '🚮': '回收', '🍱': '午餐', '🧴': '消毒/潔牙' } },
+  { label: '設施', icons: { '💡': '電燈', '🌬️': '電扇', '🚪': '門窗', '💻': '資訊' } },
+  { label: '學藝', icons: { '📖': '學藝', '✍️': '寫作', '🎨': '美工', '🎵': '音樂' } },
+  { label: '獎懲', icons: { '🏆': '獎盃', '🗓️': '全勤', '⚠️': '警告', '🐢': '遲到', '🚫': '禁止' } },
 ]
 
-export const ICON_MAP = {}
-ICON_CATEGORIES.forEach(cat => {
-  Object.entries(cat.icons).forEach(([name, comp]) => {
-    ICON_MAP[name] = comp
-  })
-})
+// v3.4.5: Migration map from old Lucide icon names to Emoji
+export const LUCIDE_TO_EMOJI = {
+  Crown: '👑',
+  Star: '⭐',
+  Megaphone: '📢',
+  Flag: '🚩',
+  Gavel: '⚖️',
+  Brush: '🧹',
+  Trash2: '🚮',
+  Utensils: '🍱',
+  Soup: '🍲',
+  Sparkles: '✨',
+  Truck: '🚚',
+  Lightbulb: '💡',
+  Fan: '🌬️',
+  DoorOpen: '🚪',
+  Monitor: '💻',
+  Wifi: '📡',
+  BookOpen: '📖',
+  PenTool: '✍️',
+  Palette: '🎨',
+  Music: '🎵',
+  Calculator: '🔢',
+  HeartHandshake: '🤝',
+  Trophy: '🏆',
+  CalendarCheck: '🗓️',
+  Coins: '🪙',
+  AlertTriangle: '⚠️',
+  Clock: '🐢',
+  FileWarning: '⚠️',
+  Ban: '🚫',
+}
+
+// Resolve an icon value: if it's an old Lucide name, convert to emoji
+export function resolveIcon(name) {
+  if (!name) return null
+  if (LUCIDE_TO_EMOJI[name]) return LUCIDE_TO_EMOJI[name]
+  return name
+}
 
 export function RenderIcon({ name, size = 16, className = '' }) {
-  if (!name) return null
-  const IconComp = ICON_MAP[name]
-  if (IconComp) return <IconComp size={size} className={className} />
-  return <span className={className} style={{ fontSize: size * 0.875, lineHeight: 1 }}>{name}</span>
+  const resolved = resolveIcon(name)
+  if (!resolved) return null
+  return <span className={className} style={{ fontSize: size, lineHeight: 1 }}>{resolved}</span>
 }
 
 function IconPicker({ value, onChange }) {
@@ -45,15 +69,17 @@ function IconPicker({ value, onChange }) {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [open])
 
+  const displayValue = resolveIcon(value)
+
   return (
     <div className="relative" ref={ref}>
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="w-10 h-10 flex items-center justify-center rounded-lg border border-[#E8E8E8] hover:border-[#A8D8B9] bg-white transition-colors"
+        className="w-10 h-10 flex items-center justify-center rounded-lg border border-[#E8E8E8] hover:border-[#A8D8B9] bg-white transition-colors text-xl"
         title="選擇圖示"
       >
-        <RenderIcon name={value} size={20} />
+        {displayValue || '📋'}
       </button>
       {open && (
         <div className="absolute z-50 top-full left-0 mt-1 w-64 bg-white rounded-xl shadow-xl border border-[#E8E8E8] p-3 space-y-2 max-h-80 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
@@ -61,17 +87,17 @@ function IconPicker({ value, onChange }) {
             <div key={cat.label}>
               <div className="text-[10px] font-bold text-[#8B8B8B] uppercase tracking-wider mb-1">{cat.label}</div>
               <div className="flex flex-wrap gap-1">
-                {Object.entries(cat.icons).map(([name, Icon]) => (
+                {Object.entries(cat.icons).map(([emoji, label]) => (
                   <button
-                    key={name}
+                    key={emoji}
                     type="button"
-                    onClick={() => { onChange(name); setOpen(false) }}
-                    className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
-                      value === name ? 'bg-[#A8D8B9] text-white' : 'hover:bg-[#F0F0F0] text-[#5D5D5D]'
+                    onClick={() => { onChange(emoji); setOpen(false) }}
+                    className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors text-lg ${
+                      value === emoji ? 'bg-[#A8D8B9] ring-2 ring-[#7BC496]' : 'hover:bg-[#F0F0F0]'
                     }`}
-                    title={name}
+                    title={label}
                   >
-                    <Icon size={16} />
+                    {emoji}
                   </button>
                 ))}
               </div>
