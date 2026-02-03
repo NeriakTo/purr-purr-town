@@ -464,11 +464,10 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`px-4 py-2.5 rounded-t-xl font-bold text-sm transition-all whitespace-nowrap flex items-center gap-2 ${
-                activeTab === tab.key
+              className={`px-4 py-2.5 rounded-t-xl font-bold text-sm transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === tab.key
                   ? 'bg-white text-[#5D5D5D] border border-[#E8E8E8] border-b-white -mb-px'
                   : 'text-[#8B8B8B] hover:text-[#5D5D5D] hover:bg-[#F9F9F9]'
-              }`}
+                }`}
             >
               <tab.icon size={16} />
               {tab.label}
@@ -491,7 +490,7 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
                   {localSettings.taskTypes.map(type => (
                     <div key={type} className="flex items-center gap-2 px-3 py-1.5 rounded-xl border-2 bg-gray-100 text-gray-700 border-gray-300">
                       <span className="text-sm font-medium">{type}</span>
-                      <button onClick={() => setLocalSettings(p => ({...p, taskTypes: p.taskTypes.filter(t => t !== type)}))}>
+                      <button onClick={() => setLocalSettings(p => ({ ...p, taskTypes: p.taskTypes.filter(t => t !== type) }))}>
                         <X size={14} />
                       </button>
                     </div>
@@ -502,12 +501,12 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
                     type="text"
                     value={newTaskType}
                     onChange={e => setNewTaskType(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter' && newTaskType.trim()) { setLocalSettings(p => ({...p, taskTypes: [...p.taskTypes, newTaskType.trim()]})); setNewTaskType('') } }}
+                    onKeyDown={e => { if (e.key === 'Enter' && newTaskType.trim()) { setLocalSettings(p => ({ ...p, taskTypes: [...p.taskTypes, newTaskType.trim()] })); setNewTaskType('') } }}
                     className="flex-1 px-4 py-2 rounded-xl border-2 border-[#E8E8E8] focus:border-[#A8D8B9] outline-none"
                     placeholder="輸入新任務類型..."
                   />
                   <button
-                    onClick={() => { if(newTaskType.trim()) { setLocalSettings(p => ({...p, taskTypes: [...p.taskTypes, newTaskType.trim()]})); setNewTaskType('') } }}
+                    onClick={() => { if (newTaskType.trim()) { setLocalSettings(p => ({ ...p, taskTypes: [...p.taskTypes, newTaskType.trim()] })); setNewTaskType('') } }}
                     className="px-4 py-2 rounded-xl bg-[#A8D8B9] text-white font-bold flex items-center gap-1"
                   >
                     <Plus size={20} /> 新增
@@ -1029,14 +1028,14 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
               <div className="space-y-2">
                 <h3 className="text-sm font-bold text-[#5D5D5D] flex items-center gap-2">
                   <Coins size={16} className="text-[#FFD6A5]" />
-                  ????
+                  貨幣匯率設定
                 </h3>
-                <p className="text-xs text-[#8B8B8B]">????????????????</p>
+                <p className="text-xs text-[#8B8B8B]">調整貨幣兌換比率（所有金額以積分為基底儲存）</p>
               </div>
 
               <div className="space-y-4">
                 <div className="p-4 bg-white rounded-xl border border-[#E8E8E8] space-y-3">
-                  <div className="text-xs font-bold text-[#5D5D5D]">????</div>
+                  <div className="text-xs font-bold text-[#5D5D5D]">基礎單位 (積分)</div>
                   <div className="flex items-center gap-3">
                     <IconPicker
                       value={localSettings.currency.base.icon}
@@ -1053,13 +1052,14 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
                         currency: { ...p.currency, base: { ...p.currency.base, name: e.target.value } }
                       }))}
                       className="flex-1 px-3 py-2 rounded-lg border border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-sm font-medium"
-                      placeholder="??"
+                      placeholder="請輸入貨幣名稱 (如: 積分)"
+                      onFocus={e => e.target.select()}
                     />
                   </div>
                 </div>
 
                 <div className="p-4 bg-white rounded-xl border border-[#E8E8E8] space-y-3">
-                  <div className="text-xs font-bold text-[#5D5D5D]">Tier 1</div>
+                  <div className="text-xs font-bold text-[#5D5D5D]">第一層貨幣</div>
                   <div className="flex flex-wrap items-center gap-3">
                     <IconPicker
                       value={localSettings.currency.tier1.icon}
@@ -1076,7 +1076,8 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
                         currency: { ...p.currency, tier1: { ...p.currency.tier1, name: e.target.value } }
                       }))}
                       className="flex-1 min-w-[160px] px-3 py-2 rounded-lg border border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-sm font-medium"
-                      placeholder="???"
+                      placeholder="請輸入貨幣名稱 (如: 小魚乾)"
+                      onFocus={e => e.target.select()}
                     />
                     <div className="flex items-center gap-2 text-sm text-[#5D5D5D]">
                       <span>1 {currency.tier1.icon} {currency.tier1.name} =</span>
@@ -1103,7 +1104,7 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
                 </div>
 
                 <div className="p-4 bg-white rounded-xl border border-[#E8E8E8] space-y-3">
-                  <div className="text-xs font-bold text-[#5D5D5D]">Tier 2</div>
+                  <div className="text-xs font-bold text-[#5D5D5D]">第二層貨幣</div>
                   <div className="flex flex-wrap items-center gap-3">
                     <IconPicker
                       value={localSettings.currency.tier2.icon}
@@ -1120,7 +1121,8 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
                         currency: { ...p.currency, tier2: { ...p.currency.tier2, name: e.target.value } }
                       }))}
                       className="flex-1 min-w-[160px] px-3 py-2 rounded-lg border border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-sm font-medium"
-                      placeholder="???"
+                      placeholder="請輸入貨幣名稱 (如: 貓餅乾)"
+                      onFocus={e => e.target.select()}
                     />
                     <div className="flex items-center gap-2 text-sm text-[#5D5D5D]">
                       <span>1 {currency.tier2.icon} {currency.tier2.name} =</span>
@@ -1148,7 +1150,7 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
               </div>
 
               <div className="p-4 bg-[#FFD6A5]/10 rounded-xl border border-[#FFD6A5]/30">
-                <div className="text-xs font-bold text-[#8B6914] mb-2">????</div>
+                <div className="text-xs font-bold text-[#8B6914] mb-2">換算預覽</div>
                 <div className="text-sm text-[#5D5D5D] space-y-1">
                   <div>
                     6500 {currency.base.icon} {currency.base.name} =
