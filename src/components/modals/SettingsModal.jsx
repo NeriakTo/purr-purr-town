@@ -635,7 +635,7 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
                     <div className="space-y-1">
                       <label className="text-xs font-bold text-[#5D5D5D] ml-1">驗證 Token</label>
                       <input
-                        type="text"
+                        type="password"
                         value={backupToken}
                         onChange={(e) => setBackupToken(e.target.value)}
                         placeholder="預設為 meow1234"
