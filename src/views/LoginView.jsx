@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { PawPrint, Plus, Home, School, ChevronRight, Trophy, Users, ShoppingBag, Wallet, Calendar, AlertTriangle } from 'lucide-react'
+import { PawPrint, Plus, Home, School, ChevronRight, Trophy, Users, ShoppingBag, Wallet, Calendar, AlertTriangle, Zap, Palette } from 'lucide-react'
 import CreateClassModal from '../components/modals/CreateClassModal'
 import { AVATAR_EMOJIS } from '../utils/constants'
 import { formatCurrency, formatDateShort, loadClassCache, resolveCurrency } from '../utils/helpers'
@@ -61,9 +61,9 @@ function LoginView({ onSelectClass, localClasses, onCreateLocalClass }) {
   }
 
   const features = [
-    { icon: Trophy, title: '榮譽制度', desc: '透過積分與貨幣系統，建立正向回饋循環', color: '#A8D8B9' },
-    { icon: Users, title: '村民互動', desc: '每個孩子化身動物村民，共同經營班級村莊', color: '#FFD6A5' },
-    { icon: ShoppingBag, title: '虛擬商店', desc: '累積資產兌換特權卡片，學習理財與自我管理', color: '#FFADAD' },
+    { icon: Palette, title: '療癒系設計', desc: '結合溫暖色調與卡片式互動，將繁瑣的班級經營轉化為最療癒的視覺饗宴', color: '#FFD6A5' }, // Design (Orange/Yellow)
+    { icon: ShoppingBag, title: '擬真經濟體', desc: '從職務賺錢到商店消費，體驗點數資產化的完整經濟循環', color: '#FFADAD' }, // Economy (Red/Pink)
+    { icon: Users, title: '沉浸式經營', desc: '化身動物村民、擔任村莊職務，建立溫馨可愛的共責撲滿', color: '#A8D8B9' }, // Roleplay (Green)
   ]
 
   return (
