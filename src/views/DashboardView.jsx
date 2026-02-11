@@ -7,6 +7,7 @@ import TaskBoard from '../components/dashboard/TaskBoard'
 import BulletinBoard from '../components/dashboard/BulletinBoard'
 import SquadGrid from '../components/dashboard/SquadGrid'
 import FocusView from './FocusView'
+import SeatingView from './SeatingView'
 import SettingsModal from '../components/modals/SettingsModal'
 import TeamManagementModal from '../components/modals/TeamManagementModal'
 import TaskOverviewModal from '../components/modals/TaskOverviewModal'
@@ -15,7 +16,7 @@ import HistoryModal from '../components/modals/HistoryModal'
 import PassportModal from '../components/modals/PassportModal'
 import AnnouncementModal from '../components/modals/AnnouncementModal'
 import OrangeCatStoreModal from '../components/modals/OrangeCatStoreModal'
-import { DEFAULT_SETTINGS, STATUS_VALUES } from '../utils/constants'
+import { DEFAULT_SETTINGS, DEFAULT_SEATING_CHART, STATUS_VALUES } from '../utils/constants'
 import { formatDate, formatDateDisplay, getTodayStr, getTasksForDate, getTasksCreatedToday, makeTaskId, normalizeStatus, getTaskDueDate, parseDate, isDoneStatus, isCountedInDenominator, loadClassCache, saveClassCache, ensureStudentBank, createTransaction, toPoints, generateId, resolveCurrency } from '../utils/helpers'
 
 function DashboardView({ classId, className, classAlias, onLogout, onClearLocalClass }) {
@@ -35,6 +36,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
   const [showHistory, setShowHistory] = useState(false)
   const [showAnnouncements, setShowAnnouncements] = useState(false)
   const [showStore, setShowStore] = useState(false)
+  const [showSeating, setShowSeating] = useState(false)
 
   // v3.4.0: 從 students array 派生 selectedStudent，避免快照過期
   const selectedStudent = useMemo(
@@ -481,6 +483,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
         onOpenGadgets={() => setShowGadgets(true)}
         onOpenHistory={() => setShowHistory(true)}
         onOpenStore={() => setShowStore(true)}
+        onOpenSeating={() => setShowSeating(true)}
       />
 
       <div className="flex flex-col lg:flex-row gap-4 2xl:gap-3 flex-1 min-h-0">
@@ -681,6 +684,16 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
           settings={settings}
           onClose={() => setShowStore(false)}
           onPurchase={handlePurchase}
+        />
+      )}
+
+      {showSeating && (
+        <SeatingView
+          students={students}
+          seatingChart={settings.seatingChart || DEFAULT_SEATING_CHART}
+          className={className}
+          onClose={() => setShowSeating(false)}
+          onSave={(chart) => setSettings(prev => ({ ...prev, seatingChart: chart }))}
         />
       )}
     </div>

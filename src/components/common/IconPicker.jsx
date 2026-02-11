@@ -9,7 +9,7 @@ export function RenderIcon({ name, size = 16, className = '' }) {
   return <span className={className} style={{ fontSize: size, lineHeight: 1 }}>{name}</span>
 }
 
-function IconPicker({ value, onChange }) {
+function IconPicker({ value, onChange, dropUp = false }) {
   const [open, setOpen] = useState(false)
   const [customEmoji, setCustomEmoji] = useState('')
   const ref = useRef(null)
@@ -34,7 +34,7 @@ function IconPicker({ value, onChange }) {
         {value || '📋'}
       </button>
       {open && (
-        <div className="absolute z-[120] top-full left-0 mt-1 w-64 bg-white rounded-xl shadow-xl border border-[#E8E8E8] p-3 space-y-2 max-h-80 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
+        <div className={`absolute z-[120] ${dropUp ? 'bottom-full mb-1' : 'top-full mt-1'} left-0 w-64 bg-white rounded-xl shadow-xl border border-[#E8E8E8] p-3 space-y-2 max-h-80 overflow-y-auto`} style={{ scrollbarWidth: 'thin' }}>
           {EMOJI_LIBRARY.map(cat => (
             <div key={cat.label}>
               <div className="text-[10px] font-bold text-[#8B8B8B] uppercase tracking-wider mb-1">{cat.label}</div>

@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**呼嚕嚕小鎮 (Purr Purr Town)** v3.6.0 - Local-First 遊戲化班級經營系統
+**呼嚕嚕小鎮 (Purr Purr Town)** v3.7.0 - Local-First 遊戲化班級經營系統
 - React 19 + Vite 7 + Tailwind CSS 4 SPA
 - LocalStorage 持久化，Google Apps Script 雲端備份
 - 部署至 GitHub Pages (`/purr-purr-town/`)
@@ -50,14 +50,17 @@ src/
 ├── views/
 │   ├── DashboardView.jsx # STATE HUB - all core state lives here
 │   ├── LoginView.jsx     # Class selection entry
-│   └── FocusView.jsx     # Projection mode (blackboard style)
+│   ├── FocusView.jsx     # Projection mode (blackboard style)
+│   └── SeatingView.jsx   # v3.7.0: Drag-and-drop seating chart
 ├── components/
 │   ├── common/           # Header, AvatarEmoji, IconPicker, LoadingScreen
 │   ├── calendar/         # CalendarNav (react-calendar)
-│   └── dashboard/        # TaskBoard, SquadGrid, VillagerCard, BulletinBoard
+│   ├── dashboard/        # TaskBoard, SquadGrid, VillagerCard, BulletinBoard
+│   └── seating/          # v3.7.0: SeatingGrid, SeatingCell, SeatingToolbar, SeatingWaitingList
 ├── components/modals/    # All modal windows (9 total)
 │   ├── PassportModal.jsx # Most complex - tasks/passbook/inventory
 │   ├── SettingsModal.jsx # 6-tab config hub + cloud backup
+│   ├── settings/JobSettingsTab.jsx # v3.7.0: Extracted job tab + quick assign
 │   ├── OrangeCatStoreModal.jsx
 │   ├── TeamManagementModal.jsx
 │   ├── TaskOverviewModal.jsx
@@ -67,7 +70,9 @@ src/
 │   └── CreateClassModal.jsx
 └── utils/
     ├── constants.js      # All defaults, enums, emoji libraries
-    └── helpers.js        # Core logic: banking, currency, dates, avatars
+    ├── helpers.js        # Core logic: banking, currency, dates, avatars
+    ├── seatingUtils.js   # v3.7.0: Grid manipulation pure functions
+    └── exportUtils.js    # v3.7.0: Excel export + print utilities
 ```
 
 ## Key Patterns
@@ -85,6 +90,22 @@ src/
 // Returns: { id, date, amount, reason, balance }
 // To undo: mark voided:true + append correction transaction
 // NEVER delete transaction records
+```
+
+### Seating Chart (v3.7.0)
+```javascript
+// Data in settings.seatingChart: { rows, cols, grid, objects, perspective }
+// grid: { "row_col": studentId }, objects: { "row_col": "blackboard"|"podium"|"door"|"window" }
+// Uses @dnd-kit for drag-and-drop, local state with save-on-close pattern
+// seatingUtils.js: placeStudent, swapCells, removeFromCell, resizeGrid, getUnassignedStudents
+```
+
+### Job Categories (v3.7.0)
+```javascript
+// jobs[].category: 'cadre' | 'cleaning' | 'other' (backward-compatible: defaults to 'other')
+// JOB_CATEGORIES constant defines labels and colors
+// Quick Assign Mode: click job → click students for instant assignment
+// Export: exportJobsToExcel() generates multi-sheet xlsx by category
 ```
 
 ### Task Automation (v3.6.0 toggleStatus)

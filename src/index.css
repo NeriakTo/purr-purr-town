@@ -559,3 +559,38 @@ body {
     font-size: 0.9rem;
   }
 }
+
+/* v3.7.0: 列印樣式 */
+@media print {
+  body {
+    background: white !important;
+    background-image: none !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* 隱藏非列印元素 */
+  .print\:hidden {
+    display: none !important;
+  }
+
+  .print\:block {
+    display: block !important;
+  }
+
+  @page {
+    size: A4 landscape;
+    margin: 1cm;
+  }
+
+  /* 座位表列印模式 */
+  [data-print-mode="seating"] {
+    position: static !important;
+    overflow: visible !important;
+  }
+
+  [data-print-mode="seating"] .seating-grid-container {
+    width: 100% !important;
+    max-width: none !important;
+  }
+}

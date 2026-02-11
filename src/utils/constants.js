@@ -28,12 +28,47 @@ export const JOB_CYCLES = {
   once: '一次性',
 }
 
-// v3.4.0: 預設班級職務
+// v3.7.0: 職務分類
+export const JOB_CATEGORIES = {
+  cadre: { label: '幹部', icon: '👑', color: '#FFD6A5' },
+  cleaning: { label: '打掃', icon: '🧹', color: '#A8D8B9' },
+  other: { label: '其他', icon: '📋', color: '#A0C4FF' },
+}
+
+// v3.4.0: 預設班級職務 (v3.7.0: 新增 category)
 export const DEFAULT_JOBS = [
-  { id: 'job_class_leader', title: '班長', salary: 300, icon: '👑', cycle: 'weekly' },
-  { id: 'job_health_leader', title: '衛生長', salary: 200, icon: '🧹', cycle: 'weekly' },
-  { id: 'job_line_leader', title: '路隊長', salary: 100, icon: '🚶', cycle: 'weekly' },
+  { id: 'job_class_leader', title: '班長', salary: 300, icon: '👑', cycle: 'weekly', category: 'cadre' },
+  { id: 'job_health_leader', title: '衛生長', salary: 200, icon: '🧹', cycle: 'weekly', category: 'cleaning' },
+  { id: 'job_line_leader', title: '路隊長', salary: 100, icon: '🚶', cycle: 'weekly', category: 'cadre' },
 ]
+
+// v3.7.0: 座位表地圖物件 (對應 EMOJI_LIBRARY「教室」分類)
+export const SEATING_OBJECTS = [
+  { id: 'blackboard', label: '電腦', icon: '🖥️', color: '#4A6741' },
+  { id: 'podium', label: '講桌', icon: '📖', color: '#8B7355' },
+  { id: 'door', label: '門', icon: '🚪', color: '#A0522D' },
+  { id: 'window', label: '窗戶', icon: '🔲', color: '#87CEEB' },
+  { id: 'trash', label: '垃圾桶', icon: '🗑️', color: '#9B59B6' },
+  { id: 'broom', label: '掃具', icon: '🧹', color: '#E67E22' },
+  { id: 'bookshelf', label: '書櫃', icon: '📚', color: '#1ABC9C' },
+  { id: 'cabinet', label: '櫃子', icon: '🗄️', color: '#C0392B' },
+  { id: 'storage', label: '收納箱', icon: '📦', color: '#6B8E5B' },
+  { id: 'chair', label: '椅子', icon: '🪑', color: '#34495E' },
+  { id: 'teacherdesk', label: '老師桌', icon: '📝', color: '#D4A574' },
+]
+
+// v3.7.0: 自訂物件顏色輪替
+export const OBJECT_COLORS = ['#6B8E5B', '#8B7355', '#A0522D', '#87CEEB', '#9B59B6', '#E67E22', '#1ABC9C', '#C0392B']
+
+// v3.7.0: 預設座位表
+export const DEFAULT_SEATING_CHART = {
+  rows: 6,
+  cols: 8,
+  grid: {},
+  objects: {},
+  customObjects: [],
+  perspective: 'teacher',
+}
 
 // v3.4.4: 預設行為規範類別
 export const DEFAULT_RULE_CATEGORIES = [
@@ -78,6 +113,7 @@ export const DEFAULT_SETTINGS = {
   ruleCategories: DEFAULT_RULE_CATEGORIES,
   jobAssignments: {},
   automation: DEFAULT_AUTOMATION,
+  seatingChart: DEFAULT_SEATING_CHART,
 }
 
 export const STATUS_VALUES = {
@@ -139,4 +175,5 @@ export const EMOJI_LIBRARY = [
   { label: '學藝', icons: { '📖': '學藝', '✍️': '寫作', '🎨': '美工', '🎵': '音樂', '📐': '數學', '🔬': '科學', '🎒': '書包', '💯': '滿分', '📝': '筆記', '✂️': '剪貼' } },
   { label: '生活', icons: { '🦷': '潔牙', '💊': '保健', '🛌': '午休', '👕': '服裝', '💧': '飲水', '👟': '球鞋', '☂️': '雨傘', '🧢': '帽子', '🍱': '便當', '🕰️': '時間' } },
   { label: '獎懲', icons: { '🏆': '獎盃', '🥇': '冠軍', '🌟': '優良', '🎁': '獎品', '🎉': '慶祝', '⚠️': '警告', '🐢': '遲到', '🚫': '禁止', '🤐': '安靜', '❌': '錯誤', '🛑': '停止', '💣': '嚴重' } },
+  { label: '教室', icons: { '🖥️': '電腦', '📖': '講桌', '🚪': '門', '🔲': '窗戶', '🗑️': '垃圾桶', '🧹': '掃具', '📚': '書櫃', '🗄️': '櫃子', '📦': '收納箱', '🪑': '椅子','👨‍🏫': '男老師','👩‍🏫': '女老師','📝':'老師桌' } },
 ]

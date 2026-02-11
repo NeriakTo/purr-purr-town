@@ -257,9 +257,9 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key)}
-                  className={`px-4 py-2.5 rounded-t-xl font-bold text-sm transition-all ${activeTab === tab.key
-                    ? 'bg-white text-[#5D5D5D] border border-[#E8E8E8] border-b-white -mb-px'
-                    : 'text-[#8B8B8B] hover:text-[#5D5D5D] hover:bg-[#F9F9F9]'
+                  className={`px-4 py-2.5 rounded-t-xl font-bold text-sm transition-colors border -mb-px ${activeTab === tab.key
+                    ? 'bg-white text-[#5D5D5D] border-[#E8E8E8] border-b-white'
+                    : 'text-[#8B8B8B] hover:text-[#5D5D5D] hover:bg-[#F9F9F9] border-transparent'
                     }`}
                 >
                   {tab.label}
