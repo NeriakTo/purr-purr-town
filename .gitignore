@@ -35,8 +35,9 @@ Thumbs.db
 ehthumbs.db
 Desktop.ini
 
-# Claude Code local settings
+# Claude Code
 .claude/
+CLAUDE.md
 
 # Temporary files
 *.tmp
