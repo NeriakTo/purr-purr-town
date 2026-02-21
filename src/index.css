@@ -560,7 +560,7 @@ body {
   }
 }
 
-/* v3.7.0: 列印樣式 */
+/* v3.7.1: 強化列印樣式 */
 @media print {
   body {
     background: white !important;
@@ -578,19 +578,46 @@ body {
     display: block !important;
   }
 
+  .print\:overflow-visible {
+    overflow: visible !important;
+  }
+
   @page {
     size: A4 landscape;
     margin: 1cm;
   }
 
-  /* 座位表列印模式 */
+  /* 座位表列印模式 — 全螢幕容器改為靜態定位 */
   [data-print-mode="seating"] {
     position: static !important;
     overflow: visible !important;
+    height: auto !important;
+    min-height: 0 !important;
   }
 
+  /* 座位格線容器 — 填滿頁面寬度 */
   [data-print-mode="seating"] .seating-grid-container {
     width: 100% !important;
     max-width: none !important;
+    gap: 4px !important;
+  }
+
+  /* 座位格線中的每個 cell — 固定尺寸 */
+  [data-print-mode="seating"] .seating-grid-container > div {
+    min-width: 60px !important;
+    min-height: 50px !important;
+    border-radius: 4px !important;
+    transform: none !important;
+    box-shadow: none !important;
+  }
+
+  /* 學生視角旋轉取消（列印一律用老師視角） */
+  [data-print-mode="seating"] .rotate-180 {
+    transform: none !important;
+  }
+
+  /* 隱藏 DnD overlay */
+  [data-print-mode="seating"] [style*="pointer-events"] {
+    display: none !important;
   }
 }

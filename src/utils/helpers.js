@@ -135,6 +135,11 @@ export function isDoneStatus(value) {
   return norm === STATUS_VALUES.ON_TIME || norm === STATUS_VALUES.LATE
 }
 
+// v3.7.1: 判斷學生是否為在校生（非在家自學）
+export function isActiveStudent(student) {
+  return !student?.inactive
+}
+
 // v3.0.1: 是否計入分母（排除 leave、exempt）
 
 export function isCountedInDenominator(value) {
@@ -388,6 +393,32 @@ export function createTransaction(bank, amount, reason) {
 
 export function generateId(prefix = 'item') {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+}
+
+// v3.7.1: 每日任務獎勵淨計數 — 計算有效的獎勵次數（發放 - 回收 - 手動撤銷），排除已作廢交易
+export function getDailyQuestNetCount(transactions, todayStr, normalizeDateFn) {
+  if (!transactions || !todayStr) return 0
+  const normalize = normalizeDateFn || (d => d?.split('T')[0])
+  const todayNorm = normalize(todayStr)
+
+  const todayTxs = transactions.filter(tx =>
+    !tx.voided && normalize(tx.date) === todayNorm
+  )
+
+  // 發放：包含「每日任務完成」且非回收/撤銷
+  const awards = todayTxs.filter(tx =>
+    tx.reason.includes('每日任務完成') &&
+    !tx.reason.includes('回收') &&
+    !tx.reason.includes('撤銷')
+  ).length
+
+  // 回收：自動回收 (Phase 1) 或手動撤銷 (Undo button)
+  const revocations = todayTxs.filter(tx =>
+    (tx.reason.includes('每日任務') && tx.reason.includes('回收獎勵')) ||
+    (tx.reason.includes('撤銷') && tx.reason.includes('每日任務完成'))
+  ).length
+
+  return awards - revocations
 }
 
 // ============================================

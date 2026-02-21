@@ -17,7 +17,7 @@ import PassportModal from '../components/modals/PassportModal'
 import AnnouncementModal from '../components/modals/AnnouncementModal'
 import OrangeCatStoreModal from '../components/modals/OrangeCatStoreModal'
 import { DEFAULT_SETTINGS, DEFAULT_SEATING_CHART, STATUS_VALUES } from '../utils/constants'
-import { formatDate, formatDateDisplay, getTodayStr, getTasksForDate, getTasksCreatedToday, makeTaskId, normalizeStatus, getTaskDueDate, parseDate, isDoneStatus, isCountedInDenominator, loadClassCache, saveClassCache, ensureStudentBank, createTransaction, toPoints, generateId, resolveCurrency } from '../utils/helpers'
+import { formatDate, formatDateDisplay, getTodayStr, getTasksForDate, getTasksCreatedToday, makeTaskId, normalizeStatus, getTaskDueDate, parseDate, isDoneStatus, isCountedInDenominator, isActiveStudent, loadClassCache, saveClassCache, ensureStudentBank, createTransaction, toPoints, generateId, resolveCurrency, getDailyQuestNetCount } from '../utils/helpers'
 
 function DashboardView({ classId, className, classAlias, onLogout, onClearLocalClass }) {
   const [students, setStudents] = useState([])
@@ -107,15 +107,18 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
     return entries.map(({ task }) => ({ ...task, id: task.id || `task_${Date.now()}` }))
   }, [allLogs, normalizeDate])
 
+  // v3.7.1: 過濾在校生（排除在家自學學生）
+  const activeStudents = useMemo(() => students.filter(isActiveStudent), [students])
+
   // v3.0.1: 達成率 = (on_time + late) / (總人數 - leave - exempt)
   const completionRate = useMemo(() => {
-    if (students.length === 0 || tasks.length === 0) return 0
+    if (activeStudents.length === 0 || tasks.length === 0) return 0
     let numerator = 0
     let denominator = 0
     tasks.forEach(t => {
       let taskNum = 0
       let taskDenom = 0
-      students.forEach(s => {
+      activeStudents.forEach(s => {
         const st = studentStatus[s.id]?.[t.id]
         const norm = normalizeStatus(st)
         if (norm === STATUS_VALUES.LEAVE || norm === STATUS_VALUES.EXEMPT) return
@@ -126,7 +129,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
       denominator += taskDenom
     })
     return denominator > 0 ? numerator / denominator : 0
-  }, [students, tasks, studentStatus])
+  }, [activeStudents, tasks, studentStatus])
 
   useEffect(() => {
     if (!classId || loading) return  // 等待資料載入完成後才保存
@@ -215,26 +218,20 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
     }
 
     // Revoke Daily Quest if streak broken
-    // Condition: Old was ON_TIME, and we are changing it to something else (already checked normOld !== normNew)
-    // We need to check if Daily Quest was awarded TODAY based on this streak
+    // v3.7.1: 使用 functional update 避免 stale closure，搭配淨計數避免重複回收
     if (normOld === STATUS_VALUES.ON_TIME && automation.dailyQuestBonus) {
-      const student = students.find(s => s.id === studentId)
-      const todayStr = getTodayStr()
-      // Check if "Daily Quest" reward exists for today
-      // NOTE: This simple check assumes if they got it today, it was for today's tasks.
-      // A more robust check would verify if *this* specific task was the one that completed the set,
-      // but simpler is: "If you lose an ON_TIME task today, and you already got the bonus today, we revoke it."
-      const hasBonusToday = student?.bank?.transactions?.some(tx =>
-        tx.reason.includes('每日任務完成') &&
-        !tx.reason.includes('撤銷') &&
-        normalizeDate(tx.date) === normalizeDate(todayStr)
-      )
-
-      if (hasBonusToday) {
-        // If removing this ON_TIME task creates a hole in the perfect streak
-        // (Since we are removing it, it definitely creates a hole unless it wasn't counted, but on_time is always counted)
-        runTransaction(-Math.abs(automation.dailyQuestBonus), '更正：未達成每日任務 (回收獎勵)')
-      }
+      setStudents(currentStudents => {
+        const s = currentStudents.find(x => x.id === studentId)
+        if (!s) return currentStudents
+        const todayStr = getTodayStr()
+        const hasActiveBonus = getDailyQuestNetCount(s?.bank?.transactions, todayStr, normalizeDate) > 0
+        if (hasActiveBonus) {
+          const student = ensureStudentBank(s)
+          const newBank = createTransaction(student.bank, -Math.abs(automation.dailyQuestBonus), '更正：未達成每日任務 (回收獎勵)')
+          return currentStudents.map(curr => curr.id === studentId ? { ...curr, bank: newBank } : curr)
+        }
+        return currentStudents
+      })
     }
 
     // --- Phase 2: UPDATE Status ---
@@ -303,18 +300,14 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
           // Use a functional update to check inside? No, conditional logic inside setStudents is hard.
           // We can't easily check "latest" student transaction inside timeout without a ref or functional update hack.
 
+          // v3.7.1: 使用淨計數判斷是否需要重新發放獎勵
           setStudents(currentStudents => {
             const s = currentStudents.find(x => x.id === studentId)
             if (!s) return currentStudents
             const todayStr = getTodayStr()
-            const alreadyGot = s.bank?.transactions?.some(tx =>
-              tx.reason.includes('每日任務完成') &&
-              !tx.reason.includes('撤銷') &&
-              normalizeDate(tx.date) === normalizeDate(todayStr)
-            )
+            const netCount = getDailyQuestNetCount(s.bank?.transactions, todayStr, normalizeDate)
 
-            if (!alreadyGot) {
-              // Award it!
+            if (netCount <= 0) {
               const student = ensureStudentBank(s)
               const newBank = createTransaction(student.bank, automation.dailyQuestBonus, '每日任務完成 (Daily Quest)')
               return currentStudents.map(curr => curr.id === studentId ? { ...curr, bank: newBank } : curr)
@@ -386,6 +379,43 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
     }))
   }, [])
 
+  // v3.7.1: 手動修正單一筆交易（作廢原始交易 + 建立修正紀錄）
+  const handleCorrectTransaction = useCallback((studentId, txId, newAmount, reason) => {
+    setStudents(prev => prev.map(s => {
+      if (s.id !== studentId) return s
+      const student = ensureStudentBank(s)
+      const originalTx = student.bank.transactions.find(tx => tx.id === txId)
+      if (!originalTx || originalTx.voided) return s
+
+      // 作廢原始交易
+      const updatedTransactions = student.bank.transactions.map(tx =>
+        tx.id === txId ? { ...tx, voided: true } : tx
+      )
+
+      // 淨修正金額 = 新金額 - 原始金額
+      const correctionAmount = newAmount - originalTx.amount
+      const newBalance = student.bank.balance + correctionAmount
+
+      const correctionTx = {
+        id: generateId('tx'),
+        date: new Date().toISOString(),
+        amount: correctionAmount,
+        reason: reason || `修正：${originalTx.reason} (${originalTx.amount > 0 ? '+' : ''}${originalTx.amount} → ${newAmount > 0 ? '+' : ''}${newAmount})`,
+        balance: newBalance,
+        type: 'correction',
+        correctedTxId: txId,
+      }
+
+      return {
+        ...student,
+        bank: {
+          balance: newBalance,
+          transactions: [...updatedTransactions, correctionTx],
+        },
+      }
+    }))
+  }, [])
+
   // v3.4.2: 批次發薪
   const handleProcessPayroll = useCallback((payrollEntries) => {
     setStudents(prev => {
@@ -448,21 +478,21 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
     }))
   }, [])
 
-  const purrCount = students.filter(s => {
+  const purrCount = activeStudents.filter(s => {
     if (tasks.length === 0) return false
     const effective = tasks.filter(t => isCountedInDenominator(studentStatus[s.id]?.[t.id]))
     return effective.length > 0 && effective.every(t => isDoneStatus(studentStatus[s.id]?.[t.id]))
   }).length
-  const angryCount = students.filter(s => {
+  const angryCount = activeStudents.filter(s => {
     if (tasks.length === 0) return false
     const effective = tasks.filter(t => isCountedInDenominator(studentStatus[s.id]?.[t.id]))
     return effective.some(t => !isDoneStatus(studentStatus[s.id]?.[t.id]))
   }).length
-  const lateCount = students.filter(s => {
+  const lateCount = activeStudents.filter(s => {
     if (tasks.length === 0) return false
     return tasks.some(t => normalizeStatus(studentStatus[s.id]?.[t.id]) === STATUS_VALUES.LATE)
   }).length
-  const leaveCount = students.filter(s => {
+  const leaveCount = activeStudents.filter(s => {
     if (tasks.length === 0) return false
     return tasks.every(t => normalizeStatus(studentStatus[s.id]?.[t.id]) === STATUS_VALUES.LEAVE)
   }).length
@@ -520,7 +550,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
             <div className="flex-1 min-h-0 overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin', overscrollBehavior: 'contain' }}>
               <TaskBoard
                 tasks={tasks}
-                students={students}
+                students={activeStudents}
                 studentStatus={studentStatus}
                 onAddTask={handleAddTask}
                 onDeleteTask={handleDeleteTask}
@@ -566,6 +596,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
             ) : (
               <SquadGrid
                 students={students}
+                activeStudents={activeStudents}
                 tasks={tasks}
                 studentStatus={studentStatus}
                 settings={settings}
@@ -594,6 +625,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
           }}
           onBankTransaction={handleBankTransaction}
           onUndoTransaction={handleUndoTransaction}
+          onCorrectTransaction={handleCorrectTransaction}
           onConsumeItem={handleConsumeItem}
         />
       )}
@@ -634,7 +666,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
       {showTaskOverview && (
         <TaskOverviewModal
           allLogs={allLogs}
-          students={students}
+          students={activeStudents}
           settings={settings}
           onClose={() => setShowTaskOverview(false)}
           onNavigateToDate={setCurrentDate}
@@ -661,7 +693,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
       {showHistory && (
         <HistoryModal
           allLogs={allLogs}
-          students={students}
+          students={activeStudents}
           settings={settings}
           onClose={() => setShowHistory(false)}
           onToggleStatus={toggleStatus}
@@ -689,7 +721,7 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
 
       {showSeating && (
         <SeatingView
-          students={students}
+          students={activeStudents}
           seatingChart={settings.seatingChart || DEFAULT_SEATING_CHART}
           className={className}
           onClose={() => setShowSeating(false)}

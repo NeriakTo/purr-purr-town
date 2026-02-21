@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**呼嚕嚕小鎮 (Purr Purr Town)** v3.7.0 - Local-First 遊戲化班級經營系統
+**呼嚕嚕小鎮 (Purr Purr Town)** v3.7.1 - Local-First 遊戲化班級經營系統
 - React 19 + Vite 7 + Tailwind CSS 4 SPA
 - LocalStorage 持久化，Google Apps Script 雲端備份
 - 部署至 GitHub Pages (`/purr-purr-town/`)
@@ -92,12 +92,22 @@ src/
 // NEVER delete transaction records
 ```
 
+### Home Schooling / Inactive Student (v3.7.1)
+```javascript
+// student.inactive: boolean (optional, default absent = active)
+// isActiveStudent(student) → !student?.inactive
+// activeStudents = students.filter(isActiveStudent) used for all counts/stats
+// Inactive students: excluded from squads, tasks, completion rates, seating chart
+// Still visible in SquadGrid (muted section), PassportModal (toggle in edit tab)
+```
+
 ### Seating Chart (v3.7.0)
 ```javascript
 // Data in settings.seatingChart: { rows, cols, grid, objects, perspective }
 // grid: { "row_col": studentId }, objects: { "row_col": "blackboard"|"podium"|"door"|"window" }
 // Uses @dnd-kit for drag-and-drop, local state with save-on-close pattern
 // seatingUtils.js: placeStudent, swapCells, removeFromCell, resizeGrid, getUnassignedStudents
+// v3.7.1: Excel export uses ExcelJS (styled cells, colors, row heights)
 ```
 
 ### Job Categories (v3.7.0)

@@ -1,9 +1,9 @@
 import { AlertCircle, Check } from 'lucide-react'
 import AvatarEmoji from '../common/AvatarEmoji'
-import { STATUS_VALUES } from '../../utils/constants'
+import { STATUS_VALUES, INACTIVE_STUDENT } from '../../utils/constants'
 import { isDoneStatus, isCountedInDenominator, normalizeStatus, isDefaultName, formatBalanceBadge } from '../../utils/helpers'
 
-function VillagerCard({ student, tasks, studentStatus, onClick, hasOverdue, currency }) {
+function VillagerCard({ student, tasks, studentStatus, onClick, hasOverdue, currency, inactive }) {
   const status = studentStatus[student.id] || {}
   const hasTasks = tasks.length > 0
 
@@ -28,17 +28,24 @@ function VillagerCard({ student, tasks, studentStatus, onClick, hasOverdue, curr
   return (
     <div
       onClick={onClick}
-      className={`relative h-full m-1 ${getBgStyle()} rounded-xl 2xl:rounded-lg p-2 2xl:p-1.5 cursor-pointer group transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md border flex flex-col`}
+      className={`relative h-full m-1 ${inactive ? 'bg-[#F0F0F0] border-[#E0E0E0] opacity-50 grayscale-[50%]' : getBgStyle()} rounded-xl 2xl:rounded-lg p-2 2xl:p-1.5 cursor-pointer group transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md border flex flex-col`}
     >
       {/* 座號標籤 */}
       <div className={`absolute -top-1.5 -left-1.5 w-8 h-8 rounded-md flex items-center justify-center text-white text-sm font-extrabold shadow-sm z-10 ${
-        allDone ? 'bg-[#7BC496]' : hasIncomplete ? 'bg-[#FFBF69]' : 'bg-[#C8C8C8]'
+        inactive ? 'bg-[#C8C8C8]' : allDone ? 'bg-[#7BC496]' : hasIncomplete ? 'bg-[#FFBF69]' : 'bg-[#C8C8C8]'
       }`}>
         {studentNumber || '?'}
       </div>
 
+      {/* 在家自學標記 */}
+      {inactive && (
+        <div className="absolute -top-1 right-0 text-[10px] px-1.5 py-0.5 rounded-full bg-[#F0F0F0] text-[#B0B0B0] font-medium z-10 border border-[#E0E0E0]">
+          {INACTIVE_STUDENT.icon}
+        </div>
+      )}
+
       {/* 欠交警示 */}
-      {hasOverdue && (
+      {!inactive && hasOverdue && (
         <div className="absolute -top-2 -right-2 w-4 h-4 rounded-full bg-[#D64545] flex items-center justify-center z-20 animate-pulse shadow-sm">
           <AlertCircle size={10} className="text-white" />
         </div>
@@ -52,7 +59,7 @@ function VillagerCard({ student, tasks, studentStatus, onClick, hasOverdue, curr
         />
 
         {/* 完成狀態指示器（僅顯示，不可點擊） */}
-        {hasTasks && (
+        {!inactive && hasTasks && (
           <div className="absolute bottom-0 right-0">
             {allDone ? (
               <div className="w-5 h-5 rounded-full bg-[#7BC496] flex items-center justify-center shadow-sm">

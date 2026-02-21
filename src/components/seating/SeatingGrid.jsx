@@ -15,7 +15,7 @@ function SeatingGrid({ rows, cols, grid, objects, students, perspective, onRemov
       </div>
 
       <div
-        className={`grid gap-1.5 transition-transform duration-500 ${isStudentPerspective ? 'rotate-180' : ''}`}
+        className={`seating-grid-container grid gap-1.5 transition-transform duration-500 ${isStudentPerspective ? 'rotate-180' : ''}`}
         style={{
           gridTemplateColumns: `repeat(${cols}, minmax(72px, 1fr))`,
           gridTemplateRows: `repeat(${rows}, minmax(72px, 1fr))`,

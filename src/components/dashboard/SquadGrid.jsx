@@ -1,14 +1,16 @@
 import { useMemo } from 'react'
 import { Flag, Trophy, Users } from 'lucide-react'
 import VillagerCard from './VillagerCard'
-import { isDoneStatus, isCountedInDenominator, resolveCurrency, normalizeStatus } from '../../utils/helpers'
-import { STATUS_VALUES } from '../../utils/constants'
+import { isDoneStatus, isCountedInDenominator, isActiveStudent, resolveCurrency, normalizeStatus } from '../../utils/helpers'
+import { STATUS_VALUES, INACTIVE_STUDENT } from '../../utils/constants'
 
-function SquadGrid({ students, tasks, studentStatus, settings, onSelectStudent, checkOverdue }) {
+function SquadGrid({ students, activeStudents, tasks, studentStatus, settings, onSelectStudent, checkOverdue }) {
   const currency = useMemo(() => resolveCurrency(settings), [settings])
+  const effectiveStudents = activeStudents || students
+
   const groupedStudents = useMemo(() => {
     const groups = {}
-    students.forEach(s => {
+    effectiveStudents.forEach(s => {
       if (s.group === 'unassigned') return
       const g = s.group || 'A'
       if (!groups[g]) groups[g] = []
@@ -18,11 +20,17 @@ function SquadGrid({ students, tasks, studentStatus, settings, onSelectStudent, 
       acc[k] = groups[k]
       return acc
     }, {})
-  }, [students])
+  }, [effectiveStudents])
 
   const unassignedStudents = useMemo(() => {
-    return students
+    return effectiveStudents
       .filter(s => s.group === 'unassigned')
+      .sort((a, b) => (a.number || 0) - (b.number || 0))
+  }, [effectiveStudents])
+
+  const inactiveStudents = useMemo(() => {
+    return students
+      .filter(s => !isActiveStudent(s))
       .sort((a, b) => (a.number || 0) - (b.number || 0))
   }, [students])
 
@@ -131,6 +139,36 @@ function SquadGrid({ students, tasks, studentStatus, settings, onSelectStudent, 
                   currency={currency}
                   onClick={() => onSelectStudent(student)}
                   hasOverdue={checkOverdue(student.id)}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {inactiveStudents.length > 0 && (
+        <div className="mt-4 rounded-xl overflow-hidden border-2 border-dashed border-[#D8D8D8]/60 shrink-0">
+          <div className="px-2.5 py-1.5 flex items-center justify-between bg-[#F5F5F5]">
+            <div className="flex items-center gap-1.5">
+              <div className="w-6 h-6 rounded-md flex items-center justify-center bg-[#E8E8E8]">
+                <span className="text-xs">{INACTIVE_STUDENT.icon}</span>
+              </div>
+              <h3 className="font-black text-lg text-[#B0B0B0]">{INACTIVE_STUDENT.label}</h3>
+              <span className="text-xs text-[#C8C8C8] ml-1">{inactiveStudents.length} 人</span>
+            </div>
+          </div>
+          <div className="px-3 pb-3 pt-3 bg-white/10">
+            <div className="grid grid-cols-3 gap-3 2xl:gap-2">
+              {inactiveStudents.map((student) => (
+                <VillagerCard
+                  key={student.id}
+                  student={student}
+                  tasks={tasks}
+                  studentStatus={studentStatus}
+                  currency={currency}
+                  onClick={() => onSelectStudent(student)}
+                  hasOverdue={false}
+                  inactive
                 />
               ))}
             </div>

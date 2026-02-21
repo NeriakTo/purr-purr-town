@@ -124,6 +124,12 @@ export const STATUS_VALUES = {
   EXEMPT: 'exempt',
 }
 
+// v3.7.1: 在家自學學生標記
+export const INACTIVE_STUDENT = {
+  label: '在家自學',
+  icon: '🏠',
+}
+
 // 擴充至 30 種動物 (已排除豬)
 export const AVATAR_EMOJIS = [
   '🐻', // Bear

@@ -34,7 +34,7 @@ function SeatingCell({ cellKey, student, objectType, isStudentPerspective, onRem
         </div>
         <button
           onClick={() => onRemoveObject(cellKey)}
-          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-[#FFADAD] text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow"
+          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-[#FFADAD] text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow print:!hidden"
         >
           <X size={12} />
         </button>

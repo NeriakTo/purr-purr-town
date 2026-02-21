@@ -1,17 +1,20 @@
 import { useMemo, useState } from 'react'
-import { X, Clock, XCircle, AlertTriangle, Check, Coffee, CircleMinus, Wallet, Undo2, TrendingUp, TrendingDown, ChevronDown, CalendarDays } from 'lucide-react'
+import { X, Clock, XCircle, AlertTriangle, Check, Coffee, CircleMinus, Wallet, Undo2, Pencil, TrendingUp, TrendingDown, ChevronDown, CalendarDays } from 'lucide-react'
 import AvatarEmoji from '../common/AvatarEmoji'
 import { RenderIcon } from '../common/IconPicker'
 import { STATUS_VALUES } from '../../utils/constants'
 import { formatDate, formatDateDisplay, getTaskDueDate, getTodayStr, isDoneStatus, normalizeStatus, parseDate, getTaskIcon, getStatusVisual, formatCurrency, resolveCurrency } from '../../utils/helpers'
 
-function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus, onStudentUpdate, hasOverdue, settings, allLogs, currentDateStr, onBankTransaction, onUndoTransaction, onConsumeItem }) {
+function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus, onStudentUpdate, hasOverdue, settings, allLogs, currentDateStr, onBankTransaction, onUndoTransaction, onCorrectTransaction, onConsumeItem }) {
   const [activeTab, setActiveTab] = useState('tasks')
-  const [editData, setEditData] = useState({ name: student.name || '', gender: student.gender || 'male', group: student.group || 'unassigned' })
+  const [editData, setEditData] = useState({ name: student.name || '', gender: student.gender || 'male', group: student.group || 'unassigned', inactive: student.inactive || false })
   const [manualAmount, setManualAmount] = useState('')
   const [manualReason, setManualReason] = useState('')
   const [quickActionsOpen, setQuickActionsOpen] = useState(false)
   const [consumeConfirm, setConsumeConfirm] = useState(null)
+  const [correctingTx, setCorrectingTx] = useState(null)
+  const [correctAmount, setCorrectAmount] = useState('')
+  const [correctReason, setCorrectReason] = useState('')
 
   const status = studentStatus[student.id] || {}
   const hasTasks = tasks.length > 0
@@ -44,7 +47,7 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
 
   const saveEdit = () => {
     if (!editData.name.trim()) return
-    const updatedStudent = { ...student, id: student.id || student.uuid, name: editData.name.trim(), group: editData.group, gender: editData.gender }
+    const updatedStudent = { ...student, id: student.id || student.uuid, name: editData.name.trim(), group: editData.group, gender: editData.gender, inactive: editData.inactive }
     if (onStudentUpdate) onStudentUpdate(updatedStudent)
     setActiveTab('tasks')
   }
@@ -57,6 +60,22 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
       setManualAmount('')
       setManualReason('')
     }
+  }
+
+  const openCorrection = (tx) => {
+    setCorrectingTx(tx)
+    setCorrectAmount(String(tx.amount))
+    setCorrectReason('')
+  }
+
+  const handleCorrection = () => {
+    const newAmount = parseInt(correctAmount)
+    if (isNaN(newAmount) || !correctingTx) return
+    if (newAmount === correctingTx.amount && !correctReason.trim()) return
+    onCorrectTransaction?.(student.id, correctingTx.id, newAmount, correctReason.trim())
+    setCorrectingTx(null)
+    setCorrectAmount('')
+    setCorrectReason('')
   }
 
 
@@ -154,6 +173,11 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
                 <span className="text-xs px-2 py-0.5 rounded-full bg-[#A8D8B9]/30 text-[#4A7C59] font-medium">
                   {student.group === 'unassigned' ? '待分配' : (settings?.groupAliases?.[student.group] || `${student.group || 'A'} 小隊`)}
                 </span>
+                {student.inactive && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-[#F0F0F0] text-[#B0B0B0] font-medium">
+                    🏠 在家自學
+                  </span>
+                )}
               </div>
               <h3 className="text-xl font-bold text-[#5D5D5D]">{student.name}</h3>
 
@@ -532,14 +556,27 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
                                     {tx.balance}
                                   </td>
                                   <td className="px-2 py-2 text-center">
-                                    {!isVoided && !isCorrection && onUndoTransaction && (
-                                      <button
-                                        onClick={() => onUndoTransaction(student.id, tx.id)}
-                                        className="p-1 rounded-lg hover:bg-[#FFADAD]/20 text-[#8B8B8B] hover:text-[#D64545] transition-colors"
-                                        title="撤銷此筆交易"
-                                      >
-                                        <Undo2 size={14} />
-                                      </button>
+                                    {!isVoided && !isCorrection && (
+                                      <div className="flex items-center justify-center gap-0.5">
+                                        {onCorrectTransaction && (
+                                          <button
+                                            onClick={() => openCorrection(tx)}
+                                            className="p-1 rounded-lg hover:bg-[#FFD6A5]/20 text-[#8B8B8B] hover:text-[#8B6914] transition-colors"
+                                            title="修正此筆交易"
+                                          >
+                                            <Pencil size={13} />
+                                          </button>
+                                        )}
+                                        {onUndoTransaction && (
+                                          <button
+                                            onClick={() => onUndoTransaction(student.id, tx.id)}
+                                            className="p-1 rounded-lg hover:bg-[#FFADAD]/20 text-[#8B8B8B] hover:text-[#D64545] transition-colors"
+                                            title="撤銷此筆交易"
+                                          >
+                                            <Undo2 size={13} />
+                                          </button>
+                                        )}
+                                      </div>
                                     )}
                                     {isCorrection && (
                                       <span className="text-[10px] text-[#A0A0A0]">↩</span>
@@ -637,11 +674,25 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
                       ))}
                     </select>
                   </div>
+                  <div>
+                    <label className="text-xs font-bold text-[#5D5D5D] mb-1 block">在家自學</label>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => setEditData(p => ({ ...p, inactive: !p.inactive }))}
+                        className={`relative w-12 h-6 rounded-full transition-colors ${editData.inactive ? 'bg-[#FFADAD]' : 'bg-[#E8E8E8]'}`}
+                      >
+                        <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${editData.inactive ? 'translate-x-6' : 'translate-x-0.5'}`} />
+                      </button>
+                      <span className="text-sm text-[#5D5D5D]">
+                        {editData.inactive ? '🏠 此學生為在家自學，不計入班級統計' : '在校生'}
+                      </span>
+                    </div>
+                  </div>
                   <div className="flex gap-3 pt-2">
                     <button onClick={saveEdit} className="flex-1 bg-[#A8D8B9] text-white py-2.5 rounded-xl font-bold text-sm hover:bg-[#7BC496] transition-colors">
                       儲存變更
                     </button>
-                    <button onClick={() => { setEditData({ name: student.name, gender: student.gender, group: student.group }); setActiveTab('tasks') }} className="bg-[#E8E8E8] text-[#5D5D5D] px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-[#D8D8D8] transition-colors">
+                    <button onClick={() => { setEditData({ name: student.name, gender: student.gender, group: student.group, inactive: student.inactive || false }); setActiveTab('tasks') }} className="bg-[#E8E8E8] text-[#5D5D5D] px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-[#D8D8D8] transition-colors">
                       取消
                     </button>
                   </div>
@@ -650,6 +701,76 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
             </div>
           </div>
         </div>
+        {/* Correct Transaction Modal */}
+        {correctingTx && (
+          <div className="absolute inset-0 bg-black/30 flex items-center justify-center z-20 animate-fade-in">
+            <div className="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl">
+              <h3 className="text-lg font-bold text-center text-[#5D5D5D] mb-1">
+                <Pencil size={18} className="inline mr-1.5 -mt-0.5 text-[#FFD6A5]" />
+                修正交易紀錄
+              </h3>
+              <div className="mt-3 p-3 bg-[#F9F9F9] rounded-xl border border-[#E8E8E8] text-sm space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-[#8B8B8B]">原始摘要</span>
+                  <span className="text-[#5D5D5D] font-medium">{correctingTx.reason}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#8B8B8B]">原始金額</span>
+                  <span className={`font-bold ${correctingTx.amount >= 0 ? 'text-[#4A7C59]' : 'text-[#D64545]'}`}>
+                    {correctingTx.amount > 0 ? '+' : ''}{correctingTx.amount}
+                  </span>
+                </div>
+              </div>
+              <div className="mt-4 space-y-3">
+                <div>
+                  <label className="text-xs font-bold text-[#5D5D5D] mb-1 block">修正後金額</label>
+                  <input
+                    type="number"
+                    value={correctAmount}
+                    onChange={e => setCorrectAmount(e.target.value)}
+                    onFocus={e => e.target.select()}
+                    className="w-full px-3 py-2 rounded-xl border-2 border-[#E8E8E8] focus:border-[#FFD6A5] outline-none text-sm"
+                    placeholder="輸入修正後的金額"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-[#5D5D5D] mb-1 block">修正原因 (選填)</label>
+                  <input
+                    type="text"
+                    value={correctReason}
+                    onChange={e => setCorrectReason(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') handleCorrection() }}
+                    className="w-full px-3 py-2 rounded-xl border-2 border-[#E8E8E8] focus:border-[#FFD6A5] outline-none text-sm"
+                    placeholder="例如：金額輸入錯誤"
+                  />
+                </div>
+                {correctAmount !== '' && parseInt(correctAmount) !== correctingTx.amount && (
+                  <div className="text-xs text-center text-[#8B8B8B] py-1">
+                    差額：<span className={`font-bold ${(parseInt(correctAmount) - correctingTx.amount) >= 0 ? 'text-[#4A7C59]' : 'text-[#D64545]'}`}>
+                      {(parseInt(correctAmount) - correctingTx.amount) > 0 ? '+' : ''}{parseInt(correctAmount) - correctingTx.amount}
+                    </span>
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-3 mt-4">
+                <button
+                  onClick={() => { setCorrectingTx(null); setCorrectAmount(''); setCorrectReason('') }}
+                  className="flex-1 py-2.5 rounded-xl bg-[#E8E8E8] text-[#5D5D5D] font-medium hover:bg-[#D8D8D8] transition-colors"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleCorrection}
+                  disabled={correctAmount === '' || isNaN(parseInt(correctAmount)) || parseInt(correctAmount) === correctingTx.amount}
+                  className="flex-1 py-2.5 rounded-xl bg-[#FFD6A5] text-white font-bold shadow-md hover:bg-[#FFBF69] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  確認修正
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Consume Item Confirmation */}
         {consumeConfirm && (
           <div className="absolute inset-0 bg-black/30 flex items-center justify-center z-20 animate-fade-in">

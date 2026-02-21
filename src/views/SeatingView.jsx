@@ -12,14 +12,24 @@ import { exportSeatingToExcel, triggerPrint } from '../utils/exportUtils'
 const objectMap = Object.fromEntries(SEATING_OBJECTS.map(o => [o.id, o]))
 
 function SeatingView({ students, seatingChart, className, onClose, onSave }) {
+  // v3.7.1: 清除不在 students 列表中的已放置學生（處理在家自學排除）
+  const validStudentIds = useMemo(() => new Set(students.map(s => s.id)), [students])
+
   // 本地編輯狀態 (關閉時回存)
-  const [chart, setChart] = useState(() => ({
-    ...DEFAULT_SEATING_CHART,
-    ...seatingChart,
-    grid: { ...(seatingChart?.grid || {}) },
-    objects: { ...(seatingChart?.objects || {}) },
-    customObjects: [...(seatingChart?.customObjects || [])],
-  }))
+  const [chart, setChart] = useState(() => {
+    const baseGrid = { ...(seatingChart?.grid || {}) }
+    // 移除不在有效名單中的學生
+    const cleanGrid = Object.fromEntries(
+      Object.entries(baseGrid).filter(([, sid]) => validStudentIds.has(sid))
+    )
+    return {
+      ...DEFAULT_SEATING_CHART,
+      ...seatingChart,
+      grid: cleanGrid,
+      objects: { ...(seatingChart?.objects || {}) },
+      customObjects: [...(seatingChart?.customObjects || [])],
+    }
+  })
   const [activeDrag, setActiveDrag] = useState(null) // { type: 'student', id } | { type: 'object', objectType, icon, label }
 
   // Escape 關閉 + 鎖定滾動
@@ -195,35 +205,37 @@ function SeatingView({ students, seatingChart, className, onClose, onSave }) {
           />
 
           {/* 中間 Grid */}
-          <div className="flex-1 p-6 overflow-auto flex items-start justify-center">
+          <div className="flex-1 overflow-auto flex flex-col items-center print:overflow-visible">
             {/* 列印標題 */}
-            <div className="hidden print:block text-center mb-4">
+            <div className="hidden print:block text-center mb-4 w-full">
               <h1 className="text-2xl font-bold text-[#5D5D5D]">{className || '班級'} 座位表</h1>
             </div>
 
-            <SeatingGrid
-              rows={chart.rows}
-              cols={chart.cols}
-              grid={chart.grid}
-              objects={chart.objects}
-              students={students}
-              perspective={chart.perspective}
-              onRemoveObject={handleRemoveObject}
-              customObjectMap={allObjectMap}
-            />
+            <div className="flex-1 p-6 flex items-start justify-center print:p-0">
+              <SeatingGrid
+                rows={chart.rows}
+                cols={chart.cols}
+                grid={chart.grid}
+                objects={chart.objects}
+                students={students}
+                perspective={chart.perspective}
+                onRemoveObject={handleRemoveObject}
+                customObjectMap={allObjectMap}
+              />
+            </div>
           </div>
         </div>
 
         {/* 拖曳 Overlay */}
         <DragOverlay dropAnimation={null}>
           {activeDrag?.type === 'student' && draggedStudent ? (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white border-2 border-[#7BC496] shadow-xl">
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white border-2 border-[#7BC496] shadow-xl print:hidden">
               <AvatarEmoji seed={draggedStudent.id} className="w-8 h-8 rounded-full" emojiClassName="text-base" />
               <span className="text-sm font-bold text-[#5D5D5D]">{draggedStudent.number}號 {draggedStudent.name}</span>
             </div>
           ) : null}
           {activeDrag?.type === 'object' ? (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white border-2 border-[#7BC496] shadow-xl">
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white border-2 border-[#7BC496] shadow-xl print:hidden">
               <span className="text-xl">{activeDrag.icon}</span>
               <span className="text-sm font-bold text-[#5D5D5D]">{activeDrag.label}</span>
             </div>
