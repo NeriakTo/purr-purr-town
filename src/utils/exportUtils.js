@@ -38,7 +38,8 @@ function toArgb(hex) {
  */
 export async function exportSeatingToExcel(seatingChart, students, className) {
   const exceljs = await loadExcelJS()
-  const { rows, cols, grid, objects, customObjects } = seatingChart
+  const { rows, cols, grid, objects, customObjects, perspective } = seatingChart
+  const isStudentPerspective = perspective === 'student'
   const studentMap = Object.fromEntries(students.map(s => [s.id, s]))
   const objectMap = Object.fromEntries(SEATING_OBJECTS.map(o => [o.id, o]))
   ;(customObjects || []).forEach(o => { objectMap[o.id] = o })
@@ -58,15 +59,17 @@ export async function exportSeatingToExcel(seatingChart, students, className) {
   // --- 空行 ---
   ws.getRow(2).height = 10
 
-  // --- Grid 資料列 ---
-  for (let r = 0; r < rows; r++) {
-    const excelRow = r + 3
+  // --- Grid 資料列（學生視角時行列鏡像） ---
+  for (let ri = 0; ri < rows; ri++) {
+    const r = isStudentPerspective ? (rows - 1 - ri) : ri
+    const excelRow = ri + 3
     const row = ws.getRow(excelRow)
     row.height = 55
 
-    for (let c = 0; c < cols; c++) {
+    for (let ci = 0; ci < cols; ci++) {
+      const c = isStudentPerspective ? (cols - 1 - ci) : ci
       const key = cellKey(r, c)
-      const cell = ws.getCell(excelRow, c + 1)
+      const cell = ws.getCell(excelRow, ci + 1)
       cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }
 
       if (objects[key]) {
@@ -200,13 +203,13 @@ export function printSeatingChart(seatingChart, students, className) {
   const objectMap = Object.fromEntries(SEATING_OBJECTS.map(o => [o.id, o]))
   ;(customObjects || []).forEach(o => { objectMap[o.id] = o })
 
-  // 構建 Grid HTML（學生視角時行列反轉 + cell 內容翻轉）
-  const cellRotate = isStudentPerspective ? ' style="transform:rotate(180deg)"' : ''
+  // 構建 Grid HTML（學生視角時行列鏡像：行反轉 + 列反轉，文字保持正常）
   let gridHtml = ''
   for (let ri = 0; ri < rows; ri++) {
     const r = isStudentPerspective ? (rows - 1 - ri) : ri
     gridHtml += '<tr>'
-    for (let c = 0; c < cols; c++) {
+    for (let ci = 0; ci < cols; ci++) {
+      const c = isStudentPerspective ? (cols - 1 - ci) : ci
       const key = cellKey(r, c)
       if (objects[key]) {
         const obj = objectMap[objects[key]]
@@ -214,19 +217,15 @@ export function printSeatingChart(seatingChart, students, className) {
         const label = obj ? obj.label : objects[key]
         const icon = obj?.icon || ''
         gridHtml += `<td class="cell obj-cell" style="border-color:${color};background:${color}22">
-          <div${cellRotate}>
-            <span class="obj-icon">${icon}</span>
-            <span class="obj-label">${label}</span>
-          </div>
+          <span class="obj-icon">${icon}</span>
+          <span class="obj-label">${label}</span>
         </td>`
       } else if (grid[key]) {
         const student = studentMap[grid[key]]
         if (student) {
           gridHtml += `<td class="cell student-cell">
-            <div${cellRotate}>
-              <span class="stu-num">${student.number}號</span>
-              <span class="stu-name">${student.name}</span>
-            </div>
+            <span class="stu-num">${student.number}號</span>
+            <span class="stu-name">${student.name}</span>
           </td>`
         } else {
           gridHtml += '<td class="cell empty-cell"></td>'
