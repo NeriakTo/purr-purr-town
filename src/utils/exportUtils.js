@@ -189,9 +189,153 @@ export async function exportJobsToExcel(jobs, jobAssignments, students, classNam
   await downloadWorkbook(workbook, `${className || '班級'}_職務表.xlsx`)
 }
 
-/** 觸發瀏覽器列印 */
-export function triggerPrint(mode = 'seating') {
-  document.body.dataset.printMode = mode
-  window.print()
-  delete document.body.dataset.printMode
+/**
+ * 列印座位表 — 以獨立 HTML 視窗渲染後列印
+ * 產生乾淨的 HTML 表格，避免主應用 CSS 衝突，確保列印品質
+ */
+export function printSeatingChart(seatingChart, students, className) {
+  const { rows, cols, grid, objects, customObjects } = seatingChart
+  const studentMap = Object.fromEntries(students.map(s => [s.id, s]))
+  const objectMap = Object.fromEntries(SEATING_OBJECTS.map(o => [o.id, o]))
+  ;(customObjects || []).forEach(o => { objectMap[o.id] = o })
+
+  // 構建 Grid HTML
+  let gridHtml = ''
+  for (let r = 0; r < rows; r++) {
+    gridHtml += '<tr>'
+    for (let c = 0; c < cols; c++) {
+      const key = cellKey(r, c)
+      if (objects[key]) {
+        const obj = objectMap[objects[key]]
+        const color = obj?.color || '#8B8B8B'
+        const label = obj ? obj.label : objects[key]
+        const icon = obj?.icon || ''
+        gridHtml += `<td class="cell obj-cell" style="border-color:${color};background:${color}22">
+          <span class="obj-icon">${icon}</span>
+          <span class="obj-label">${label}</span>
+        </td>`
+      } else if (grid[key]) {
+        const student = studentMap[grid[key]]
+        if (student) {
+          gridHtml += `<td class="cell student-cell">
+            <span class="stu-num">${student.number}號</span>
+            <span class="stu-name">${student.name}</span>
+          </td>`
+        } else {
+          gridHtml += '<td class="cell empty-cell"></td>'
+        }
+      } else {
+        gridHtml += '<td class="cell empty-cell"></td>'
+      }
+    }
+    gridHtml += '</tr>'
+  }
+
+  const title = `${className || '班級'} 座位表`
+  const html = `<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>${title}</title>
+<style>
+  @page { size: A4 landscape; margin: 1cm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Noto Sans TC', 'Microsoft JhengHei', 'Segoe UI', sans-serif;
+    color: #5D5D5D;
+    background: #fff;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .container { padding: 12px; }
+  h1 {
+    text-align: center;
+    font-size: 22px;
+    font-weight: 700;
+    color: #fff;
+    background: #7BC496;
+    padding: 10px 0;
+    border-radius: 8px;
+    margin-bottom: 12px;
+  }
+  .podium-bar {
+    width: 50%;
+    height: 10px;
+    margin: 0 auto 4px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #4A6741, #5D7E4F, #4A6741);
+  }
+  .podium-label {
+    text-align: center;
+    font-size: 10px;
+    color: #8B8B8B;
+    letter-spacing: 4px;
+    margin-bottom: 10px;
+  }
+  table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 4px;
+    table-layout: fixed;
+  }
+  .cell {
+    height: 60px;
+    text-align: center;
+    vertical-align: middle;
+    border-radius: 6px;
+    padding: 4px;
+  }
+  .student-cell {
+    background: #fff;
+    border: 1.5px solid #D8D8D8;
+  }
+  .stu-num {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    color: #5D5D5D;
+    line-height: 1.4;
+  }
+  .stu-name {
+    display: block;
+    font-size: 10px;
+    color: #8B8B8B;
+    line-height: 1.4;
+  }
+  .obj-cell {
+    border: 2px dashed;
+  }
+  .obj-icon {
+    display: block;
+    font-size: 18px;
+    line-height: 1.2;
+  }
+  .obj-label {
+    display: block;
+    font-size: 9px;
+    font-weight: 600;
+    color: #5D5D5D;
+  }
+  .empty-cell {
+    background: #FAFAFA;
+    border: 1px solid #F0F0F0;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>${title}</h1>
+  <div class="podium-bar"></div>
+  <div class="podium-label">講 台</div>
+  <table>${gridHtml}</table>
+</div>
+<script>window.onload=function(){window.print()}<\/script>
+</body>
+</html>`
+
+  const printWindow = window.open('', '_blank')
+  if (printWindow) {
+    printWindow.document.write(html)
+    printWindow.document.close()
+  }
 }
