@@ -1,11 +1,13 @@
 import { useMemo, useState } from 'react'
-import { PawPrint, Plus, Home, School, ChevronRight, Trophy, Users, ShoppingBag, Wallet, Calendar, AlertTriangle, Zap, Palette } from 'lucide-react'
+import { PawPrint, Plus, Home, School, ChevronRight, Trophy, Users, ShoppingBag, Wallet, Calendar, AlertTriangle, Zap, Palette, Download } from 'lucide-react'
 import CreateClassModal from '../components/modals/CreateClassModal'
+import RestoreClassModal from '../components/modals/RestoreClassModal'
 import { AVATAR_EMOJIS } from '../utils/constants'
 import { formatCurrency, formatDateShort, loadClassCache, resolveCurrency } from '../utils/helpers'
 
-function LoginView({ onSelectClass, localClasses, onCreateLocalClass }) {
+function LoginView({ onSelectClass, localClasses, onCreateLocalClass, onRestoreClass }) {
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showRestoreModal, setShowRestoreModal] = useState(false)
 
   const classes = localClasses || []
 
@@ -143,13 +145,22 @@ function LoginView({ onSelectClass, localClasses, onCreateLocalClass }) {
                 </div>
                 <h3 className="text-xl font-bold text-[#5D5D5D] mb-2">還沒有村莊</h3>
                 <p className="text-[#8B8B8B] text-sm mb-8">建立你的第一個村莊，開始班級管理之旅吧！</p>
-                <button
-                  onClick={() => setShowCreateModal(true)}
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-[#A8D8B9] to-[#7BC496] text-white font-bold shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 transition-all"
-                >
-                  <Plus size={20} />
-                  建立新村莊
-                </button>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <button
+                    onClick={() => setShowCreateModal(true)}
+                    className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-[#A8D8B9] to-[#7BC496] text-white font-bold shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 transition-all"
+                  >
+                    <Plus size={20} />
+                    建立新村莊
+                  </button>
+                  <button
+                    onClick={() => setShowRestoreModal(true)}
+                    className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-[#A0C4FF] to-[#7EB0FF] text-white font-bold shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 transition-all"
+                  >
+                    <Download size={20} />
+                    還原村莊
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -215,6 +226,17 @@ function LoginView({ onSelectClass, localClasses, onCreateLocalClass }) {
                   </div>
                   <span className="text-sm text-[#8B8B8B] font-medium group-hover:text-[#5D5D5D] transition-colors">建立新村莊</span>
                 </button>
+
+                {/* Restore village card */}
+                <button
+                  onClick={() => setShowRestoreModal(true)}
+                  className="group border-2 border-dashed border-[#A0C4FF]/40 rounded-2xl p-5 hover:border-[#A0C4FF] hover:bg-[#A0C4FF]/5 transition-all flex flex-col items-center justify-center min-h-[180px] gap-3"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-[#A0C4FF]/10 group-hover:bg-[#A0C4FF]/20 flex items-center justify-center transition-colors">
+                    <Download size={24} className="text-[#A0C4FF] group-hover:text-[#7EB0FF] transition-colors" />
+                  </div>
+                  <span className="text-sm text-[#8B8B8B] font-medium group-hover:text-[#5D5D5D] transition-colors">還原村莊</span>
+                </button>
               </div>
             )}
           </div>
@@ -235,6 +257,17 @@ function LoginView({ onSelectClass, localClasses, onCreateLocalClass }) {
           onClose={() => setShowCreateModal(false)}
           onSuccess={handleCreateSuccess}
           onCreateLocalClass={onCreateLocalClass}
+        />
+      )}
+
+      {showRestoreModal && (
+        <RestoreClassModal
+          onClose={() => setShowRestoreModal(false)}
+          onRestoreClass={(payload) => {
+            setShowRestoreModal(false)
+            onRestoreClass(payload)
+          }}
+          existingClassIds={classes.map(c => c.id)}
         />
       )}
     </div>

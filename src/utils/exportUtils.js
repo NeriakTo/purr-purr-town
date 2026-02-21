@@ -191,17 +191,20 @@ export async function exportJobsToExcel(jobs, jobAssignments, students, classNam
 
 /**
  * 列印座位表 — 以獨立 HTML 視窗渲染後列印
- * 產生乾淨的 HTML 表格，避免主應用 CSS 衝突，確保列印品質
+ * v3.7.2: 支援教師視角/學生視角切換
  */
 export function printSeatingChart(seatingChart, students, className) {
-  const { rows, cols, grid, objects, customObjects } = seatingChart
+  const { rows, cols, grid, objects, customObjects, perspective } = seatingChart
+  const isStudentPerspective = perspective === 'student'
   const studentMap = Object.fromEntries(students.map(s => [s.id, s]))
   const objectMap = Object.fromEntries(SEATING_OBJECTS.map(o => [o.id, o]))
   ;(customObjects || []).forEach(o => { objectMap[o.id] = o })
 
-  // 構建 Grid HTML
+  // 構建 Grid HTML（學生視角時行列反轉 + cell 內容翻轉）
+  const cellRotate = isStudentPerspective ? ' style="transform:rotate(180deg)"' : ''
   let gridHtml = ''
-  for (let r = 0; r < rows; r++) {
+  for (let ri = 0; ri < rows; ri++) {
+    const r = isStudentPerspective ? (rows - 1 - ri) : ri
     gridHtml += '<tr>'
     for (let c = 0; c < cols; c++) {
       const key = cellKey(r, c)
@@ -211,15 +214,19 @@ export function printSeatingChart(seatingChart, students, className) {
         const label = obj ? obj.label : objects[key]
         const icon = obj?.icon || ''
         gridHtml += `<td class="cell obj-cell" style="border-color:${color};background:${color}22">
-          <span class="obj-icon">${icon}</span>
-          <span class="obj-label">${label}</span>
+          <div${cellRotate}>
+            <span class="obj-icon">${icon}</span>
+            <span class="obj-label">${label}</span>
+          </div>
         </td>`
       } else if (grid[key]) {
         const student = studentMap[grid[key]]
         if (student) {
           gridHtml += `<td class="cell student-cell">
-            <span class="stu-num">${student.number}號</span>
-            <span class="stu-name">${student.name}</span>
+            <div${cellRotate}>
+              <span class="stu-num">${student.number}號</span>
+              <span class="stu-name">${student.name}</span>
+            </div>
           </td>`
         } else {
           gridHtml += '<td class="cell empty-cell"></td>'
@@ -232,6 +239,8 @@ export function printSeatingChart(seatingChart, students, className) {
   }
 
   const title = `${className || '班級'} 座位表`
+  const podiumHtml = `<div class="podium-bar"></div><div class="podium-label">講 台</div>`
+
   const html = `<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -325,9 +334,9 @@ export function printSeatingChart(seatingChart, students, className) {
 <body>
 <div class="container">
   <h1>${title}</h1>
-  <div class="podium-bar"></div>
-  <div class="podium-label">講 台</div>
+  ${isStudentPerspective ? '' : podiumHtml}
   <table>${gridHtml}</table>
+  ${isStudentPerspective ? podiumHtml : ''}
 </div>
 <script>window.onload=function(){window.print()}<\/script>
 </body>

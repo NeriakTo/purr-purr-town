@@ -525,6 +525,11 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
                       ☁️ 上次備份時間：{new Date(backupMeta.updatedAt).toLocaleString()}
                     </p>
                   )}
+                  <div className="flex items-center gap-2 p-2 rounded-lg bg-[#F5F5F5] border border-[#E8E8E8]">
+                    <span className="text-xs text-[#8B8B8B]">班級代號：</span>
+                    <code className="text-xs font-mono text-[#5D5D5D] font-bold select-all">{classId}</code>
+                    <span className="text-[10px] text-[#B8B8B8]">（跨裝置還原時需要此代號）</span>
+                  </div>
                   <div className="grid gap-3">
                     <div className="space-y-1">
                       <label className="text-xs font-bold text-[#5D5D5D] ml-1">GAS 部署網址</label>

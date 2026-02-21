@@ -100,11 +100,17 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
     return { tasks: mergedTasks, studentStatus: mergedStatus }
   }, [allLogs, currentDate, normalizeDate, students])
 
-  // v3.0.1: 投影模式 - 顯示 createdAt === 今天 的任務（聯絡簿）
+  // v3.7.2: 投影模式 - 顯示 createdAt === 今天 的任務，依截止日期遞增排序
   const focusTasks = useMemo(() => {
     const todayStr = getTodayStr()
     const entries = getTasksCreatedToday(allLogs, todayStr, normalizeDate)
-    return entries.map(({ task }) => ({ ...task, id: task.id || `task_${Date.now()}` }))
+    return entries
+      .map(({ task, logDate }) => ({
+        ...task,
+        id: task.id || `task_${Date.now()}`,
+        dueDate: getTaskDueDate(task, logDate),
+      }))
+      .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
   }, [allLogs, normalizeDate])
 
   // v3.7.1: 過濾在校生（排除在家自學學生）

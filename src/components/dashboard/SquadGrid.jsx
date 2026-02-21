@@ -1,5 +1,5 @@
-import { useMemo } from 'react'
-import { Flag, Trophy, Users } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Flag, Trophy, Users, ChevronDown } from 'lucide-react'
 import VillagerCard from './VillagerCard'
 import { isDoneStatus, isCountedInDenominator, isActiveStudent, resolveCurrency, normalizeStatus } from '../../utils/helpers'
 import { STATUS_VALUES, INACTIVE_STUDENT } from '../../utils/constants'
@@ -147,31 +147,52 @@ function SquadGrid({ students, activeStudents, tasks, studentStatus, settings, o
       )}
 
       {inactiveStudents.length > 0 && (
-        <div className="mt-4 rounded-xl overflow-hidden border-2 border-dashed border-[#D8D8D8]/60 shrink-0">
-          <div className="px-2.5 py-1.5 flex items-center justify-between bg-[#F5F5F5]">
-            <div className="flex items-center gap-1.5">
-              <div className="w-6 h-6 rounded-md flex items-center justify-center bg-[#E8E8E8]">
-                <span className="text-xs">{INACTIVE_STUDENT.icon}</span>
-              </div>
-              <h3 className="font-black text-lg text-[#B0B0B0]">{INACTIVE_STUDENT.label}</h3>
-              <span className="text-xs text-[#C8C8C8] ml-1">{inactiveStudents.length} 人</span>
-            </div>
+        <InactiveSection
+          inactiveStudents={inactiveStudents}
+          tasks={tasks}
+          studentStatus={studentStatus}
+          currency={currency}
+          onSelectStudent={onSelectStudent}
+        />
+      )}
+    </div>
+  )
+}
+
+// v3.7.2: 在家自學區塊（預設折疊）
+function InactiveSection({ inactiveStudents, tasks, studentStatus, currency, onSelectStudent }) {
+  const [collapsed, setCollapsed] = useState(true)
+
+  return (
+    <div className="mt-4 rounded-xl overflow-hidden border-2 border-dashed border-[#D8D8D8]/60 shrink-0">
+      <button
+        onClick={() => setCollapsed(prev => !prev)}
+        className="w-full px-2.5 py-1.5 flex items-center justify-between bg-[#F5F5F5] hover:bg-[#EFEFEF] transition-colors cursor-pointer"
+      >
+        <div className="flex items-center gap-1.5">
+          <div className="w-6 h-6 rounded-md flex items-center justify-center bg-[#E8E8E8]">
+            <span className="text-xs">{INACTIVE_STUDENT.icon}</span>
           </div>
-          <div className="px-3 pb-3 pt-3 bg-white/10">
-            <div className="grid grid-cols-3 gap-3 2xl:gap-2">
-              {inactiveStudents.map((student) => (
-                <VillagerCard
-                  key={student.id}
-                  student={student}
-                  tasks={tasks}
-                  studentStatus={studentStatus}
-                  currency={currency}
-                  onClick={() => onSelectStudent(student)}
-                  hasOverdue={false}
-                  inactive
-                />
-              ))}
-            </div>
+          <h3 className="font-black text-lg text-[#B0B0B0]">{INACTIVE_STUDENT.label}</h3>
+          <span className="text-xs text-[#C8C8C8] ml-1">{inactiveStudents.length} 人</span>
+        </div>
+        <ChevronDown size={16} className={`text-[#B0B0B0] transition-transform ${collapsed ? '' : 'rotate-180'}`} />
+      </button>
+      {!collapsed && (
+        <div className="px-3 pb-3 pt-3 bg-white/10">
+          <div className="grid grid-cols-3 gap-3 2xl:gap-2">
+            {inactiveStudents.map((student) => (
+              <VillagerCard
+                key={student.id}
+                student={student}
+                tasks={tasks}
+                studentStatus={studentStatus}
+                currency={currency}
+                onClick={() => onSelectStudent(student)}
+                hasOverdue={false}
+                inactive
+              />
+            ))}
           </div>
         </div>
       )}

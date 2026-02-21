@@ -43,6 +43,45 @@ function App() {
     })
   }
 
+  // v3.7.2: 從備份還原班級（雲端/檔案匯入），使用原始 classId 避免 ID 衝突
+  const handleRestoreClass = (payload) => {
+    const { classId, className: restoredName, data } = payload
+    if (!classId || !data) return
+
+    // 檢查是否已存在，若存在則更新（呼叫方已確認覆蓋）
+    const existing = localClasses.find(c => c.id === classId)
+
+    // 存入 LocalStorage
+    saveClassCache(classId, {
+      classId,
+      students: data.students || [],
+      logs: data.logs || [],
+      settings: data.settings || DEFAULT_SETTINGS,
+      updatedAt: data.updatedAt || new Date().toISOString()
+    })
+
+    if (!existing) {
+      // 從備份資料推斷 class meta
+      const yearMatch = classId.match(/^(\d+)_/)
+      const newClass = {
+        id: classId,
+        year: yearMatch ? yearMatch[1] : '',
+        name: restoredName || `班級 ${classId}`,
+        teacher: '',
+        alias: '',
+        status: 'active',
+        studentCount: (data.students || []).length
+      }
+      const nextClasses = [...localClasses, newClass]
+      setLocalClasses(nextClasses)
+      saveLocalClasses(nextClasses)
+    }
+
+    // 自動進入該班級
+    const displayName = existing?.alias || existing?.name || restoredName || `班級 ${classId}`
+    setSelectedClass({ id: classId, name: displayName, alias: existing?.alias || null })
+  }
+
   const handleSelectClass = (classId, displayName, alias) => {
     setSelectedClass({ id: classId, name: displayName || `班級 ${classId}`, alias: alias || null })
   }
@@ -63,6 +102,7 @@ function App() {
         localClasses={localClasses}
         onCreateLocalClass={handleCreateLocalClass}
         onSelectClass={handleSelectClass}
+        onRestoreClass={handleRestoreClass}
       />
     )
   }

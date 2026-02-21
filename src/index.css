@@ -194,6 +194,38 @@ body {
     text-decoration-color: rgba(232, 245, 233, 0.65);
   }
 
+  /* v3.7.2: 直式書寫（投影模式） */
+  .focus-vertical-text {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    white-space: nowrap;
+  }
+
+  .focus-checkbox-vertical {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    border: 3px solid rgba(232, 245, 233, 0.8);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    position: relative;
+  }
+
+  .focus-checkbox-vertical.is-checked::after {
+    content: "✓";
+    color: rgba(232, 245, 233, 0.9);
+    font-size: 26px;
+    line-height: 1;
+  }
+
+  .focus-strike-vertical {
+    text-decoration: line-through;
+    text-decoration-thickness: 0.18em;
+    text-decoration-color: rgba(232, 245, 233, 0.65);
+  }
+
   .gadget-timer {
     display: flex;
     align-items: center;

@@ -45,10 +45,10 @@ function TaskOverviewModal({ allLogs, students, onClose, onNavigateToDate, setti
       })
     })
     
-    // 未完成排前面，再按日期排序（最新在前）
+    // v3.7.2: 未完成排前面，再按截止日期遞增排序（最早到期在前）
     return tasks.sort((a, b) => {
       if (a.isComplete !== b.isComplete) return a.isComplete ? 1 : -1
-      return new Date(b.date) - new Date(a.date)
+      return new Date(a.dueDate) - new Date(b.dueDate)
     })
   }, [allLogs, students])
 
