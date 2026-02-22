@@ -19,7 +19,7 @@ import OrangeCatStoreModal from '../components/modals/OrangeCatStoreModal'
 import { DEFAULT_SETTINGS, DEFAULT_SEATING_CHART, STATUS_VALUES } from '../utils/constants'
 import { formatDate, formatDateDisplay, getTodayStr, getTasksForDate, getTasksCreatedToday, makeTaskId, normalizeStatus, getTaskDueDate, parseDate, isDoneStatus, isCountedInDenominator, isActiveStudent, loadClassCache, saveClassCache, ensureStudentBank, createTransaction, toPoints, generateId, resolveCurrency, getDailyQuestNetCount } from '../utils/helpers'
 
-function DashboardView({ classId, className, classAlias, onLogout, onClearLocalClass }) {
+function DashboardView({ classId, className, classAlias, classEntry, onLogout, onClearLocalClass, onUpdateClassInfo }) {
   const [students, setStudents] = useState([])
   const [allLogs, setAllLogs] = useState([])
   const allLogsRef = useRef(allLogs)
@@ -640,11 +640,13 @@ function DashboardView({ classId, className, classAlias, onLogout, onClearLocalC
         <SettingsModal
           classId={classId}
           className={className}
+          classEntry={classEntry}
           settings={settings}
           students={students}
           allLogs={allLogs}
           onClose={() => setShowSettings(false)}
           onSave={setSettings}
+          onUpdateClassInfo={onUpdateClassInfo}
           onRestoreFromBackup={(restored) => {
             setStudents((restored.students || []).map((s, i) => ensureStudentBank({ ...s, id: s.id || s.uuid || `student_${i}` })))
             setAllLogs((restored.logs || []).map(log => {

@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { X, Save, Link, Download, Plus, Trash2, Settings, ClipboardList, Briefcase, Scale, Coins, Banknote, ChevronDown, ShoppingBag, Zap } from 'lucide-react'
+import { X, Save, Link, Download, Plus, Trash2, Settings, ClipboardList, Briefcase, Scale, Coins, Banknote, ChevronDown, ShoppingBag, Zap, Home } from 'lucide-react'
 import { DEFAULT_SETTINGS, JOB_CYCLES, DEFAULT_RULE_CATEGORIES, DEFAULT_SHOP, DEFAULT_AUTOMATION, DEFAULT_SEATING_CHART } from '../../utils/constants'
 import { saveClassCache, generateId, resolveCurrency, formatCurrency } from '../../utils/helpers'
 import IconPicker, { RenderIcon } from '../common/IconPicker'
 import JobSettingsTab from './settings/JobSettingsTab'
 
-function SettingsModal({ classId, className, settings, students, allLogs, onClose, onSave, onRestoreFromBackup, onClearLocalClass, onProcessPayroll }) {
+function SettingsModal({ classId, className, classEntry, settings, students, allLogs, onClose, onSave, onUpdateClassInfo, onRestoreFromBackup, onClearLocalClass, onProcessPayroll }) {
   const [activeTab, setActiveTab] = useState('general')
   const [localSettings, setLocalSettings] = useState({
     taskTypes: settings?.taskTypes || DEFAULT_SETTINGS.taskTypes,
@@ -34,6 +34,11 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
   const [newCategoryIcon, setNewCategoryIcon] = useState('🏷️')
   const fileInputRef = useRef(null)
 
+  // v3.7.3: 村莊基本資訊編輯
+  const [villageName, setVillageName] = useState(classEntry?.name || '')
+  const [villageAlias, setVillageAlias] = useState(classEntry?.alias || '')
+  const [villageTeacher, setVillageTeacher] = useState(classEntry?.teacher || '')
+
   useEffect(() => {
     if (!classId) return
     try {
@@ -46,6 +51,13 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
 
 
   const handleSave = () => {
+    if (onUpdateClassInfo) {
+      onUpdateClassInfo({
+        name: villageName.trim() || className,
+        alias: villageAlias.trim(),
+        teacher: villageTeacher.trim(),
+      })
+    }
     if (onSave) onSave(localSettings)
     onClose()
   }
@@ -65,6 +77,8 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
         className,
         data: {
           classId,
+          className,
+          teacher: classEntry?.teacher || '',
           students,
           logs: allLogs,
           settings: localSettings,
@@ -160,6 +174,8 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
         className,
         data: {
           classId,
+          className,
+          teacher: classEntry?.teacher || '',
           students,
           logs: allLogs,
           settings: localSettings,
@@ -476,6 +492,50 @@ function SettingsModal({ classId, className, settings, students, allLogs, onClos
           {/* ===== 一般設定 ===== */}
           {activeTab === 'general' && (
             <div className="p-6 space-y-8">
+              {/* 村莊基本資訊 */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-bold text-[#5D5D5D] flex items-center gap-2">
+                  <Home size={16} className="text-[#FFD6A5]" />
+                  村莊基本資訊
+                </h3>
+                <div className="grid gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#5D5D5D] ml-1">村莊名稱</label>
+                    <input
+                      type="text"
+                      value={villageName}
+                      onChange={e => setVillageName(e.target.value)}
+                      className="w-full px-4 py-2 rounded-xl border-2 border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-sm"
+                      placeholder="例如：3年級忠班"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#5D5D5D] ml-1">村莊別名<span className="text-[#8B8B8B] font-normal ml-1">（選填，若填寫將取代村莊名稱顯示）</span></label>
+                    <input
+                      type="text"
+                      value={villageAlias}
+                      onChange={e => setVillageAlias(e.target.value)}
+                      className="w-full px-4 py-2 rounded-xl border-2 border-[#E8E8E8] focus:border-[#FFD6A5] outline-none text-sm"
+                      placeholder="例如：貓咪班"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#5D5D5D] ml-1">村長姓名</label>
+                    <input
+                      type="text"
+                      value={villageTeacher}
+                      onChange={e => setVillageTeacher(e.target.value)}
+                      className="w-full px-4 py-2 rounded-xl border-2 border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-sm"
+                      placeholder="例如：王老師"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 p-2 rounded-lg bg-[#F5F5F5] border border-[#E8E8E8]">
+                  <span className="text-xs text-[#8B8B8B]">班級代號：</span>
+                  <code className="text-xs font-mono text-[#5D5D5D] font-bold select-all">{classId}</code>
+                </div>
+              </div>
+
               {/* 任務類型設定 */}
               <div className="space-y-4">
                 <h3 className="text-sm font-bold text-[#5D5D5D] flex items-center gap-2">

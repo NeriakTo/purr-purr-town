@@ -53,7 +53,7 @@ function RestoreClassModal({ onClose, onRestoreClass, existingClassIds }) {
 
       onRestoreClass({
         classId,
-        className: result.className || '',
+        className: result.className || restored.className || '',
         data: restored
       })
     } catch (err) {
@@ -80,7 +80,7 @@ function RestoreClassModal({ onClose, onRestoreClass, existingClassIds }) {
         }
 
         const classId = data.classId || payload.classId || ''
-        const className = payload.className || ''
+        const className = payload.className || data.className || ''
         const studentCount = (data.students || []).length
         const updatedAt = data.updatedAt || ''
 

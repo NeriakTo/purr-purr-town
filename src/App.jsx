@@ -66,8 +66,8 @@ function App() {
       const newClass = {
         id: classId,
         year: yearMatch ? yearMatch[1] : '',
-        name: restoredName || `班級 ${classId}`,
-        teacher: '',
+        name: restoredName || data.className || `班級 ${classId}`,
+        teacher: data.teacher || '',
         alias: '',
         status: 'active',
         studentCount: (data.students || []).length
@@ -84,6 +84,22 @@ function App() {
 
   const handleSelectClass = (classId, displayName, alias) => {
     setSelectedClass({ id: classId, name: displayName || `班級 ${classId}`, alias: alias || null })
+  }
+
+  // v3.7.3: 允許在村莊設定中更新村莊名稱、別名、村長姓名
+  const handleUpdateClassInfo = (updates) => {
+    if (!selectedClass) return
+    const cid = selectedClass.id
+    const nextClasses = localClasses.map(c =>
+      c.id === cid ? { ...c, ...updates } : c
+    )
+    setLocalClasses(nextClasses)
+    saveLocalClasses(nextClasses)
+    const updated = nextClasses.find(c => c.id === cid)
+    if (updated) {
+      const displayName = updated.alias || updated.name || `班級 ${cid}`
+      setSelectedClass({ id: cid, name: displayName, alias: updated.alias || null })
+    }
   }
 
   const handleClearLocalClass = (classId) => {
@@ -107,13 +123,17 @@ function App() {
     )
   }
 
+  const classEntry = localClasses.find(c => c.id === selectedClass?.id) || null
+
   return (
     <DashboardView
       classId={selectedClass.id}
       className={selectedClass.name}
       classAlias={selectedClass.alias}
+      classEntry={classEntry}
       onLogout={() => setSelectedClass(null)}
       onClearLocalClass={handleClearLocalClass}
+      onUpdateClassInfo={handleUpdateClassInfo}
     />
   )
 }
