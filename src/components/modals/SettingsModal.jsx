@@ -8,7 +8,7 @@ import JobSettingsTab from './settings/JobSettingsTab'
 function SettingsModal({ classId, className, classEntry, settings, students, allLogs, onClose, onSave, onUpdateClassInfo, onRestoreFromBackup, onClearLocalClass, onProcessPayroll }) {
   const [activeTab, setActiveTab] = useState('general')
   const [localSettings, setLocalSettings] = useState({
-    taskTypes: settings?.taskTypes || DEFAULT_SETTINGS.taskTypes,
+    taskTypes: [...(settings?.taskTypes || DEFAULT_SETTINGS.taskTypes)],
     groupAliases: settings?.groupAliases || {},
     announcements: settings?.announcements || [],
     jobs: settings?.jobs || DEFAULT_SETTINGS.jobs,
@@ -543,10 +543,10 @@ function SettingsModal({ classId, className, classEntry, settings, students, all
                   任務類型設定
                 </h3>
                 <div className="flex flex-wrap gap-2">
-                  {localSettings.taskTypes.map(type => (
-                    <div key={type} className="flex items-center gap-2 px-3 py-1.5 rounded-xl border-2 bg-gray-100 text-gray-700 border-gray-300">
+                  {localSettings.taskTypes.map((type, idx) => (
+                    <div key={`taskType-${idx}`} className="flex items-center gap-2 px-3 py-1.5 rounded-xl border-2 bg-gray-100 text-gray-700 border-gray-300">
                       <span className="text-sm font-medium">{type}</span>
-                      <button onClick={() => setLocalSettings(p => ({ ...p, taskTypes: p.taskTypes.filter(t => t !== type) }))}>
+                      <button onClick={() => setLocalSettings(p => ({ ...p, taskTypes: p.taskTypes.filter((_, i) => i !== idx) }))}>
                         <X size={14} />
                       </button>
                     </div>
@@ -557,12 +557,12 @@ function SettingsModal({ classId, className, classEntry, settings, students, all
                     type="text"
                     value={newTaskType}
                     onChange={e => setNewTaskType(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter' && newTaskType.trim()) { setLocalSettings(p => ({ ...p, taskTypes: [...p.taskTypes, newTaskType.trim()] })); setNewTaskType('') } }}
+                    onKeyDown={e => { if (e.key === 'Enter' && newTaskType.trim() && !localSettings.taskTypes.includes(newTaskType.trim())) { setLocalSettings(p => ({ ...p, taskTypes: [...p.taskTypes, newTaskType.trim()] })); setNewTaskType('') } }}
                     className="flex-1 px-4 py-2 rounded-xl border-2 border-[#E8E8E8] focus:border-[#A8D8B9] outline-none"
                     placeholder="輸入新任務類型..."
                   />
                   <button
-                    onClick={() => { if (newTaskType.trim()) { setLocalSettings(p => ({ ...p, taskTypes: [...p.taskTypes, newTaskType.trim()] })); setNewTaskType('') } }}
+                    onClick={() => { if (newTaskType.trim() && !localSettings.taskTypes.includes(newTaskType.trim())) { setLocalSettings(p => ({ ...p, taskTypes: [...p.taskTypes, newTaskType.trim()] })); setNewTaskType('') } }}
                     className="px-4 py-2 rounded-xl bg-[#A8D8B9] text-white font-bold flex items-center gap-1"
                   >
                     <Plus size={20} /> 新增

@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
-import { ListTodo, Filter, Trash2, ChevronDown, X, AlertCircle, CheckCircle, Check, Clock, XCircle, Eye, Calendar as CalendarIcon } from 'lucide-react'
+import { ListTodo, Filter, Trash2, ChevronDown, X, AlertCircle, CheckCircle, Check, Clock, XCircle, Eye, Coffee, CircleMinus, Calendar as CalendarIcon } from 'lucide-react'
 import AvatarEmoji from '../common/AvatarEmoji'
-import { STATUS_VALUES } from '../../utils/constants'
-import { formatDateDisplay, getTaskDueDate, getTaskIcon, isDoneStatus, normalizeStatus, isCountedInDenominator, parseDate } from '../../utils/helpers'
+import { STATUS_VALUES, BATCH_STATUS_CONFIG } from '../../utils/constants'
+import { formatDateDisplay, getTaskDueDate, getTaskIcon, isDoneStatus, normalizeStatus, isCountedInDenominator, parseDate, shouldAutoExempt } from '../../utils/helpers'
 
 function TaskOverviewModal({ allLogs, students, onClose, onNavigateToDate, settings, onToggleStatus, onDeleteTask }) {
   const [expandedTask, setExpandedTask] = useState(null)
@@ -234,7 +234,7 @@ function TaskOverviewModal({ allLogs, students, onClose, onNavigateToDate, setti
                                 className="px-3 py-1 rounded-lg bg-[#FFD6A5] text-white text-xs font-medium hover:bg-[#FFBF69] transition-colors flex items-center gap-1"
                               >
                                 <CheckCircle size={14} />
-                                批次完成
+                                批次操作
                               </button>
                             )}
                             {isBatchMode && (
@@ -251,20 +251,27 @@ function TaskOverviewModal({ allLogs, students, onClose, onNavigateToDate, setti
                                 >
                                   {task.incompleteStudents.every(s => batchSelected[s.id]) ? '取消全選' : '全選'}
                                 </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    const selected = Object.entries(batchSelected).filter(([, v]) => v).map(([id]) => id)
-                                    selected.forEach(studentId => onToggleStatus(studentId, task.id, STATUS_VALUES.ON_TIME, task.date))
-                                    setBatchTaskKey(null)
-                                    setBatchSelected({})
-                                  }}
-                                  disabled={!Object.values(batchSelected).some(v => v)}
-                                  className="px-3 py-1 rounded-lg bg-[#7BC496] text-white text-xs font-medium hover:bg-[#5DAF7E] transition-colors disabled:opacity-40 flex items-center gap-1"
-                                >
-                                  <Check size={14} />
-                                  確認完成
-                                </button>
+                                {BATCH_STATUS_CONFIG.map(cfg => {
+                                  const icons = { on_time: Check, late: Clock, missing: XCircle, leave: Coffee, exempt: CircleMinus }
+                                  const Icon = icons[cfg.value]
+                                  return (
+                                    <button
+                                      key={cfg.value}
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        const selected = Object.entries(batchSelected).filter(([, v]) => v).map(([id]) => id)
+                                        selected.forEach(studentId => onToggleStatus(studentId, task.id, cfg.value, task.date))
+                                        setBatchTaskKey(null)
+                                        setBatchSelected({})
+                                      }}
+                                      disabled={!Object.values(batchSelected).some(v => v)}
+                                      className={`px-2 py-1 rounded-lg ${cfg.bgClass} text-white text-xs font-medium ${cfg.hoverClass} transition-colors disabled:opacity-40 flex items-center gap-1`}
+                                    >
+                                      <Icon size={12} />
+                                      {cfg.label}
+                                    </button>
+                                  )
+                                })}
                                 <button
                                   onClick={(e) => { e.stopPropagation(); setBatchTaskKey(null); setBatchSelected({}) }}
                                   className="px-2 py-1 rounded-lg bg-[#FFADAD] text-white text-xs font-medium hover:bg-[#FF8A8A] transition-colors"
@@ -440,6 +447,9 @@ function TaskOverviewModal({ allLogs, students, onClose, onNavigateToDate, setti
                                   <AvatarEmoji seed={s.uuid || s.id} className="w-full h-full rounded-full text-xs" />
                                 </div>
                                 <span className="text-[#A0A0A0]">{s.number}. {s.name}</span>
+                                {shouldAutoExempt(s, task.title, task.type) && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#B8B8B8]/20 text-[#8B8B8B]">自動</span>
+                                )}
                               </div>
                             ))}
                           </div>

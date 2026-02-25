@@ -130,6 +130,15 @@ export const INACTIVE_STUDENT = {
   icon: '🏠',
 }
 
+// v3.8.0: 批次操作狀態按鈕配置
+export const BATCH_STATUS_CONFIG = [
+  { value: 'on_time', label: '準時', bgClass: 'bg-[#7BC496]', hoverClass: 'hover:bg-[#5DAF7E]' },
+  { value: 'late',    label: '遲交', bgClass: 'bg-[#FFBF69]', hoverClass: 'hover:bg-[#E6A855]' },
+  { value: 'missing', label: '缺交', bgClass: 'bg-[#D64545]', hoverClass: 'hover:bg-[#B83A3A]' },
+  { value: 'leave',   label: '請假', bgClass: 'bg-[#8B8B8B]', hoverClass: 'hover:bg-[#6B6B6B]' },
+  { value: 'exempt',  label: '免交', bgClass: 'bg-[#B8B8B8]', hoverClass: 'hover:bg-[#999]' },
+]
+
 // 擴充至 30 種動物 (已排除豬)
 export const AVATAR_EMOJIS = [
   '🐻', // Bear
