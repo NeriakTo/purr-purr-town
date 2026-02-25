@@ -7,7 +7,14 @@ import { formatDate, formatDateDisplay, getTaskDueDate, getTodayStr, isDoneStatu
 
 function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus, onStudentUpdate, hasOverdue, settings, allLogs, currentDateStr, onBankTransaction, onUndoTransaction, onCorrectTransaction, onConsumeItem }) {
   const [activeTab, setActiveTab] = useState('tasks')
-  const [editData, setEditData] = useState({ name: student.name || '', gender: student.gender || 'male', group: student.group || 'unassigned', inactive: student.inactive || false })
+  const [editData, setEditData] = useState({
+    name: student.name || '',
+    gender: student.gender || 'male',
+    group: student.group || 'unassigned',
+    inactive: student.inactive || false,
+    taskExemptRules: student.taskExemptRules || { keywords: [], taskTypes: [] },
+  })
+  const [newExemptKeyword, setNewExemptKeyword] = useState('')
   const [manualAmount, setManualAmount] = useState('')
   const [manualReason, setManualReason] = useState('')
   const [quickActionsOpen, setQuickActionsOpen] = useState(false)
@@ -47,7 +54,15 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
 
   const saveEdit = () => {
     if (!editData.name.trim()) return
-    const updatedStudent = { ...student, id: student.id || student.uuid, name: editData.name.trim(), group: editData.group, gender: editData.gender, inactive: editData.inactive }
+    const updatedStudent = {
+      ...student,
+      id: student.id || student.uuid,
+      name: editData.name.trim(),
+      group: editData.group,
+      gender: editData.gender,
+      inactive: editData.inactive,
+      taskExemptRules: editData.taskExemptRules,
+    }
     if (onStudentUpdate) onStudentUpdate(updatedStudent)
     setActiveTab('tasks')
   }
@@ -688,11 +703,106 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
                       </span>
                     </div>
                   </div>
+                  {/* v3.8.0: 自動免交規則 */}
+                  <div className="border border-[#E8E8E8] rounded-xl p-4 space-y-3">
+                    <div className="text-xs font-bold text-[#5D5D5D] flex items-center gap-1.5">
+                      <CircleMinus size={14} className="text-[#B8B8B8]" />
+                      自動免交規則
+                    </div>
+                    <p className="text-[10px] text-[#8B8B8B]">
+                      任務名稱含關鍵字 且 類型符合時，新增任務將自動標記免交
+                    </p>
+
+                    {/* 關鍵字 */}
+                    <div>
+                      <label className="text-xs font-medium text-[#5D5D5D] mb-1 block">名稱關鍵字</label>
+                      <div className="flex flex-wrap gap-1.5 mb-2">
+                        {(editData.taskExemptRules.keywords || []).map((kw, idx) => (
+                          <span key={`kw-${idx}`} className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#FFD6A5]/20 text-[#8B6914] text-xs border border-[#FFD6A5]/30">
+                            {kw}
+                            <button onClick={() => setEditData(p => ({
+                              ...p,
+                              taskExemptRules: { ...p.taskExemptRules, keywords: p.taskExemptRules.keywords.filter((_, i) => i !== idx) }
+                            }))}>
+                              <X size={10} />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                      <div className="flex gap-1.5">
+                        <input
+                          type="text"
+                          value={newExemptKeyword}
+                          onChange={e => setNewExemptKeyword(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter' && newExemptKeyword.trim()) {
+                              setEditData(p => ({
+                                ...p,
+                                taskExemptRules: { ...p.taskExemptRules, keywords: [...p.taskExemptRules.keywords, newExemptKeyword.trim()] }
+                              }))
+                              setNewExemptKeyword('')
+                            }
+                          }}
+                          placeholder="例如：國語、數學..."
+                          className="flex-1 px-3 py-1.5 rounded-lg border border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-xs"
+                        />
+                        <button
+                          onClick={() => {
+                            if (newExemptKeyword.trim()) {
+                              setEditData(p => ({
+                                ...p,
+                                taskExemptRules: { ...p.taskExemptRules, keywords: [...p.taskExemptRules.keywords, newExemptKeyword.trim()] }
+                              }))
+                              setNewExemptKeyword('')
+                            }
+                          }}
+                          className="px-3 py-1.5 rounded-lg bg-[#A8D8B9] text-white text-xs font-bold hover:bg-[#7BC496] transition-colors"
+                        >
+                          新增
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* 任務類型多選 */}
+                    <div>
+                      <label className="text-xs font-medium text-[#5D5D5D] mb-1 block">符合的任務類型</label>
+                      <div className="flex flex-wrap gap-2">
+                        {(settings?.taskTypes || []).map(type => {
+                          const isChecked = (editData.taskExemptRules.taskTypes || []).includes(type)
+                          return (
+                            <label key={type} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs cursor-pointer transition-colors ${
+                              isChecked ? 'bg-[#A8D8B9]/20 border-[#A8D8B9] text-[#4A7C59]' : 'bg-white border-[#E8E8E8] text-[#5D5D5D] hover:border-[#A8D8B9]'
+                            }`}>
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => {
+                                  setEditData(p => {
+                                    const current = p.taskExemptRules.taskTypes || []
+                                    const next = isChecked ? current.filter(t => t !== type) : [...current, type]
+                                    return { ...p, taskExemptRules: { ...p.taskExemptRules, taskTypes: next } }
+                                  })
+                                }}
+                                className="sr-only"
+                              />
+                              {isChecked && <Check size={12} />}
+                              {type}
+                            </label>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="flex gap-3 pt-2">
                     <button onClick={saveEdit} className="flex-1 bg-[#A8D8B9] text-white py-2.5 rounded-xl font-bold text-sm hover:bg-[#7BC496] transition-colors">
                       儲存變更
                     </button>
-                    <button onClick={() => { setEditData({ name: student.name, gender: student.gender, group: student.group, inactive: student.inactive || false }); setActiveTab('tasks') }} className="bg-[#E8E8E8] text-[#5D5D5D] px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-[#D8D8D8] transition-colors">
+                    <button onClick={() => {
+                      setEditData({ name: student.name, gender: student.gender, group: student.group, inactive: student.inactive || false, taskExemptRules: student.taskExemptRules || { keywords: [], taskTypes: [] } })
+                      setNewExemptKeyword('')
+                      setActiveTab('tasks')
+                    }} className="bg-[#E8E8E8] text-[#5D5D5D] px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-[#D8D8D8] transition-colors">
                       取消
                     </button>
                   </div>

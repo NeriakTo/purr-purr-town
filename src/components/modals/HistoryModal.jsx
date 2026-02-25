@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { X, Calendar as CalendarIcon, Search, ScrollText, Filter, ChevronDown, Check, Clock, XCircle, Coffee, CircleMinus } from 'lucide-react'
+import { X, Calendar as CalendarIcon, Search, ScrollText, Filter, ChevronDown, Check, Clock, XCircle, Coffee, CircleMinus, CheckCircle } from 'lucide-react'
 import AvatarEmoji from '../common/AvatarEmoji'
-import { STATUS_VALUES } from '../../utils/constants'
-import { formatDate, formatDateDisplay, getTodayStr, getTaskDueDate, getTaskCreatedAt, normalizeStatus, getStatusVisual, isDoneStatus, isCountedInDenominator, getTaskIcon } from '../../utils/helpers'
+import { STATUS_VALUES, BATCH_STATUS_CONFIG } from '../../utils/constants'
+import { formatDate, formatDateDisplay, getTodayStr, getTaskDueDate, getTaskCreatedAt, normalizeStatus, getStatusVisual, isDoneStatus, isCountedInDenominator, getTaskIcon, shouldAutoExempt } from '../../utils/helpers'
 
 function HistoryModal({ allLogs, students, settings, onClose, onToggleStatus }) {
   const [dateFrom, setDateFrom] = useState('')
@@ -10,6 +10,8 @@ function HistoryModal({ allLogs, students, settings, onClose, onToggleStatus }) 
   const [filterType, setFilterType] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [expandedTask, setExpandedTask] = useState(null)
+  const [batchTaskKey, setBatchTaskKey] = useState(null)
+  const [batchSelected, setBatchSelected] = useState({})
 
   useEffect(() => {
     document.body.style.overflow = 'hidden'
@@ -41,6 +43,8 @@ function HistoryModal({ allLogs, students, settings, onClose, onToggleStatus }) 
 
         const totalCount = studentStatuses.filter(ss => isCountedInDenominator(ss.status)).length
         const completedCount = studentStatuses.filter(ss => isDoneStatus(ss.status)).length
+        const incompleteStudents = studentStatuses.filter(ss => !isDoneStatus(ss.status) && isCountedInDenominator(ss.status)).map(ss => ss.student)
+        const isComplete = totalCount > 0 && completedCount === totalCount
         tasks.push({
           ...task,
           logDate,
@@ -49,11 +53,16 @@ function HistoryModal({ allLogs, students, settings, onClose, onToggleStatus }) 
           studentStatuses,
           completedCount,
           totalCount,
+          incompleteStudents,
+          isComplete,
         })
       })
     })
 
-    return tasks.sort((a, b) => new Date(b.dueDate) - new Date(a.dueDate))
+    return tasks.sort((a, b) => {
+      if (a.isComplete !== b.isComplete) return a.isComplete ? 1 : -1
+      return new Date(b.dueDate) - new Date(a.dueDate)
+    })
   }, [allLogs, students, dateFrom, dateTo, filterType, todayStr])
 
   const filteredHistoryTasks = useMemo(() => {
@@ -185,59 +194,133 @@ function HistoryModal({ allLogs, students, settings, onClose, onToggleStatus }) 
                 </div>
 
                 {/* Expanded: student list with status edit */}
-                {isExpanded && (
+                {isExpanded && (() => {
+                  const isBatchMode = batchTaskKey === taskKey
+                  return (
                   <div className="px-3 pb-3 border-t border-[#E8E8E8]">
-                    <div className="mt-2 space-y-1 max-h-60 overflow-y-auto">
+                    {/* Batch toolbar */}
+                    <div className="mt-2 flex items-center justify-end gap-2 mb-2">
+                      {!isBatchMode && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setBatchTaskKey(taskKey); setBatchSelected({}) }}
+                          className="px-3 py-1 rounded-lg bg-[#FFD6A5] text-white text-xs font-medium hover:bg-[#FFBF69] transition-colors flex items-center gap-1"
+                        >
+                          <CheckCircle size={14} />
+                          批次操作
+                        </button>
+                      )}
+                      {isBatchMode && (
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              const allSelected = task.studentStatuses.every(ss => batchSelected[ss.student.id])
+                              const next = {}
+                              task.studentStatuses.forEach(ss => { next[ss.student.id] = !allSelected })
+                              setBatchSelected(next)
+                            }}
+                            className="px-2 py-1 rounded-lg bg-[#E8E8E8] text-[#5D5D5D] text-xs font-medium hover:bg-[#D8D8D8] transition-colors"
+                          >
+                            {task.studentStatuses.every(ss => batchSelected[ss.student.id]) ? '取消全選' : '全選'}
+                          </button>
+                          {BATCH_STATUS_CONFIG.map(cfg => {
+                            const icons = { on_time: Check, late: Clock, missing: XCircle, leave: Coffee, exempt: CircleMinus }
+                            const Icon = icons[cfg.value]
+                            return (
+                              <button
+                                key={cfg.value}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  const selected = Object.entries(batchSelected).filter(([, v]) => v).map(([id]) => id)
+                                  selected.forEach(studentId => onToggleStatus(studentId, task.id, cfg.value, task.logDate))
+                                  setBatchTaskKey(null)
+                                  setBatchSelected({})
+                                }}
+                                disabled={!Object.values(batchSelected).some(v => v)}
+                                className={`px-2 py-1 rounded-lg ${cfg.bgClass} text-white text-xs font-medium ${cfg.hoverClass} transition-colors disabled:opacity-40 flex items-center gap-1`}
+                              >
+                                <Icon size={12} />
+                                {cfg.label}
+                              </button>
+                            )
+                          })}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setBatchTaskKey(null); setBatchSelected({}) }}
+                            className="px-2 py-1 rounded-lg bg-[#FFADAD] text-white text-xs font-medium hover:bg-[#FF8A8A] transition-colors"
+                          >
+                            取消
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-1 max-h-60 overflow-y-auto">
                       {task.studentStatuses.map(({ student, status, visual }) => {
                         const StatusIcon = visual.icon
                         return (
-                          <div key={student.id} className={`flex items-center gap-2 p-2 rounded-lg ${visual.bg} border ${visual.border} transition-all`}>
+                          <div
+                            key={student.id}
+                            onClick={(e) => { if (isBatchMode) { e.stopPropagation(); setBatchSelected(prev => ({ ...prev, [student.id]: !prev[student.id] })) } }}
+                            className={`flex items-center gap-2 p-2 rounded-lg ${visual.bg} border ${visual.border} transition-all ${isBatchMode ? 'cursor-pointer' : ''} ${isBatchMode && batchSelected[student.id] ? 'ring-2 ring-[#7BC496]' : ''}`}
+                          >
+                            {isBatchMode && (
+                              <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 ${
+                                batchSelected[student.id] ? 'bg-[#7BC496] border-[#7BC496]' : 'border-[#D8D8D8]'
+                              }`}>
+                                {batchSelected[student.id] && <Check size={10} className="text-white" />}
+                              </div>
+                            )}
                             <div className="w-6 h-6 rounded-full overflow-hidden shrink-0">
                               <AvatarEmoji seed={student.uuid || student.id} className="w-full h-full rounded-full text-xs" />
                             </div>
                             <span className="font-medium text-[#5D5D5D] flex-1 min-w-0 truncate text-sm">{student.number}. {student.name}</span>
                             {StatusIcon && <StatusIcon size={14} style={{ color: visual.color }} />}
                             <span className={`text-xs font-bold shrink-0 ${visual.text}`}>{visual.label || '未完成'}</span>
-                            <div className="flex items-center gap-0.5 shrink-0">
-                              <button onClick={() => onToggleStatus(student.id, task.id, STATUS_VALUES.ON_TIME, task.logDate)}
-                                className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${normalizeStatus(status) === STATUS_VALUES.ON_TIME ? 'bg-[#7BC496] text-white' : 'bg-[#A8D8B9]/20 hover:bg-[#A8D8B9] text-[#4A7C59] hover:text-white'}`}
-                                title="準時">
-                                <Check size={12} />
-                              </button>
-                              <button onClick={() => onToggleStatus(student.id, task.id, STATUS_VALUES.LATE, task.logDate)}
-                                className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${normalizeStatus(status) === STATUS_VALUES.LATE ? 'bg-[#FFBF69] text-white' : 'bg-[#FFD6A5]/20 hover:bg-[#FFD6A5] text-[#8B6914] hover:text-white'}`}
-                                title="遲交">
-                                <Clock size={12} />
-                              </button>
-                              <button onClick={() => onToggleStatus(student.id, task.id, STATUS_VALUES.MISSING, task.logDate)}
-                                className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${normalizeStatus(status) === STATUS_VALUES.MISSING ? 'bg-[#D64545] text-white' : 'bg-[#FFADAD]/20 hover:bg-[#FFADAD] text-[#D64545] hover:text-white'}`}
-                                title="未交">
-                                <XCircle size={12} />
-                              </button>
-                              <button onClick={() => onToggleStatus(student.id, task.id, STATUS_VALUES.LEAVE, task.logDate)}
-                                className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${normalizeStatus(status) === STATUS_VALUES.LEAVE ? 'bg-[#8B8B8B] text-white' : 'bg-[#E8E8E8]/50 hover:bg-[#D8D8D8] text-[#8B8B8B]'}`}
-                                title="請假">
-                                <Coffee size={12} />
-                              </button>
-                              <button onClick={() => onToggleStatus(student.id, task.id, STATUS_VALUES.EXEMPT, task.logDate)}
-                                className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${normalizeStatus(status) === STATUS_VALUES.EXEMPT ? 'bg-[#B8B8B8] text-white' : 'bg-[#F0F0F0]/50 hover:bg-[#E0E0E0] text-[#A0A0A0]'}`}
-                                title="免交">
-                                <CircleMinus size={12} />
-                              </button>
-                              {(normalizeStatus(status) && Object.values(STATUS_VALUES).includes(normalizeStatus(status))) && (
-                                <button onClick={() => onToggleStatus(student.id, task.id, null, task.logDate)}
-                                  className="w-6 h-6 rounded-full flex items-center justify-center bg-white/80 hover:bg-[#FFADAD]/20 text-[#D64545] transition-colors border border-[#E8E8E8]"
-                                  title="清除狀態">
-                                  <X size={12} />
+                            {normalizeStatus(status) === STATUS_VALUES.EXEMPT && shouldAutoExempt(student, task.title, task.type) && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#B8B8B8]/20 text-[#8B8B8B] shrink-0">自動</span>
+                            )}
+                            {!isBatchMode && (
+                              <div className="flex items-center gap-0.5 shrink-0">
+                                <button onClick={() => onToggleStatus(student.id, task.id, STATUS_VALUES.ON_TIME, task.logDate)}
+                                  className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${normalizeStatus(status) === STATUS_VALUES.ON_TIME ? 'bg-[#7BC496] text-white' : 'bg-[#A8D8B9]/20 hover:bg-[#A8D8B9] text-[#4A7C59] hover:text-white'}`}
+                                  title="準時">
+                                  <Check size={12} />
                                 </button>
-                              )}
-                            </div>
+                                <button onClick={() => onToggleStatus(student.id, task.id, STATUS_VALUES.LATE, task.logDate)}
+                                  className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${normalizeStatus(status) === STATUS_VALUES.LATE ? 'bg-[#FFBF69] text-white' : 'bg-[#FFD6A5]/20 hover:bg-[#FFD6A5] text-[#8B6914] hover:text-white'}`}
+                                  title="遲交">
+                                  <Clock size={12} />
+                                </button>
+                                <button onClick={() => onToggleStatus(student.id, task.id, STATUS_VALUES.MISSING, task.logDate)}
+                                  className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${normalizeStatus(status) === STATUS_VALUES.MISSING ? 'bg-[#D64545] text-white' : 'bg-[#FFADAD]/20 hover:bg-[#FFADAD] text-[#D64545] hover:text-white'}`}
+                                  title="未交">
+                                  <XCircle size={12} />
+                                </button>
+                                <button onClick={() => onToggleStatus(student.id, task.id, STATUS_VALUES.LEAVE, task.logDate)}
+                                  className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${normalizeStatus(status) === STATUS_VALUES.LEAVE ? 'bg-[#8B8B8B] text-white' : 'bg-[#E8E8E8]/50 hover:bg-[#D8D8D8] text-[#8B8B8B]'}`}
+                                  title="請假">
+                                  <Coffee size={12} />
+                                </button>
+                                <button onClick={() => onToggleStatus(student.id, task.id, STATUS_VALUES.EXEMPT, task.logDate)}
+                                  className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${normalizeStatus(status) === STATUS_VALUES.EXEMPT ? 'bg-[#B8B8B8] text-white' : 'bg-[#F0F0F0]/50 hover:bg-[#E0E0E0] text-[#A0A0A0]'}`}
+                                  title="免交">
+                                  <CircleMinus size={12} />
+                                </button>
+                                {(normalizeStatus(status) && Object.values(STATUS_VALUES).includes(normalizeStatus(status))) && (
+                                  <button onClick={() => onToggleStatus(student.id, task.id, null, task.logDate)}
+                                    className="w-6 h-6 rounded-full flex items-center justify-center bg-white/80 hover:bg-[#FFADAD]/20 text-[#D64545] transition-colors border border-[#E8E8E8]"
+                                    title="清除狀態">
+                                    <X size={12} />
+                                  </button>
+                                )}
+                              </div>
+                            )}
                           </div>
                         )
                       })}
                     </div>
                   </div>
-                )}
+                  )
+                })()}
               </div>
             )
           })

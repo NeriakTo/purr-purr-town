@@ -12,7 +12,8 @@ function GadgetsModal({ students, onClose }) {
   const [customSec, setCustomSec] = useState(0)
   const [drawRunning, setDrawRunning] = useState(false)
   const [drawIndex, setDrawIndex] = useState(0)
-  const [winner, setWinner] = useState(null)
+  const [winners, setWinners] = useState([])
+  const [drawCount, setDrawCount] = useState(1)
 
   useEffect(() => {
     document.body.style.overflow = 'hidden'
@@ -44,16 +45,23 @@ function GadgetsModal({ students, onClose }) {
       clearInterval(id)
       setDrawRunning(false)
       if (students.length) {
-        const finalIndex = Math.floor(Math.random() * students.length)
-        setDrawIndex(finalIndex)
-        setWinner(students[finalIndex])
+        const count = Math.min(drawCount, students.length)
+        const indices = students.map((_, i) => i)
+        const selected = []
+        for (let i = 0; i < count; i++) {
+          const j = i + Math.floor(Math.random() * (indices.length - i))
+          ;[indices[i], indices[j]] = [indices[j], indices[i]]
+          selected.push(students[indices[i]])
+        }
+        setDrawIndex(indices[0])
+        setWinners(selected)
       }
     }, 3000)
     return () => {
       clearInterval(id)
       clearTimeout(stopId)
     }
-  }, [drawRunning, students])
+  }, [drawRunning, students, drawCount])
 
   const startTimer = (seconds) => {
     setDuration(seconds)
@@ -83,7 +91,7 @@ function GadgetsModal({ students, onClose }) {
   }
 
   const startDraw = () => {
-    setWinner(null)
+    setWinners([])
     setDrawIndex(0)
     setDrawRunning(true)
   }
@@ -209,26 +217,79 @@ function GadgetsModal({ students, onClose }) {
 
           {activeTab === 'draw' && (
             <div className="flex flex-col items-center justify-center gap-6">
-              <div className={`relative w-full max-w-md transition-all duration-500 ${winner ? 'scale-105' : ''}`}>
-                <div className={`draw-reel relative transition-all duration-500 ${winner ? 'border-4 border-[#FFBF69] shadow-2xl' : ''}`}>
-                  {winner && <div className="confetti-layer" />}
+              <div className={`relative w-full max-w-md transition-all duration-500 ${winners.length > 0 ? 'scale-105' : ''}`}>
+                <div className={`draw-reel relative transition-all duration-500 ${winners.length > 0 ? 'border-4 border-[#FFBF69] shadow-2xl' : ''}`}>
+                  {winners.length > 0 && <div className="confetti-layer" />}
                   <div className="relative z-10">
-                    {currentStudent ? (
-                      <div className="draw-avatar">
-                        <AvatarEmoji seed={currentStudent.uuid || currentStudent.id} className="w-full h-full rounded-2xl text-5xl" />
-                      </div>
-                    ) : (
-                      <div className="draw-avatar empty">🎁</div>
+                    {/* Spinner animation (single person display) */}
+                    {(drawRunning || winners.length === 0) && (
+                      <>
+                        {currentStudent ? (
+                          <div className="draw-avatar">
+                            <AvatarEmoji seed={currentStudent.uuid || currentStudent.id} className="w-full h-full rounded-2xl text-5xl" />
+                          </div>
+                        ) : (
+                          <div className="draw-avatar empty">🎁</div>
+                        )}
+                        <div className="text-lg font-bold text-[#5D5D5D] mt-3">
+                          {drawRunning ? '抽籤中...' : '等待抽籤'}
+                        </div>
+                      </>
                     )}
-                    <div className="text-lg font-bold text-[#5D5D5D] mt-3">
-                      {drawRunning ? '抽籤中...' : currentStudent?.name || '等待抽籤'}
-                    </div>
-                    {winner && (
-                      <div className="mt-2 text-xl font-bold text-[#7BC496]">🎉 幸運兒：{winner.name}</div>
+                    {/* Multi-winner results */}
+                    {!drawRunning && winners.length > 0 && (
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="text-xl font-bold text-[#7BC496]">🎉 幸運兒</div>
+                        <div className="flex flex-wrap justify-center gap-3">
+                          {winners.map(w => (
+                            <div key={w.id} className="flex flex-col items-center gap-1">
+                              <div className="w-16 h-16 rounded-2xl overflow-hidden shadow-md ring-2 ring-[#FFBF69]">
+                                <AvatarEmoji seed={w.uuid || w.id} className="w-full h-full rounded-2xl text-3xl" />
+                              </div>
+                              <span className="text-sm font-bold text-[#5D5D5D]">{w.name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>
               </div>
+
+              {/* Draw count selector */}
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-bold text-[#8B8B8B]">抽取人數</span>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setDrawCount(prev => Math.max(1, prev - 1))}
+                    disabled={drawRunning}
+                    className="w-8 h-8 rounded-lg bg-[#E8E8E8] text-[#5D5D5D] font-bold hover:bg-[#D8D8D8] transition-colors disabled:opacity-50 flex items-center justify-center"
+                  >
+                    −
+                  </button>
+                  <input
+                    type="number"
+                    min={1}
+                    max={students.length || 1}
+                    value={drawCount}
+                    onChange={e => {
+                      const v = parseInt(e.target.value, 10)
+                      if (!isNaN(v) && v >= 1 && v <= students.length) setDrawCount(v)
+                    }}
+                    onFocus={e => e.target.select()}
+                    disabled={drawRunning}
+                    className="w-14 px-2 py-1.5 rounded-lg border-2 border-[#E8E8E8] text-center font-bold text-[#5D5D5D] focus:border-[#A8D8B9] focus:outline-none transition-colors disabled:opacity-50"
+                  />
+                  <button
+                    onClick={() => setDrawCount(prev => Math.min(students.length || 1, prev + 1))}
+                    disabled={drawRunning}
+                    className="w-8 h-8 rounded-lg bg-[#E8E8E8] text-[#5D5D5D] font-bold hover:bg-[#D8D8D8] transition-colors disabled:opacity-50 flex items-center justify-center"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
               <button
                 onClick={startDraw}
                 disabled={drawRunning || students.length === 0}

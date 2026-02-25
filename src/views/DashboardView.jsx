@@ -17,7 +17,7 @@ import PassportModal from '../components/modals/PassportModal'
 import AnnouncementModal from '../components/modals/AnnouncementModal'
 import OrangeCatStoreModal from '../components/modals/OrangeCatStoreModal'
 import { DEFAULT_SETTINGS, DEFAULT_SEATING_CHART, STATUS_VALUES } from '../utils/constants'
-import { formatDate, formatDateDisplay, getTodayStr, getTasksForDate, getTasksCreatedToday, makeTaskId, normalizeStatus, getTaskDueDate, parseDate, isDoneStatus, isCountedInDenominator, isActiveStudent, loadClassCache, saveClassCache, ensureStudentBank, createTransaction, toPoints, generateId, resolveCurrency, getDailyQuestNetCount } from '../utils/helpers'
+import { formatDate, formatDateDisplay, getTodayStr, getNextDay, getTasksForDate, makeTaskId, normalizeStatus, getTaskDueDate, parseDate, isDoneStatus, isCountedInDenominator, isActiveStudent, loadClassCache, saveClassCache, ensureStudentBank, createTransaction, toPoints, generateId, resolveCurrency, getDailyQuestNetCount, shouldAutoExempt } from '../utils/helpers'
 
 function DashboardView({ classId, className, classAlias, classEntry, onLogout, onClearLocalClass, onUpdateClassInfo }) {
   const [students, setStudents] = useState([])
@@ -149,19 +149,32 @@ function DashboardView({ classId, className, classAlias, classEntry, onLogout, o
   }, [classId, students, allLogs, settings, loading])
 
   // v3.0.1: 新增任務 - 存入今天 log (createdAt=今天, dueDate=明天)
+  // v3.8.0: 自動免交 — 符合規則的學生自動標記 exempt
   const handleAddTask = useCallback((newTask) => {
     const todayStr = getTodayStr()
     const normDate = normalizeDate(todayStr)
     setAllLogs(prev => {
+      // 計算自動免交
+      const autoExemptions = {}
+      students.forEach(s => {
+        if (shouldAutoExempt(s, newTask.title, newTask.type)) {
+          autoExemptions[s.id] = { [newTask.id]: STATUS_VALUES.EXEMPT }
+        }
+      })
+
       const idx = prev.findIndex(l => normalizeDate(l.date) === normDate)
       if (idx >= 0) {
         const newLogs = [...prev]
-        newLogs[idx] = { ...newLogs[idx], tasks: [...(newLogs[idx].tasks || []), newTask] }
+        const mergedStatus = { ...(newLogs[idx].status || {}) }
+        Object.entries(autoExemptions).forEach(([sid, ts]) => {
+          mergedStatus[sid] = { ...mergedStatus[sid], ...ts }
+        })
+        newLogs[idx] = { ...newLogs[idx], tasks: [...(newLogs[idx].tasks || []), newTask], status: mergedStatus }
         return newLogs
       }
-      return [...prev, { date: normDate, tasks: [newTask], status: {} }]
+      return [...prev, { date: normDate, tasks: [newTask], status: autoExemptions }]
     })
-  }, [normalizeDate])
+  }, [normalizeDate, students])
 
   const handleDeleteTaskFromLog = useCallback((date, taskId) => {
     const normDate = normalizeDate(typeof date === 'string' ? date : formatDate(date))
