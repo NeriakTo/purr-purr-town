@@ -100,17 +100,28 @@ function DashboardView({ classId, className, classAlias, classEntry, onLogout, o
     return { tasks: mergedTasks, studentStatus: mergedStatus }
   }, [allLogs, currentDate, normalizeDate, students])
 
-  // v3.7.2: 投影模式 - 顯示 createdAt === 今天 的任務，依截止日期遞增排序
-  const focusTasks = useMemo(() => {
+  // v3.8.1: 投影模式 - 左：隔日任務（dueDate=明天） 右：其餘已排定任務
+  const { tomorrowTasks, upcomingTasks } = useMemo(() => {
     const todayStr = getTodayStr()
-    const entries = getTasksCreatedToday(allLogs, todayStr, normalizeDate)
-    return entries
-      .map(({ task, logDate }) => ({
-        ...task,
-        id: task.id || `task_${Date.now()}`,
-        dueDate: getTaskDueDate(task, logDate),
-      }))
-      .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+    const tomorrowStr = getNextDay(todayStr)
+    const tomorrow = []
+    const upcoming = []
+
+    allLogs.forEach(log => {
+      const logDate = normalizeDate(log.date)
+      ;(log.tasks || []).forEach((task, i) => {
+        const dueDate = normalizeDate(getTaskDueDate(task, logDate))
+        const t = { ...task, id: task.id || makeTaskId(logDate, task, i), dueDate }
+        if (dueDate === tomorrowStr) {
+          tomorrow.push(t)
+        } else if (dueDate > tomorrowStr) {
+          upcoming.push(t)
+        }
+      })
+    })
+
+    upcoming.sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+    return { tomorrowTasks: tomorrow, upcomingTasks: upcoming }
   }, [allLogs, normalizeDate])
 
   // v3.7.1: 過濾在校生（排除在家自學學生）
@@ -698,7 +709,8 @@ function DashboardView({ classId, className, classAlias, classEntry, onLogout, o
 
       {showFocus && (
         <FocusView
-          tasks={focusTasks}
+          tomorrowTasks={tomorrowTasks}
+          upcomingTasks={upcomingTasks}
           currentDateStr={getTodayStr()}
           onClose={() => setShowFocus(false)}
         />
