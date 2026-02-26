@@ -3,7 +3,7 @@ import { X, Clock, XCircle, AlertTriangle, Check, Coffee, CircleMinus, Wallet, U
 import AvatarEmoji from '../common/AvatarEmoji'
 import { RenderIcon } from '../common/IconPicker'
 import { STATUS_VALUES } from '../../utils/constants'
-import { formatDate, formatDateDisplay, getTaskDueDate, getTodayStr, isDoneStatus, normalizeStatus, parseDate, getTaskIcon, getStatusVisual, formatCurrency, resolveCurrency } from '../../utils/helpers'
+import { formatDate, formatDateDisplay, getTaskDueDate, getTodayStr, isDoneStatus, normalizeStatus, parseDate, getTaskIcon, getStatusVisual, formatCurrency, resolveCurrency, migrateExemptRules } from '../../utils/helpers'
 
 function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus, onStudentUpdate, hasOverdue, settings, allLogs, currentDateStr, onBankTransaction, onUndoTransaction, onCorrectTransaction, onConsumeItem }) {
   const [activeTab, setActiveTab] = useState('tasks')
@@ -12,9 +12,8 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
     gender: student.gender || 'male',
     group: student.group || 'unassigned',
     inactive: student.inactive || false,
-    taskExemptRules: student.taskExemptRules || { keywords: [], taskTypes: [] },
+    taskExemptRules: migrateExemptRules(student.taskExemptRules),
   })
-  const [newExemptKeyword, setNewExemptKeyword] = useState('')
   const [manualAmount, setManualAmount] = useState('')
   const [manualReason, setManualReason] = useState('')
   const [quickActionsOpen, setQuickActionsOpen] = useState(false)
@@ -61,7 +60,7 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
       group: editData.group,
       gender: editData.gender,
       inactive: editData.inactive,
-      taskExemptRules: editData.taskExemptRules,
+      taskExemptRules: editData.taskExemptRules.filter(r => r.keyword.trim()),
     }
     if (onStudentUpdate) onStudentUpdate(updatedStudent)
     setActiveTab('tasks')
@@ -703,95 +702,71 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
                       </span>
                     </div>
                   </div>
-                  {/* v3.8.0: 自動免交規則 */}
+                  {/* v3.8.0: 自動免交規則（配對式） */}
                   <div className="border border-[#E8E8E8] rounded-xl p-4 space-y-3">
                     <div className="text-xs font-bold text-[#5D5D5D] flex items-center gap-1.5">
                       <CircleMinus size={14} className="text-[#B8B8B8]" />
                       自動免交規則
                     </div>
                     <p className="text-[10px] text-[#8B8B8B]">
-                      任務名稱含關鍵字 且 類型符合時，新增任務將自動標記免交
+                      每條規則為獨立配對：任務名稱含關鍵字 且 類型完全符合時，自動標記免交
                     </p>
 
-                    {/* 關鍵字 */}
-                    <div>
-                      <label className="text-xs font-medium text-[#5D5D5D] mb-1 block">名稱關鍵字</label>
-                      <div className="flex flex-wrap gap-1.5 mb-2">
-                        {(editData.taskExemptRules.keywords || []).map((kw, idx) => (
-                          <span key={`kw-${idx}`} className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#FFD6A5]/20 text-[#8B6914] text-xs border border-[#FFD6A5]/30">
-                            {kw}
-                            <button onClick={() => setEditData(p => ({
-                              ...p,
-                              taskExemptRules: { ...p.taskExemptRules, keywords: p.taskExemptRules.keywords.filter((_, i) => i !== idx) }
-                            }))}>
-                              <X size={10} />
-                            </button>
-                          </span>
-                        ))}
-                      </div>
-                      <div className="flex gap-1.5">
+                    {editData.taskExemptRules.length === 0 && (
+                      <p className="text-xs text-[#B8B8B8] text-center py-2">尚未設定任何規則</p>
+                    )}
+
+                    {editData.taskExemptRules.map((rule, idx) => (
+                      <div key={idx} className="flex items-center gap-2">
                         <input
                           type="text"
-                          value={newExemptKeyword}
-                          onChange={e => setNewExemptKeyword(e.target.value)}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter' && newExemptKeyword.trim()) {
-                              setEditData(p => ({
-                                ...p,
-                                taskExemptRules: { ...p.taskExemptRules, keywords: [...p.taskExemptRules.keywords, newExemptKeyword.trim()] }
-                              }))
-                              setNewExemptKeyword('')
-                            }
+                          value={rule.keyword}
+                          onChange={e => {
+                            const val = e.target.value
+                            setEditData(p => ({
+                              ...p,
+                              taskExemptRules: p.taskExemptRules.map((r, i) => i === idx ? { ...r, keyword: val } : r),
+                            }))
                           }}
-                          placeholder="例如：國語、數學..."
-                          className="flex-1 px-3 py-1.5 rounded-lg border border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-xs"
+                          placeholder="關鍵字"
+                          className="flex-1 min-w-0 px-3 py-1.5 rounded-lg border border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-xs"
                         />
-                        <button
-                          onClick={() => {
-                            if (newExemptKeyword.trim()) {
-                              setEditData(p => ({
-                                ...p,
-                                taskExemptRules: { ...p.taskExemptRules, keywords: [...p.taskExemptRules.keywords, newExemptKeyword.trim()] }
-                              }))
-                              setNewExemptKeyword('')
-                            }
+                        <select
+                          value={rule.taskType}
+                          onChange={e => {
+                            const val = e.target.value
+                            setEditData(p => ({
+                              ...p,
+                              taskExemptRules: p.taskExemptRules.map((r, i) => i === idx ? { ...r, taskType: val } : r),
+                            }))
                           }}
-                          className="px-3 py-1.5 rounded-lg bg-[#A8D8B9] text-white text-xs font-bold hover:bg-[#7BC496] transition-colors"
+                          className="px-2 py-1.5 rounded-lg border border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-xs bg-white"
                         >
-                          新增
+                          {(settings?.taskTypes || []).map(t => (
+                            <option key={t} value={t}>{t}</option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={() => setEditData(p => ({
+                            ...p,
+                            taskExemptRules: p.taskExemptRules.filter((_, i) => i !== idx),
+                          }))}
+                          className="p-1 text-[#B8B8B8] hover:text-[#FFADAD] transition-colors"
+                        >
+                          <X size={14} />
                         </button>
                       </div>
-                    </div>
+                    ))}
 
-                    {/* 任務類型多選 */}
-                    <div>
-                      <label className="text-xs font-medium text-[#5D5D5D] mb-1 block">符合的任務類型</label>
-                      <div className="flex flex-wrap gap-2">
-                        {(settings?.taskTypes || []).map(type => {
-                          const isChecked = (editData.taskExemptRules.taskTypes || []).includes(type)
-                          return (
-                            <label key={type} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs cursor-pointer transition-colors ${
-                              isChecked ? 'bg-[#A8D8B9]/20 border-[#A8D8B9] text-[#4A7C59]' : 'bg-white border-[#E8E8E8] text-[#5D5D5D] hover:border-[#A8D8B9]'
-                            }`}>
-                              <input
-                                type="checkbox"
-                                checked={isChecked}
-                                onChange={() => {
-                                  setEditData(p => {
-                                    const current = p.taskExemptRules.taskTypes || []
-                                    const next = isChecked ? current.filter(t => t !== type) : [...current, type]
-                                    return { ...p, taskExemptRules: { ...p.taskExemptRules, taskTypes: next } }
-                                  })
-                                }}
-                                className="sr-only"
-                              />
-                              {isChecked && <Check size={12} />}
-                              {type}
-                            </label>
-                          )
-                        })}
-                      </div>
-                    </div>
+                    <button
+                      onClick={() => setEditData(p => ({
+                        ...p,
+                        taskExemptRules: [...p.taskExemptRules, { keyword: '', taskType: (settings?.taskTypes || [])[0] || '' }],
+                      }))}
+                      className="w-full py-1.5 rounded-lg border border-dashed border-[#A8D8B9] text-[#7BC496] text-xs font-bold hover:bg-[#A8D8B9]/10 transition-colors"
+                    >
+                      + 新增規則
+                    </button>
                   </div>
 
                   <div className="flex gap-3 pt-2">
@@ -799,8 +774,7 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
                       儲存變更
                     </button>
                     <button onClick={() => {
-                      setEditData({ name: student.name, gender: student.gender, group: student.group, inactive: student.inactive || false, taskExemptRules: student.taskExemptRules || { keywords: [], taskTypes: [] } })
-                      setNewExemptKeyword('')
+                      setEditData({ name: student.name, gender: student.gender, group: student.group, inactive: student.inactive || false, taskExemptRules: migrateExemptRules(student.taskExemptRules) })
                       setActiveTab('tasks')
                     }} className="bg-[#E8E8E8] text-[#5D5D5D] px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-[#D8D8D8] transition-colors">
                       取消

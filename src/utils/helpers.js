@@ -421,16 +421,21 @@ export function getDailyQuestNetCount(transactions, todayStr, normalizeDateFn) {
   return awards - revocations
 }
 
-// v3.8.0: 自動免交匹配
-export function shouldAutoExempt(student, taskTitle, taskType) {
-  const rules = student.taskExemptRules
-  if (!rules) return false
+// v3.8.0: 自動免交規則遷移（舊 { keywords, taskTypes } → 新 [{ keyword, taskType }] 陣列）
+export function migrateExemptRules(rules) {
+  if (!rules) return []
+  if (Array.isArray(rules)) return rules
   const { keywords = [], taskTypes = [] } = rules
-  if (keywords.length === 0 || taskTypes.length === 0) return false
+  if (keywords.length === 0 || taskTypes.length === 0) return []
+  return keywords.flatMap(kw => taskTypes.map(t => ({ keyword: kw, taskType: t })))
+}
+
+// v3.8.0: 自動免交匹配（支援新舊格式）
+export function shouldAutoExempt(student, taskTitle, taskType) {
+  const rules = migrateExemptRules(student.taskExemptRules)
+  if (rules.length === 0) return false
   const title = (taskTitle || '').toLowerCase()
-  const hasKeyword = keywords.some(kw => title.includes(kw.toLowerCase()))
-  const hasType = taskTypes.some(t => t === taskType)
-  return hasKeyword && hasType
+  return rules.some(r => r.keyword && title.includes(r.keyword.toLowerCase()) && r.taskType === taskType)
 }
 
 // ============================================
