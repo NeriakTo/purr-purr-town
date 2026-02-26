@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**呼嚕嚕小鎮 (Purr Purr Town)** v3.7.1 - Local-First 遊戲化班級經營系統
+**呼嚕嚕小鎮 (Purr Purr Town)** v3.8.0 - Local-First 遊戲化班級經營系統
 - React 19 + Vite 7 + Tailwind CSS 4 SPA
 - LocalStorage 持久化，Google Apps Script 雲端備份
 - 部署至 GitHub Pages (`/purr-purr-town/`)
