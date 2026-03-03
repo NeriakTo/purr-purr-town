@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { X, Plus, Trash2, Briefcase, Banknote, ChevronDown, Zap, Download, Users } from 'lucide-react'
 import { JOB_CYCLES, JOB_CATEGORIES } from '../../../utils/constants'
-import { generateId, resolveCurrency } from '../../../utils/helpers'
+import { generateId } from '../../../utils/helpers'
 import { exportJobsToExcel } from '../../../utils/exportUtils'
 import IconPicker, { RenderIcon } from '../../common/IconPicker'
 

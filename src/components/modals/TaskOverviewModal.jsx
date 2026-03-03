@@ -4,7 +4,7 @@ import AvatarEmoji from '../common/AvatarEmoji'
 import { STATUS_VALUES, BATCH_STATUS_CONFIG } from '../../utils/constants'
 import { formatDateDisplay, getTaskDueDate, getTaskIcon, isDoneStatus, normalizeStatus, isCountedInDenominator, parseDate, shouldAutoExempt } from '../../utils/helpers'
 
-function TaskOverviewModal({ allLogs, students, onClose, onNavigateToDate, settings, onToggleStatus, onDeleteTask }) {
+function TaskOverviewModal({ allLogs, students, onClose, onNavigateToDate, onToggleStatus, onDeleteTask }) {
   const [expandedTask, setExpandedTask] = useState(null)
   const [filterType, setFilterType] = useState('all')
   const [batchTaskKey, setBatchTaskKey] = useState(null)

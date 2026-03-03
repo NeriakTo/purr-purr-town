@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { X, Clock, XCircle, AlertTriangle, Check, Coffee, CircleMinus, Wallet, Undo2, Pencil, TrendingUp, TrendingDown, ChevronDown, CalendarDays } from 'lucide-react'
+import { X, Clock, XCircle, AlertTriangle, Check, Coffee, CircleMinus, Wallet, Undo2, Pencil, ChevronDown } from 'lucide-react'
 import AvatarEmoji from '../common/AvatarEmoji'
 import { RenderIcon } from '../common/IconPicker'
 import { STATUS_VALUES } from '../../utils/constants'
@@ -603,61 +603,6 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
                         </tbody>
                       </table>
                     </div>
-                  </div>
-                </div>
-              )}
-
-              {/* ===== Leave Tab ===== */}
-              {activeTab === 'leave' && (
-                <div className="space-y-6 max-w-md">
-                  <div className="bg-[#FFF8E1] p-4 rounded-xl border border-[#FFD6A5] flex gap-3 text-sm text-[#8B6914]">
-                    <Coffee className="shrink-0 mt-0.5" size={18} />
-                    <p>
-                      請假單可批次將指定日期區間內的所有任務狀態設為 <strong>「請假」</strong>。
-                      <br /><span className="text-xs opacity-75">請假狀態不會扣分，也不會計入小隊進度的分母。</span>
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs font-bold text-[#5D5D5D] mb-1 block">開始日期</label>
-                      <input
-                        type="date"
-                        value={leaveData.startDate}
-                        onChange={e => setLeaveData(p => ({ ...p, startDate: e.target.value }))}
-                        className="w-full px-4 py-2.5 rounded-xl border-2 border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-sm font-medium text-[#5D5D5D]"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-bold text-[#5D5D5D] mb-1 block">結束日期</label>
-                      <input
-                        type="date"
-                        value={leaveData.endDate}
-                        onChange={e => setLeaveData(p => ({ ...p, endDate: e.target.value }))}
-                        className="w-full px-4 py-2.5 rounded-xl border-2 border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-sm font-medium text-[#5D5D5D]"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-bold text-[#5D5D5D] mb-1 block">請假事由 (選填)</label>
-                    <input
-                      type="text"
-                      value={leaveData.reason}
-                      onChange={e => setLeaveData(p => ({ ...p, reason: e.target.value }))}
-                      placeholder="例如：事假、病假..."
-                      className="w-full px-4 py-2.5 rounded-xl border-2 border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-sm"
-                    />
-                  </div>
-
-                  <div className="pt-2">
-                    <button
-                      onClick={handleApplyLeave}
-                      className="w-full py-3 rounded-xl bg-[#A8D8B9] text-white font-bold hover:bg-[#7BC496] transition-colors flex items-center justify-center gap-2"
-                    >
-                      <CalendarDays size={18} />
-                      送出請假單
-                    </button>
                   </div>
                 </div>
               )}

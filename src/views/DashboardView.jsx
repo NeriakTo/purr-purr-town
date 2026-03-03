@@ -16,8 +16,8 @@ import HistoryModal from '../components/modals/HistoryModal'
 import PassportModal from '../components/modals/PassportModal'
 import AnnouncementModal from '../components/modals/AnnouncementModal'
 import OrangeCatStoreModal from '../components/modals/OrangeCatStoreModal'
-import { DEFAULT_SETTINGS, DEFAULT_SEATING_CHART, STATUS_VALUES } from '../utils/constants'
-import { formatDate, formatDateDisplay, getTodayStr, getNextDay, getTasksForDate, makeTaskId, normalizeStatus, getTaskDueDate, parseDate, isDoneStatus, isCountedInDenominator, isActiveStudent, loadClassCache, saveClassCache, ensureStudentBank, createTransaction, toPoints, generateId, resolveCurrency, getDailyQuestNetCount, shouldAutoExempt } from '../utils/helpers'
+import { DEFAULT_SETTINGS, DEFAULT_SEATING_CHART, DEFAULT_AUTOMATION, STATUS_VALUES } from '../utils/constants'
+import { formatDate, getTodayStr, getNextDay, getTasksForDate, makeTaskId, normalizeStatus, getTaskDueDate, parseDate, isDoneStatus, isCountedInDenominator, isActiveStudent, loadClassCache, saveClassCache, ensureStudentBank, createTransaction, toPoints, generateId, resolveCurrency, getDailyQuestNetCount, shouldAutoExempt } from '../utils/helpers'
 
 function DashboardView({ classId, className, classAlias, classEntry, onLogout, onClearLocalClass, onUpdateClassInfo }) {
   const [students, setStudents] = useState([])
@@ -73,8 +73,8 @@ function DashboardView({ classId, className, classAlias, classEntry, onLogout, o
         loadedSettings.currency = resolveCurrency({ currencyRates: cached.settings.currencyRates })
       }
       setSettings(loadedSettings)
-      setLoading(false)
     }
+    setLoading(false)
   }, [classId, normalizeDate])
 
   // v3.0.1: 儀表板 - 顯示 dueDate === currentDate 的任務
@@ -348,7 +348,7 @@ function DashboardView({ classId, className, classAlias, classEntry, onLogout, o
       }
     }, 0)
 
-  }, [currentDate, normalizeDate, students, settings])
+  }, [currentDate, normalizeDate, settings])
 
   const checkOverdue = useCallback((studentId) => {
     const todayStr = getTodayStr()
@@ -501,31 +501,24 @@ function DashboardView({ classId, className, classAlias, classEntry, onLogout, o
       const student = ensureStudentBank(s)
       const item = student.inventory?.[itemIndex]
       if (!item) return s
-      const newInventory = [...student.inventory]
-      newInventory.splice(itemIndex, 1)
+      const newInventory = student.inventory.filter((_, i) => i !== itemIndex)
       const newBank = createTransaction(student.bank, 0, `使用道具: ${item.name}`)
       return { ...student, bank: newBank, inventory: newInventory }
     }))
   }, [])
 
-  const purrCount = activeStudents.filter(s => {
-    if (tasks.length === 0) return false
-    const effective = tasks.filter(t => isCountedInDenominator(studentStatus[s.id]?.[t.id]))
-    return effective.length > 0 && effective.every(t => isDoneStatus(studentStatus[s.id]?.[t.id]))
-  }).length
-  const angryCount = activeStudents.filter(s => {
-    if (tasks.length === 0) return false
-    const effective = tasks.filter(t => isCountedInDenominator(studentStatus[s.id]?.[t.id]))
-    return effective.some(t => !isDoneStatus(studentStatus[s.id]?.[t.id]))
-  }).length
-  const lateCount = activeStudents.filter(s => {
-    if (tasks.length === 0) return false
-    return tasks.some(t => normalizeStatus(studentStatus[s.id]?.[t.id]) === STATUS_VALUES.LATE)
-  }).length
-  const leaveCount = activeStudents.filter(s => {
-    if (tasks.length === 0) return false
-    return tasks.every(t => normalizeStatus(studentStatus[s.id]?.[t.id]) === STATUS_VALUES.LEAVE)
-  }).length
+  const { purrCount, angryCount, lateCount, leaveCount } = useMemo(() => {
+    if (tasks.length === 0) return { purrCount: 0, angryCount: 0, lateCount: 0, leaveCount: 0 }
+    let purr = 0, angry = 0, late = 0, leave = 0
+    activeStudents.forEach(s => {
+      const effective = tasks.filter(t => isCountedInDenominator(studentStatus[s.id]?.[t.id]))
+      if (effective.length > 0 && effective.every(t => isDoneStatus(studentStatus[s.id]?.[t.id]))) purr++
+      if (effective.some(t => !isDoneStatus(studentStatus[s.id]?.[t.id]))) angry++
+      if (tasks.some(t => normalizeStatus(studentStatus[s.id]?.[t.id]) === STATUS_VALUES.LATE)) late++
+      if (tasks.every(t => normalizeStatus(studentStatus[s.id]?.[t.id]) === STATUS_VALUES.LEAVE)) leave++
+    })
+    return { purrCount: purr, angryCount: angry, lateCount: late, leaveCount: leave }
+  }, [activeStudents, tasks, studentStatus])
 
   if (loading) return <LoadingScreen message="正在進入村莊..." />
 

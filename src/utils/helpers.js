@@ -265,16 +265,11 @@ export function getAvatarMeta(seed) {
 
 export function isDefaultName(name, number) {
   if (!name || !number) return false
-  try {
-    const defaultPattern = new RegExp(`^${number}號村民$`)
-    return defaultPattern.test(name) || name === `${number}號村民`
-  } catch (err) {
-    return false
-  }
+  return name === `${number}號村民`
 }
 
 // ============================================
-// v3.5.1: ?????? (Currency System)
+// v3.5.1: 貨幣系統 (Currency System)
 // ============================================
 
 export function resolveCurrency(input) {

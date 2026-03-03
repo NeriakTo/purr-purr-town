@@ -9,7 +9,7 @@ function RestoreClassModal({ onClose, onRestoreClass, existingClassIds }) {
 
   // 雲端還原
   const [backupUrl, setBackupUrl] = useState(() => localStorage.getItem('ppt_backup_url') || '')
-  const [backupToken, setBackupToken] = useState(() => localStorage.getItem('ppt_backup_token') || 'meow1234')
+  const [backupToken, setBackupToken] = useState(() => localStorage.getItem('ppt_backup_token') || '')
   const [classIdInput, setClassIdInput] = useState('')
 
   // 檔案匯入
@@ -29,7 +29,7 @@ function RestoreClassModal({ onClose, onRestoreClass, existingClassIds }) {
     try {
       setBusy(true)
       setMsg(null)
-      const token = backupToken.trim() || 'meow1234'
+      const token = backupToken.trim()
       const cid = classIdInput.trim()
       const url = `${backupUrl.trim()}?action=backup_download&classId=${cid}&token=${encodeURIComponent(token)}`
       const response = await fetch(url)
@@ -49,7 +49,7 @@ function RestoreClassModal({ onClose, onRestoreClass, existingClassIds }) {
       }
 
       localStorage.setItem('ppt_backup_url', backupUrl.trim())
-      localStorage.setItem('ppt_backup_token', backupToken.trim() || 'meow1234')
+      localStorage.setItem('ppt_backup_token', backupToken.trim())
 
       onRestoreClass({
         classId,
@@ -66,6 +66,11 @@ function RestoreClassModal({ onClose, onRestoreClass, existingClassIds }) {
   const handleFileSelect = (event) => {
     const file = event.target.files?.[0]
     if (!file) return
+    if (file.size > 10 * 1024 * 1024) {
+      setMsg('❌ 檔案過大（上限 10 MB）')
+      event.target.value = ''
+      return
+    }
     setMsg(null)
 
     const reader = new FileReader()

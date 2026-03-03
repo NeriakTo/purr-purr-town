@@ -25,7 +25,7 @@ function SettingsModal({ classId, className, classEntry, settings, students, all
   const currencyPreview = formatCurrency(6500, currency)
   const [newTaskType, setNewTaskType] = useState('')
   const [backupUrl, setBackupUrl] = useState(() => localStorage.getItem('ppt_backup_url') || '')
-  const [backupToken, setBackupToken] = useState(() => localStorage.getItem('ppt_backup_token') || 'meow1234')
+  const [backupToken, setBackupToken] = useState(() => localStorage.getItem('ppt_backup_token') || '')
   const [backupBusy, setBackupBusy] = useState(false)
   const [backupMsg, setBackupMsg] = useState(null)
   const [backupMeta, setBackupMeta] = useState(null)
@@ -72,7 +72,7 @@ function SettingsModal({ classId, className, classEntry, settings, students, all
       setBackupMsg(null)
       const payload = {
         action: 'backup_upload',
-        token: backupToken.trim() || 'meow1234',
+        token: backupToken.trim(),
         classId,
         className,
         data: {
@@ -81,7 +81,7 @@ function SettingsModal({ classId, className, classEntry, settings, students, all
           teacher: classEntry?.teacher || '',
           students,
           logs: allLogs,
-          settings: localSettings,
+          settings,
           updatedAt: new Date().toISOString()
         }
       }
@@ -92,11 +92,11 @@ function SettingsModal({ classId, className, classEntry, settings, students, all
         body: JSON.stringify(payload)
       })
       localStorage.setItem('ppt_backup_url', backupUrl.trim())
-      localStorage.setItem('ppt_backup_token', backupToken.trim() || 'meow1234')
+      localStorage.setItem('ppt_backup_token', backupToken.trim())
       const meta = { updatedAt: payload.data.updatedAt, className: className || '', classId }
       localStorage.setItem(`ppt_backup_meta_${classId}`, JSON.stringify(meta))
       setBackupMeta(meta)
-      setBackupMsg('☁️ 備份成功！')
+      setBackupMsg('☁️ 備份已送出（因跨域限制無法確認結果，建議執行一次雲端下載驗證）')
     } catch (err) {
       console.error('備份失敗:', err)
       setBackupMsg('❌ 備份失敗，請檢查網址')
@@ -113,17 +113,20 @@ function SettingsModal({ classId, className, classEntry, settings, students, all
     try {
       setBackupBusy(true)
       setBackupMsg(null)
-      const token = backupToken.trim() || 'meow1234'
+      const token = backupToken.trim()
       const url = `${backupUrl.trim()}?action=backup_download&classId=${classId}&token=${encodeURIComponent(token)}`
       const response = await fetch(url)
       if (!response.ok) throw new Error('Download failed')
       const data = await response.json()
       if (!data?.data) throw new Error('Invalid data')
       const restored = data.data
+      if (!Array.isArray(restored.students) || !Array.isArray(restored.logs)) {
+        throw new Error('備份資料結構不完整（缺少 students 或 logs）')
+      }
       saveClassCache(classId, {
         classId,
-        students: restored.students || [],
-        logs: restored.logs || [],
+        students: restored.students,
+        logs: restored.logs,
         settings: restored.settings || localSettings,
         updatedAt: restored.updatedAt || new Date().toISOString()
       })
@@ -144,7 +147,7 @@ function SettingsModal({ classId, className, classEntry, settings, students, all
         seatingChart: restored.settings?.seatingChart || prev.seatingChart,
       }))
       localStorage.setItem('ppt_backup_url', backupUrl.trim())
-      localStorage.setItem('ppt_backup_token', backupToken.trim() || 'meow1234')
+      localStorage.setItem('ppt_backup_token', backupToken.trim())
       const meta = { updatedAt: restored.updatedAt || new Date().toISOString(), className: className || '', classId }
       localStorage.setItem(`ppt_backup_meta_${classId}`, JSON.stringify(meta))
       setBackupMeta(meta)
@@ -178,7 +181,7 @@ function SettingsModal({ classId, className, classEntry, settings, students, all
           teacher: classEntry?.teacher || '',
           students,
           logs: allLogs,
-          settings: localSettings,
+          settings,
           updatedAt: new Date().toISOString()
         }
       }
@@ -201,6 +204,11 @@ function SettingsModal({ classId, className, classEntry, settings, students, all
   const handleImportBackup = (event) => {
     const file = event.target.files?.[0]
     if (!file) return
+    if (file.size > 10 * 1024 * 1024) {
+      setFileMsg('❌ 檔案過大（上限 10 MB）')
+      event.target.value = ''
+      return
+    }
     if (!window.confirm('確定要從檔案還原嗎？這將覆蓋現有的班級資料！')) {
       event.target.value = ''
       return

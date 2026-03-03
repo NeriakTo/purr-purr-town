@@ -3,7 +3,7 @@ import { ClipboardList, Projector, Plus, Trash2 } from 'lucide-react'
 import { getTodayStr, getNextDay, normalizeStatus, getTaskIcon, getTaskTypeColor } from '../../utils/helpers'
 import { STATUS_VALUES } from '../../utils/constants'
 
-function TaskBoard({ tasks, students, studentStatus, onTasksUpdate, onAddTask, onDeleteTask, taskTypes, onOpenFocus, currentDateStr }) {
+function TaskBoard({ tasks, students, studentStatus, onTasksUpdate, onAddTask, onDeleteTask, taskTypes, onOpenFocus }) {
   const [showAddTask, setShowAddTask] = useState(false)
   const [newTaskTitle, setNewTaskTitle] = useState('')
   const [newTaskType, setNewTaskType] = useState(taskTypes?.[0] || '作業')

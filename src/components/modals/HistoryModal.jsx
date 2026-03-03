@@ -4,7 +4,7 @@ import AvatarEmoji from '../common/AvatarEmoji'
 import { STATUS_VALUES, BATCH_STATUS_CONFIG } from '../../utils/constants'
 import { formatDate, formatDateDisplay, getTodayStr, getTaskDueDate, getTaskCreatedAt, normalizeStatus, getStatusVisual, isDoneStatus, isCountedInDenominator, getTaskIcon, shouldAutoExempt } from '../../utils/helpers'
 
-function HistoryModal({ allLogs, students, settings, onClose, onToggleStatus }) {
+function HistoryModal({ allLogs, students, onClose, onToggleStatus }) {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [filterType, setFilterType] = useState('all')

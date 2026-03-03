@@ -2,6 +2,11 @@
 import { cellKey } from './seatingUtils'
 import { SEATING_OBJECTS, JOB_CATEGORIES } from './constants'
 
+/** HTML 跳脫 — 防止 XSS (用於 document.write 路徑) */
+function escapeHtml(str) {
+  return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+}
+
 // ExcelJS 動態載入，降低首次載入體積
 let ExcelJS = null
 async function loadExcelJS() {
@@ -214,9 +219,9 @@ export function printSeatingChart(seatingChart, students, className) {
       if (objects[key]) {
         const obj = objectMap[objects[key]]
         const color = obj?.color || '#8B8B8B'
-        const label = obj ? obj.label : objects[key]
-        const icon = obj?.icon || ''
-        gridHtml += `<td class="cell obj-cell" style="border-color:${color};background:${color}22">
+        const label = escapeHtml(obj ? obj.label : objects[key])
+        const icon = escapeHtml(obj?.icon || '')
+        gridHtml += `<td class="cell obj-cell" style="border-color:${escapeHtml(color)};background:${escapeHtml(color)}22">
           <span class="obj-icon">${icon}</span>
           <span class="obj-label">${label}</span>
         </td>`
@@ -224,8 +229,8 @@ export function printSeatingChart(seatingChart, students, className) {
         const student = studentMap[grid[key]]
         if (student) {
           gridHtml += `<td class="cell student-cell">
-            <span class="stu-num">${student.number}號</span>
-            <span class="stu-name">${student.name}</span>
+            <span class="stu-num">${escapeHtml(student.number)}號</span>
+            <span class="stu-name">${escapeHtml(student.name)}</span>
           </td>`
         } else {
           gridHtml += '<td class="cell empty-cell"></td>'
@@ -237,7 +242,7 @@ export function printSeatingChart(seatingChart, students, className) {
     gridHtml += '</tr>'
   }
 
-  const title = `${className || '班級'} 座位表`
+  const title = escapeHtml(`${className || '班級'} 座位表`)
   const podiumHtml = `<div class="podium-bar"></div><div class="podium-label">講 台</div>`
 
   const html = `<!DOCTYPE html>
@@ -337,7 +342,7 @@ export function printSeatingChart(seatingChart, students, className) {
   <table>${gridHtml}</table>
   ${isStudentPerspective ? podiumHtml : ''}
 </div>
-<script>window.onload=function(){window.print()}<\/script>
+<script>window.onload=function(){window.print()}<${"/"}script>
 </body>
 </html>`
 

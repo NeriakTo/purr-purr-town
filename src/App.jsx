@@ -9,7 +9,7 @@ function App() {
   const [selectedClass, setSelectedClass] = useState(null)
 
   const handleCreateLocalClass = (payload) => {
-    const classId = `${payload.year}_${Math.floor(Math.random() * 1000)}`
+    const classId = `${payload.year}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`
     const studentCount = payload.studentCount || 10
     const newClass = {
       id: classId,
@@ -77,6 +77,10 @@ function App() {
       saveLocalClasses(nextClasses)
     }
 
+    // 同步 backup_meta，確保 LoginView 備份狀態顯示正確
+    const meta = { updatedAt: data.updatedAt || new Date().toISOString(), className: restoredName || data.className || '', classId }
+    localStorage.setItem(`ppt_backup_meta_${classId}`, JSON.stringify(meta))
+
     // 自動進入該班級
     const displayName = existing?.alias || existing?.name || restoredName || `班級 ${classId}`
     setSelectedClass({ id: classId, name: displayName, alias: existing?.alias || null })
@@ -104,6 +108,7 @@ function App() {
 
   const handleClearLocalClass = (classId) => {
     localStorage.removeItem(getClassCacheKey(classId))
+    localStorage.removeItem(`ppt_backup_meta_${classId}`)
     const next = loadLocalClasses().filter(c => c.id !== classId)
     setLocalClasses(next)
     saveLocalClasses(next)

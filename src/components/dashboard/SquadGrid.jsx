@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Flag, Trophy, Users, ChevronDown } from 'lucide-react'
 import VillagerCard from './VillagerCard'
-import { isDoneStatus, isCountedInDenominator, isActiveStudent, resolveCurrency, normalizeStatus } from '../../utils/helpers'
+import { isCountedInDenominator, isActiveStudent, resolveCurrency, normalizeStatus } from '../../utils/helpers'
 import { STATUS_VALUES, INACTIVE_STUDENT } from '../../utils/constants'
 
 function SquadGrid({ students, activeStudents, tasks, studentStatus, settings, onSelectStudent, checkOverdue }) {

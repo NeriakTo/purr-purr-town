@@ -5,17 +5,12 @@ export const DEFAULT_CURRENCY = {
   tier2: { name: '貓餅乾', rate: 1000, icon: '🍪' },
 }
 
-
-export const DEFAULT_CURRENCY_RATES = { fish: 100, cookie: 1000 }
-
 // v3.6.0: 預設自動化設定
 export const DEFAULT_AUTOMATION = {
   dailyQuestBonus: 50,
   latePenalty: -10,
   missingPenalty: -20,
 }
-
-// v3.4.0: 貨幣單位識別
 
 // v3.4.0: 貨幣單位識別
 export const CURRENCY_UNITS = { POINT: 'point', FISH: 'fish', COOKIE: 'cookie' }
