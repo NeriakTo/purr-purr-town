@@ -117,6 +117,7 @@ export const STATUS_VALUES = {
   MISSING: 'missing',
   LEAVE: 'leave',
   EXEMPT: 'exempt',
+  MAKEUP: 'makeup',
 }
 
 // v3.7.1: 在家自學學生標記
@@ -132,6 +133,7 @@ export const BATCH_STATUS_CONFIG = [
   { value: 'missing', label: '缺交', bgClass: 'bg-[#D64545]', hoverClass: 'hover:bg-[#B83A3A]' },
   { value: 'leave',   label: '請假', bgClass: 'bg-[#8B8B8B]', hoverClass: 'hover:bg-[#6B6B6B]' },
   { value: 'exempt',  label: '免交', bgClass: 'bg-[#B8B8B8]', hoverClass: 'hover:bg-[#999]' },
+  { value: 'makeup',  label: '補交', bgClass: 'bg-[#5B9BD5]', hoverClass: 'hover:bg-[#4A89C0]' },
 ]
 
 // 擴充至 30 種動物 (已排除豬)

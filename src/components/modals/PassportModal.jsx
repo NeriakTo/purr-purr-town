@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { X, Clock, XCircle, AlertTriangle, Check, Coffee, CircleMinus, Wallet, Undo2, Pencil, ChevronDown } from 'lucide-react'
+import { X, Clock, XCircle, AlertTriangle, Check, Coffee, CircleMinus, RotateCcw, Wallet, Undo2, Pencil, ChevronDown } from 'lucide-react'
 import AvatarEmoji from '../common/AvatarEmoji'
 import { RenderIcon } from '../common/IconPicker'
 import { STATUS_VALUES } from '../../utils/constants'
@@ -387,6 +387,12 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
                               >
                                 <CircleMinus size={12} />免交
                               </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); onToggleStatus(student.id, task.id, STATUS_VALUES.MAKEUP); }}
+                                className="px-2 py-1 text-xs rounded-lg bg-[#D6E9F8]/40 text-[#3A6FA0] hover:bg-[#D6E9F8] flex items-center gap-0.5"
+                              >
+                                <RotateCcw size={12} />補交
+                              </button>
                             </div>
                           </div>
                         )
@@ -418,10 +424,10 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
                             </div>
                             <div className="flex items-center gap-1">
                               <button
-                                onClick={(e) => { e.stopPropagation(); onToggleStatus(student.id, item.task.id, STATUS_VALUES.LATE, item.date); }}
-                                className="px-2 py-1 text-[10px] rounded-lg bg-[#FFD6A5]/30 text-[#8B6914] hover:bg-[#FFD6A5] flex items-center gap-0.5"
+                                onClick={(e) => { e.stopPropagation(); onToggleStatus(student.id, item.task.id, STATUS_VALUES.MAKEUP, item.date); }}
+                                className="px-2 py-1 text-[10px] rounded-lg bg-[#D6E9F8]/40 text-[#3A6FA0] hover:bg-[#D6E9F8] flex items-center gap-0.5"
                               >
-                                <Clock size={10} />補交
+                                <RotateCcw size={10} />補交
                               </button>
                               <button
                                 onClick={(e) => { e.stopPropagation(); onToggleStatus(student.id, item.task.id, STATUS_VALUES.MISSING, item.date); }}

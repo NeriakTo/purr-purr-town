@@ -1,6 +1,6 @@
 import { format } from 'date-fns'
 import { STATUS_VALUES, AVATAR_EMOJIS, AVATAR_COLORS, DEFAULT_CURRENCY } from './constants'
-import { Check, Clock, XCircle, Coffee, CircleMinus, BookOpen, AlertTriangle, Palette, ScrollText } from 'lucide-react'
+import { Check, Clock, XCircle, Coffee, CircleMinus, RotateCcw, BookOpen, AlertTriangle, Palette, ScrollText } from 'lucide-react'
 
 export function getTodayStr() {
   return format(new Date(), 'yyyy-MM-dd')
@@ -132,7 +132,7 @@ export function normalizeStatus(value) {
 
 export function isDoneStatus(value) {
   const norm = normalizeStatus(value)
-  return norm === STATUS_VALUES.ON_TIME || norm === STATUS_VALUES.LATE
+  return norm === STATUS_VALUES.ON_TIME || norm === STATUS_VALUES.LATE || norm === STATUS_VALUES.MAKEUP
 }
 
 // v3.7.1: 判斷學生是否為在校生（非在家自學）
@@ -155,6 +155,7 @@ export function getStatusLabel(value) {
     case STATUS_VALUES.MISSING: return '未交'
     case STATUS_VALUES.LEAVE: return '請假'
     case STATUS_VALUES.EXEMPT: return '免交'
+    case STATUS_VALUES.MAKEUP: return '補交'
     default: return ''
   }
 }
@@ -172,9 +173,20 @@ export function getStatusVisual(value) {
       return { icon: Coffee, color: '#8B8B8B', bg: 'bg-[#E8E8E8]/50', border: 'border-[#D8D8D8]', text: 'text-[#8B8B8B]', label: '請假' }
     case STATUS_VALUES.EXEMPT:
       return { icon: CircleMinus, color: '#B8B8B8', bg: 'bg-[#F0F0F0]/50', border: 'border-[#E0E0E0]', text: 'text-[#A0A0A0]', label: '免交' }
+    case STATUS_VALUES.MAKEUP:
+      return { icon: RotateCcw, color: '#5B9BD5', bg: 'bg-[#D6E9F8]/30', border: 'border-[#B8D4EA]', text: 'text-[#3A6FA0]', label: '補交' }
     default:
       return { icon: null, color: '#D8D8D8', bg: 'bg-white', border: 'border-[#E8E8E8]', text: 'text-[#5D5D5D]', label: '' }
   }
+}
+
+export const BATCH_STATUS_ICONS = {
+  on_time: Check,
+  late: Clock,
+  missing: XCircle,
+  leave: Coffee,
+  exempt: CircleMinus,
+  makeup: RotateCcw,
 }
 
 export function getTaskIcon(title) {

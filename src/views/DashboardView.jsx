@@ -140,7 +140,7 @@ function DashboardView({ classId, className, classAlias, classEntry, onLogout, o
         const norm = normalizeStatus(st)
         if (norm === STATUS_VALUES.LEAVE || norm === STATUS_VALUES.EXEMPT) return
         taskDenom++
-        if (norm === STATUS_VALUES.ON_TIME || norm === STATUS_VALUES.LATE) taskNum++
+        if (isDoneStatus(norm)) taskNum++
       })
       numerator += taskNum
       denominator += taskDenom
@@ -240,11 +240,14 @@ function DashboardView({ classId, className, classAlias, classEntry, onLogout, o
     }
 
     // --- Phase 1: UNDO Old Status Effects ---
-    if (normOld === STATUS_VALUES.LATE && automation.latePenalty) {
-      runTransaction(Math.abs(automation.latePenalty), '更正：撤銷遲交扣分')
-    }
-    if (normOld === STATUS_VALUES.MISSING && automation.missingPenalty) {
-      runTransaction(Math.abs(automation.missingPenalty), '更正：撤銷缺交扣分')
+    // 補交僅追蹤結案，不回沖任何已扣點數
+    if (normNew !== STATUS_VALUES.MAKEUP) {
+      if (normOld === STATUS_VALUES.LATE && automation.latePenalty) {
+        runTransaction(Math.abs(automation.latePenalty), '更正：撤銷遲交扣分')
+      }
+      if (normOld === STATUS_VALUES.MISSING && automation.missingPenalty) {
+        runTransaction(Math.abs(automation.missingPenalty), '更正：撤銷缺交扣分')
+      }
     }
 
     // Revoke Daily Quest if streak broken
@@ -320,7 +323,7 @@ function DashboardView({ classId, className, classAlias, classEntry, onLogout, o
           // Actually, usually Daily Quest implies "You did everything you had to do".
           // If I have 3 tasks, 1 is ON_TIME, 2 are EXEMPT -> Did I finish my daily quest? Yes.
           if (norm === STATUS_VALUES.EXEMPT || norm === STATUS_VALUES.LEAVE) return true
-          return norm === STATUS_VALUES.ON_TIME
+          return norm === STATUS_VALUES.ON_TIME || norm === STATUS_VALUES.MAKEUP
         })
 
         if (isAllOnTime && dateTasks.length > 0) {
@@ -693,6 +696,7 @@ function DashboardView({ classId, className, classAlias, classEntry, onLogout, o
           allLogs={allLogs}
           students={activeStudents}
           settings={settings}
+          className={className}
           onClose={() => setShowTaskOverview(false)}
           onNavigateToDate={setCurrentDate}
           onToggleStatus={toggleStatus}
@@ -721,6 +725,7 @@ function DashboardView({ classId, className, classAlias, classEntry, onLogout, o
           allLogs={allLogs}
           students={activeStudents}
           settings={settings}
+          className={className}
           onClose={() => setShowHistory(false)}
           onToggleStatus={toggleStatus}
         />

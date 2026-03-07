@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react'
-import { ListTodo, Filter, Trash2, ChevronDown, X, AlertCircle, CheckCircle, Check, Clock, XCircle, Eye, Coffee, CircleMinus, Calendar as CalendarIcon } from 'lucide-react'
+import { ListTodo, Filter, Trash2, ChevronDown, X, AlertCircle, CheckCircle, Check, Eye, RotateCcw, Calendar as CalendarIcon, Download } from 'lucide-react'
 import AvatarEmoji from '../common/AvatarEmoji'
 import { STATUS_VALUES, BATCH_STATUS_CONFIG } from '../../utils/constants'
-import { formatDateDisplay, getTaskDueDate, getTaskIcon, isDoneStatus, normalizeStatus, isCountedInDenominator, parseDate, shouldAutoExempt } from '../../utils/helpers'
+import { formatDateDisplay, getTaskDueDate, getTaskIcon, isDoneStatus, normalizeStatus, isCountedInDenominator, parseDate, shouldAutoExempt, getStatusLabel, BATCH_STATUS_ICONS } from '../../utils/helpers'
+import { exportTaskStatusToExcel } from '../../utils/exportUtils'
 
-function TaskOverviewModal({ allLogs, students, onClose, onNavigateToDate, onToggleStatus, onDeleteTask }) {
+function TaskOverviewModal({ allLogs, students, onClose, onNavigateToDate, onToggleStatus, onDeleteTask, className }) {
   const [expandedTask, setExpandedTask] = useState(null)
   const [filterType, setFilterType] = useState('all')
   const [batchTaskKey, setBatchTaskKey] = useState(null)
@@ -23,7 +24,8 @@ function TaskOverviewModal({ allLogs, students, onClose, onNavigateToDate, onTog
         const missingStudents = students.filter(s => normalizeStatus(logStatus[s.id]?.[task.id]) === STATUS_VALUES.MISSING)
         const leaveStudents = students.filter(s => normalizeStatus(logStatus[s.id]?.[task.id]) === STATUS_VALUES.LEAVE)
         const exemptStudents = students.filter(s => normalizeStatus(logStatus[s.id]?.[task.id]) === STATUS_VALUES.EXEMPT)
-        const doneCount = onTimeStudents.length + lateStudents.length
+        const makeupStudents = students.filter(s => normalizeStatus(logStatus[s.id]?.[task.id]) === STATUS_VALUES.MAKEUP)
+        const doneCount = onTimeStudents.length + lateStudents.length + makeupStudents.length
         const incompleteStudents = students.filter(s => !isDoneStatus(logStatus[s.id]?.[task.id]) && isCountedInDenominator(logStatus[s.id]?.[task.id]))
 
         const dueDate = getTaskDueDate(task, log.date)
@@ -33,12 +35,13 @@ function TaskOverviewModal({ allLogs, students, onClose, onNavigateToDate, onTog
           dueDate,
           completedCount: doneCount,
           incompleteCount: incompleteStudents.length,
-          totalCount: students.length,
+          totalCount: students.filter(s => isCountedInDenominator(logStatus[s.id]?.[task.id])).length,
           onTimeStudents,
           lateStudents,
           missingStudents,
           leaveStudents,
           exemptStudents,
+          makeupStudents,
           incompleteStudents,
           isComplete: incompleteStudents.length === 0
         })
@@ -180,6 +183,24 @@ function TaskOverviewModal({ allLogs, students, onClose, onNavigateToDate, onTog
                             {task.isComplete ? '✅ 全員完成' : `⏳ 剩餘 ${task.incompleteCount} 人`}
                           </div>
                         </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            const log = allLogs.find(l => l.date === task.date)
+                            const logStatus = log?.status || {}
+                            const statuses = students.map(s => ({
+                              number: s.number,
+                              name: s.name,
+                              status: normalizeStatus(logStatus[s.id]?.[task.id]),
+                              label: getStatusLabel(logStatus[s.id]?.[task.id]),
+                            }))
+                            exportTaskStatusToExcel(task.title, task.dueDate || task.date, statuses, className)
+                          }}
+                          className="p-2 rounded-full hover:bg-[#D6E9F8]/30 transition-colors"
+                          title="匯出任務狀態"
+                        >
+                          <Download size={18} className="text-[#5B9BD5]" />
+                        </button>
                         {onDeleteTask && (
                           <button
                             onClick={(e) => {
@@ -252,8 +273,7 @@ function TaskOverviewModal({ allLogs, students, onClose, onNavigateToDate, onTog
                                   {task.incompleteStudents.every(s => batchSelected[s.id]) ? '取消全選' : '全選'}
                                 </button>
                                 {BATCH_STATUS_CONFIG.map(cfg => {
-                                  const icons = { on_time: Check, late: Clock, missing: XCircle, leave: Coffee, exempt: CircleMinus }
-                                  const Icon = icons[cfg.value]
+                                  const Icon = BATCH_STATUS_ICONS[cfg.value]
                                   return (
                                     <button
                                       key={cfg.value}
@@ -450,6 +470,33 @@ function TaskOverviewModal({ allLogs, students, onClose, onNavigateToDate, onTog
                                 {shouldAutoExempt(s, task.title, task.type) && (
                                   <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#B8B8B8]/20 text-[#8B8B8B]">自動</span>
                                 )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 補交 */}
+                      {task.makeupStudents.length > 0 && (
+                        <div className="mt-4">
+                          <h5 className="text-sm font-bold text-[#3A6FA0] mb-2 flex items-center gap-2">
+                            <RotateCcw size={16} />
+                            補交 ({task.makeupStudents.length})
+                          </h5>
+                          <div className="flex flex-wrap gap-2">
+                            {task.makeupStudents.map(s => (
+                              <div
+                                key={s.id}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  if (onToggleStatus) onToggleStatus(s.id, task.id, false, task.date)
+                                }}
+                                className="flex items-center gap-2 px-3 py-1.5 bg-[#D6E9F8]/30 rounded-lg text-sm border border-[#B8D4EA] cursor-pointer hover:opacity-80 hover:border-[#FFADAD]/50 transition-all"
+                              >
+                                <div className="w-6 h-6 rounded-full overflow-hidden">
+                                  <AvatarEmoji seed={s.uuid || s.id} className="w-full h-full rounded-full text-xs" />
+                                </div>
+                                <span className="text-[#3A6FA0]">{s.number}. {s.name}</span>
                               </div>
                             ))}
                           </div>

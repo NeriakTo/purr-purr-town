@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { X, Calendar as CalendarIcon, Search, ScrollText, Filter, ChevronDown, Check, Clock, XCircle, Coffee, CircleMinus, CheckCircle } from 'lucide-react'
+import { X, Calendar as CalendarIcon, Search, ScrollText, Filter, ChevronDown, Check, Clock, XCircle, Coffee, CircleMinus, RotateCcw, CheckCircle, Download } from 'lucide-react'
 import AvatarEmoji from '../common/AvatarEmoji'
 import { STATUS_VALUES, BATCH_STATUS_CONFIG } from '../../utils/constants'
-import { formatDate, formatDateDisplay, getTodayStr, getTaskDueDate, getTaskCreatedAt, normalizeStatus, getStatusVisual, isDoneStatus, isCountedInDenominator, getTaskIcon, shouldAutoExempt } from '../../utils/helpers'
+import { formatDate, formatDateDisplay, getTodayStr, getTaskDueDate, getTaskCreatedAt, normalizeStatus, getStatusVisual, isDoneStatus, isCountedInDenominator, getTaskIcon, shouldAutoExempt, getStatusLabel, BATCH_STATUS_ICONS } from '../../utils/helpers'
+import { exportTaskStatusToExcel } from '../../utils/exportUtils'
 
-function HistoryModal({ allLogs, students, onClose, onToggleStatus }) {
+function HistoryModal({ allLogs, students, onClose, onToggleStatus, className }) {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [filterType, setFilterType] = useState('all')
@@ -201,13 +202,31 @@ function HistoryModal({ allLogs, students, onClose, onToggleStatus }) {
                     {/* Batch toolbar */}
                     <div className="mt-2 flex items-center justify-end gap-2 mb-2">
                       {!isBatchMode && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setBatchTaskKey(taskKey); setBatchSelected({}) }}
-                          className="px-3 py-1 rounded-lg bg-[#FFD6A5] text-white text-xs font-medium hover:bg-[#FFBF69] transition-colors flex items-center gap-1"
-                        >
-                          <CheckCircle size={14} />
-                          批次操作
-                        </button>
+                        <>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              const statuses = task.studentStatuses.map(ss => ({
+                                number: ss.student.number,
+                                name: ss.student.name,
+                                status: normalizeStatus(ss.status),
+                                label: getStatusLabel(ss.status),
+                              }))
+                              exportTaskStatusToExcel(task.title, task.dueDate, statuses, className)
+                            }}
+                            className="px-3 py-1 rounded-lg bg-[#5B9BD5] text-white text-xs font-medium hover:bg-[#4A89C0] transition-colors flex items-center gap-1"
+                          >
+                            <Download size={14} />
+                            匯出
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setBatchTaskKey(taskKey); setBatchSelected({}) }}
+                            className="px-3 py-1 rounded-lg bg-[#FFD6A5] text-white text-xs font-medium hover:bg-[#FFBF69] transition-colors flex items-center gap-1"
+                          >
+                            <CheckCircle size={14} />
+                            批次操作
+                          </button>
+                        </>
                       )}
                       {isBatchMode && (
                         <div className="flex items-center gap-1.5 flex-wrap">
@@ -224,8 +243,7 @@ function HistoryModal({ allLogs, students, onClose, onToggleStatus }) {
                             {task.studentStatuses.every(ss => batchSelected[ss.student.id]) ? '取消全選' : '全選'}
                           </button>
                           {BATCH_STATUS_CONFIG.map(cfg => {
-                            const icons = { on_time: Check, late: Clock, missing: XCircle, leave: Coffee, exempt: CircleMinus }
-                            const Icon = icons[cfg.value]
+                            const Icon = BATCH_STATUS_ICONS[cfg.value]
                             return (
                               <button
                                 key={cfg.value}
@@ -304,6 +322,11 @@ function HistoryModal({ allLogs, students, onClose, onToggleStatus }) {
                                   className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${normalizeStatus(status) === STATUS_VALUES.EXEMPT ? 'bg-[#B8B8B8] text-white' : 'bg-[#F0F0F0]/50 hover:bg-[#E0E0E0] text-[#A0A0A0]'}`}
                                   title="免交">
                                   <CircleMinus size={12} />
+                                </button>
+                                <button onClick={() => onToggleStatus(student.id, task.id, STATUS_VALUES.MAKEUP, task.logDate)}
+                                  className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${normalizeStatus(status) === STATUS_VALUES.MAKEUP ? 'bg-[#5B9BD5] text-white' : 'bg-[#D6E9F8]/30 hover:bg-[#D6E9F8] text-[#3A6FA0]'}`}
+                                  title="補交">
+                                  <RotateCcw size={12} />
                                 </button>
                                 {(normalizeStatus(status) && Object.values(STATUS_VALUES).includes(normalizeStatus(status))) && (
                                   <button onClick={() => onToggleStatus(student.id, task.id, null, task.logDate)}

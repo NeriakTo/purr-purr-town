@@ -1,6 +1,6 @@
 // v3.7.1: Excel 匯出與列印工具 (ExcelJS for styled export)
 import { cellKey } from './seatingUtils'
-import { SEATING_OBJECTS, JOB_CATEGORIES } from './constants'
+import { SEATING_OBJECTS, JOB_CATEGORIES, STATUS_VALUES } from './constants'
 
 /** HTML 跳脫 — 防止 XSS (用於 document.write 路徑) */
 function escapeHtml(str) {
@@ -35,6 +35,84 @@ async function downloadWorkbook(workbook, filename) {
 /** hex color → ExcelJS ARGB format (e.g. '#A8D8B9' → 'FFA8D8B9') */
 function toArgb(hex) {
   return 'FF' + hex.replace('#', '')
+}
+
+/** 任務狀態 → Excel 底色（非準時的狀態均標色，確保不影響閱讀） */
+function statusFillColor(status) {
+  switch (status) {
+    case STATUS_VALUES.LATE:    return 'FFFFECD2' // 淡橘
+    case STATUS_VALUES.MISSING: return 'FFFFD6D6' // 淡紅
+    case STATUS_VALUES.LEAVE:   return 'FFF0F0F0' // 淡灰
+    case STATUS_VALUES.EXEMPT:  return 'FFF5F5F5' // 極淡灰
+    case STATUS_VALUES.MAKEUP:  return 'FFD6E9F8' // 淡藍
+    default: return null // ON_TIME / 未設定 → 不填色
+  }
+}
+
+/**
+ * 匯出單一任務的村民繳交狀態為 Excel
+ * @param {string} taskTitle  任務名稱
+ * @param {string} taskDate   任務日期 (yyyy-MM-dd)
+ * @param {Array<{number, name, status, label}>} studentStatuses  座號+姓名+狀態
+ * @param {string} [clsName] 班級名稱
+ */
+export async function exportTaskStatusToExcel(taskTitle, taskDate, studentStatuses, clsName) {
+  const exceljs = await loadExcelJS()
+  const workbook = new exceljs.Workbook()
+  const ws = workbook.addWorksheet('任務狀態')
+
+  const displayDate = (taskDate || '').replace(/-/g, '/')
+
+  // --- 標題列 ---
+  ws.mergeCells(1, 1, 1, 3)
+  const titleCell = ws.getCell(1, 1)
+  titleCell.value = `${taskTitle}　${displayDate}`
+  titleCell.font = { bold: true, size: 14, color: { argb: toArgb('#FFFFFF') } }
+  titleCell.alignment = { horizontal: 'center', vertical: 'middle' }
+  titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: toArgb('#7BC496') } }
+  ws.getRow(1).height = 32
+
+  // --- 空行 ---
+  ws.getRow(2).height = 6
+
+  // --- 標頭列 ---
+  const headers = ['座號', '姓名', '繳交狀態']
+  headers.forEach((h, i) => {
+    const cell = ws.getCell(3, i + 1)
+    cell.value = h
+    cell.font = { bold: true, size: 10, color: { argb: toArgb('#5D5D5D') } }
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: toArgb('#F5F5F5') } }
+    cell.alignment = { horizontal: 'center', vertical: 'middle' }
+    cell.border = { bottom: { style: 'thin', color: { argb: toArgb('#E8E8E8') } } }
+  })
+  ws.getRow(3).height = 24
+
+  // --- 資料列（依座號排序）---
+  const sorted = [...studentStatuses].sort((a, b) => (a.number || 0) - (b.number || 0))
+  sorted.forEach((ss, idx) => {
+    const rowNum = idx + 4
+    ws.getCell(rowNum, 1).value = ss.number
+    ws.getCell(rowNum, 2).value = ss.name
+    ws.getCell(rowNum, 3).value = ss.label || '未完成'
+
+    const fill = statusFillColor(ss.status)
+    for (let c = 1; c <= 3; c++) {
+      const cell = ws.getCell(rowNum, c)
+      cell.alignment = { horizontal: 'center', vertical: 'middle' }
+      cell.border = { bottom: { style: 'hair', color: { argb: toArgb('#F0F0F0') } } }
+      if (fill) {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fill } }
+      }
+    }
+  })
+
+  // --- 欄寬 ---
+  ws.getColumn(1).width = 8
+  ws.getColumn(2).width = 14
+  ws.getColumn(3).width = 14
+
+  const filename = `${clsName || '班級'}_${taskTitle}_${displayDate.replace(/\//g, '')}.xlsx`
+  await downloadWorkbook(workbook, filename)
 }
 
 /**
