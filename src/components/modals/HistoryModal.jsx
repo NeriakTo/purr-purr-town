@@ -310,7 +310,7 @@ function HistoryModal({ allLogs, students, onClose, onToggleStatus, className })
                                 </button>
                                 <button onClick={() => onToggleStatus(student.id, task.id, STATUS_VALUES.MISSING, task.logDate)}
                                   className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${normalizeStatus(status) === STATUS_VALUES.MISSING ? 'bg-[#D64545] text-white' : 'bg-[#FFADAD]/20 hover:bg-[#FFADAD] text-[#D64545] hover:text-white'}`}
-                                  title="未交">
+                                  title="缺交">
                                   <XCircle size={12} />
                                 </button>
                                 <button onClick={() => onToggleStatus(student.id, task.id, STATUS_VALUES.LEAVE, task.logDate)}

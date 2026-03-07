@@ -152,7 +152,7 @@ export function getStatusLabel(value) {
   switch (norm) {
     case STATUS_VALUES.ON_TIME: return '準時'
     case STATUS_VALUES.LATE: return '遲交'
-    case STATUS_VALUES.MISSING: return '未交'
+    case STATUS_VALUES.MISSING: return '缺交'
     case STATUS_VALUES.LEAVE: return '請假'
     case STATUS_VALUES.EXEMPT: return '免交'
     case STATUS_VALUES.MAKEUP: return '補交'
@@ -168,7 +168,7 @@ export function getStatusVisual(value) {
     case STATUS_VALUES.LATE:
       return { icon: Clock, color: '#FFBF69', bg: 'bg-[#FFD6A5]/20', border: 'border-[#FFD6A5]', text: 'text-[#8B6914]', label: '遲交' }
     case STATUS_VALUES.MISSING:
-      return { icon: XCircle, color: '#D64545', bg: 'bg-[#FFADAD]/20', border: 'border-[#FFADAD]', text: 'text-[#D64545]', label: '未交' }
+      return { icon: XCircle, color: '#D64545', bg: 'bg-[#FFADAD]/20', border: 'border-[#FFADAD]', text: 'text-[#D64545]', label: '缺交' }
     case STATUS_VALUES.LEAVE:
       return { icon: Coffee, color: '#8B8B8B', bg: 'bg-[#E8E8E8]/50', border: 'border-[#D8D8D8]', text: 'text-[#8B8B8B]', label: '請假' }
     case STATUS_VALUES.EXEMPT:

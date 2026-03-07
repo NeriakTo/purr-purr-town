@@ -371,9 +371,9 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
                               <button
                                 onClick={(e) => { e.stopPropagation(); onToggleStatus(student.id, task.id, STATUS_VALUES.MISSING); }}
                                 className="px-2 py-1 text-xs rounded-lg bg-[#FFADAD]/30 text-[#D64545] hover:bg-[#FFADAD] flex items-center gap-0.5"
-                                title="未交"
+                                title="缺交"
                               >
-                                <XCircle size={12} />未交
+                                <XCircle size={12} />缺交
                               </button>
                               <button
                                 onClick={(e) => { e.stopPropagation(); onToggleStatus(student.id, task.id, 'leave'); }}
@@ -433,7 +433,7 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
                                 onClick={(e) => { e.stopPropagation(); onToggleStatus(student.id, item.task.id, STATUS_VALUES.MISSING, item.date); }}
                                 className="px-2 py-1 text-[10px] rounded-lg bg-[#FFADAD]/30 text-[#D64545] hover:bg-[#FFADAD]/50 flex items-center gap-0.5"
                               >
-                                <XCircle size={10} />未交
+                                <XCircle size={10} />缺交
                               </button>
                               <button
                                 onClick={(e) => { e.stopPropagation(); onToggleStatus(student.id, item.task.id, 'leave', item.date); }}

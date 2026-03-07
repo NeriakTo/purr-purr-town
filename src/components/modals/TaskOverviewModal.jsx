@@ -392,12 +392,12 @@ function TaskOverviewModal({ allLogs, students, onClose, onNavigateToDate, onTog
                         </div>
                       )}
 
-                      {/* 未交 */}
+                      {/* 缺交 */}
                       {task.missingStudents.length > 0 && (
                         <div className="mt-4">
                           <h5 className="text-sm font-bold text-[#D64545] mb-2 flex items-center gap-2">
                             <XCircle size={16} />
-                            未交 ({task.missingStudents.length})
+                            缺交 ({task.missingStudents.length})
                           </h5>
                           <div className="flex flex-wrap gap-2">
                             {task.missingStudents.map(s => (

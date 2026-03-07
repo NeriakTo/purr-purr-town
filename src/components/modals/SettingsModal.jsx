@@ -507,7 +507,7 @@ function SettingsModal({ classId, className, classEntry, settings, students, all
                     <div className="w-8 h-8 rounded-lg bg-[#FFADAD]/20 flex items-center justify-center text-lg">⚠️</div>
                     <div>
                       <h4 className="font-bold text-[#5D5D5D] text-sm">缺交扣分</h4>
-                      <p className="text-xs text-[#8B8B8B]">標記為「未交」時自動扣除</p>
+                      <p className="text-xs text-[#8B8B8B]">標記為「缺交」時自動扣除</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 pl-10">
