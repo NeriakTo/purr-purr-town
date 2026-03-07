@@ -39,16 +39,12 @@ function LoadingScreen({ message = '正在前往呼嚕嚕小鎮...' }) {
 
       <div className="absolute bottom-8 flex items-center gap-2 text-[#A8D8B9]">
         <PawPrint size={20} />
-        <span className="text-sm font-medium">Purr Purr Town v3.1.6</span>
+        <span className="text-sm font-medium">{`呼嚕嚕小鎮 v${__APP_VERSION__}`}</span>
         <PawPrint size={20} />
       </div>
 
     </div>
   )
 }
-
-// ============================================
-// 建立班級 Modal
-// ============================================
 
 export default LoadingScreen
