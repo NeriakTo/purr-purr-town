@@ -1,6 +1,59 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Sparkles, X, Loader2 } from 'lucide-react'
 import AvatarEmoji from '../common/AvatarEmoji'
+
+// 使用 Web Audio API 合成輕柔鐘聲（三音和弦 + 自然衰減）
+function playChime() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)()
+    const now = ctx.currentTime
+
+    // 三個音高組成和弦：C5, E5, G5（溫和的大三和弦）
+    const frequencies = [523.25, 659.25, 783.99]
+    const delays = [0, 0.15, 0.3] // 琶音式依序響起
+
+    frequencies.forEach((freq, i) => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+
+      osc.type = 'sine'
+      osc.frequency.value = freq
+
+      // 輕柔的音量包絡：快速上升、緩慢衰減
+      const start = now + delays[i]
+      gain.gain.setValueAtTime(0, start)
+      gain.gain.linearRampToValueAtTime(0.15, start + 0.05)
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 2.0)
+
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.start(start)
+      osc.stop(start + 2.0)
+    })
+
+    // 第二組：高八度回音（更輕、更遠）
+    setTimeout(() => {
+      const echoFreqs = [1046.5, 1318.5] // C6, E6
+      const echoDelays = [0, 0.12]
+      echoFreqs.forEach((freq, i) => {
+        const osc = ctx.createOscillator()
+        const gain = ctx.createGain()
+        osc.type = 'sine'
+        osc.frequency.value = freq
+        const start = ctx.currentTime + echoDelays[i]
+        gain.gain.setValueAtTime(0, start)
+        gain.gain.linearRampToValueAtTime(0.06, start + 0.03)
+        gain.gain.exponentialRampToValueAtTime(0.001, start + 1.5)
+        osc.connect(gain)
+        gain.connect(ctx.destination)
+        osc.start(start)
+        osc.stop(start + 1.5)
+      })
+    }, 600)
+  } catch {
+    // 瀏覽器不支援 Web Audio API 時靜默降級
+  }
+}
 
 function GadgetsModal({ students, onClose }) {
   const [activeTab, setActiveTab] = useState('timer')
@@ -20,14 +73,21 @@ function GadgetsModal({ students, onClose }) {
     return () => { document.body.style.overflow = '' }
   }, [])
 
+  const timeUpTriggeredRef = useRef(false)
+
   useEffect(() => {
     if (!running) return
+    timeUpTriggeredRef.current = false
     const id = setInterval(() => {
       setRemaining(prev => {
         if (prev <= 1) {
           clearInterval(id)
           setRunning(false)
           setTimeUp(true)
+          if (!timeUpTriggeredRef.current) {
+            timeUpTriggeredRef.current = true
+            playChime()
+          }
           return 0
         }
         return prev - 1
@@ -128,7 +188,7 @@ function GadgetsModal({ students, onClose }) {
               onClick={() => setActiveTab('timer')}
               className={`px-4 py-2 rounded-xl font-bold text-sm transition-all ${activeTab === 'timer' ? 'bg-[#A8D8B9] text-white shadow-md' : 'bg-[#E8E8E8] text-[#5D5D5D]'}`}
             >
-              ⏳ 專注計時
+              ⏳ 專注時鐘
             </button>
             <button
               onClick={() => setActiveTab('draw')}
