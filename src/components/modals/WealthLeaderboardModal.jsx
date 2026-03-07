@@ -7,8 +7,8 @@ import AvatarEmoji from '../common/AvatarEmoji'
 const RANK_BADGES = [
   null, // index 0 unused
   { icon: '\uD83E\uDD47', label: '1st', gradient: 'from-yellow-100 to-amber-50', border: 'border-amber-300', text: 'text-amber-700', glow: 'shadow-amber-200/50' },
-  { icon: '\uD83E\uDD48', label: '2nd', gradient: 'from-gray-100 to-slate-50', border: 'border-gray-300', text: 'text-gray-600', glow: 'shadow-gray-200/50' },
-  { icon: '\uD83E\uDD49', label: '3rd', gradient: 'from-orange-50 to-amber-50', border: 'border-orange-300', text: 'text-orange-700', glow: 'shadow-orange-200/50' },
+  { icon: '\uD83E\uDD48', label: '2nd', gradient: 'from-orange-50 to-amber-50', border: 'border-orange-300', text: 'text-orange-700', glow: 'shadow-orange-200/50' },
+  { icon: '\uD83E\uDD49', label: '3rd', gradient: 'from-gray-100 to-slate-50', border: 'border-gray-300', text: 'text-gray-600', glow: 'shadow-gray-200/50' },
   { icon: '\uD83D\uDCAB', label: '4th', gradient: 'from-violet-50 to-purple-50', border: 'border-violet-200', text: 'text-violet-600', glow: '' },
   { icon: '\u2B50', label: '5th', gradient: 'from-sky-50 to-blue-50', border: 'border-sky-200', text: 'text-sky-600', glow: '' },
 ]
@@ -28,7 +28,7 @@ function WealthLeaderboardModal({ students, settings, className, onClose }) {
         id: student.id,
         number: student.number,
         name: student.name,
-        seed: student.seed,
+        avatarSeed: student.uuid || student.id,
         totalEarned: student.bank.totalEarned || 0,
         balance: student.bank.balance || 0,
       }
@@ -59,7 +59,7 @@ function WealthLeaderboardModal({ students, settings, className, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-lg max-h-[85vh] bg-white rounded-3xl shadow-2xl border border-white/50 flex flex-col overflow-hidden animate-slide-up">
+      <div className="relative w-full max-w-xl max-h-[85vh] bg-white rounded-3xl shadow-2xl border border-white/50 flex flex-col overflow-hidden animate-slide-up">
 
         {/* Header */}
         <div className="shrink-0 bg-gradient-to-r from-[#7BC496] to-[#A8D8B9] px-6 py-4">
@@ -111,7 +111,7 @@ function WealthLeaderboardModal({ students, settings, className, onClose }) {
 
                     {/* Avatar + Info */}
                     <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                      <AvatarEmoji seed={entry.seed} className="w-9 h-9 rounded-xl text-lg shrink-0" />
+                      <AvatarEmoji seed={entry.avatarSeed} className="w-9 h-9 rounded-xl text-lg shrink-0" />
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5">
                           <span className={`text-xs ${isTopThree ? badge.text : 'text-[#8B8B8B]'}`}>

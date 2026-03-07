@@ -332,7 +332,7 @@ export async function exportWealthLeaderboardToExcel(leaderboard, clsName, curre
   // --- 資料列 ---
   leaderboard.forEach((entry, idx) => {
     const rowNum = idx + 4
-    ws.getCell(rowNum, 1).value = `${rankBadge(entry.rank)} ${entry.rank}`
+    ws.getCell(rowNum, 1).value = entry.rank
     ws.getCell(rowNum, 2).value = entry.number
     ws.getCell(rowNum, 3).value = entry.name
     ws.getCell(rowNum, 4).value = entry.totalEarned
