@@ -70,36 +70,65 @@ function SettingsModal({ classId, className, classEntry, settings, students, all
     try {
       setBackupBusy(true)
       setBackupMsg(null)
-      const payload = {
-        action: 'backup_upload',
-        token: backupToken.trim(),
+      const token = backupToken.trim()
+      const uploadData = {
         classId,
         className,
-        data: {
-          classId,
-          className,
-          teacher: classEntry?.teacher || '',
-          students,
-          logs: allLogs,
-          settings,
-          updatedAt: new Date().toISOString()
-        }
+        teacher: classEntry?.teacher || '',
+        students,
+        logs: allLogs,
+        settings,
+        updatedAt: new Date().toISOString()
       }
+      const payload = {
+        action: 'backup_upload',
+        token,
+        classId,
+        className,
+        data: uploadData
+      }
+
+      // Step 1: Upload (no-cors — GAS doesn't support CORS on POST)
       await fetch(backupUrl.trim(), {
         method: 'POST',
         mode: 'no-cors',
         headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify(payload)
       })
+
+      // Step 2: Verify — download back and check integrity
+      const verifyUrl = `${backupUrl.trim()}?action=backup_download&classId=${classId}&token=${encodeURIComponent(token)}`
+      const verifyRes = await fetch(verifyUrl)
+      if (!verifyRes.ok) throw new Error('驗證請求失敗')
+      const verifyData = await verifyRes.json()
+
+      if (!verifyData?.success || !verifyData?.data) {
+        throw new Error('雲端未收到資料，請確認 GAS 部署設定（執行者：自己、存取：所有人）')
+      }
+
+      // Check data integrity
+      const remote = verifyData.data
+      const localStudentCount = students.length
+      const remoteStudentCount = (remote.students || []).length
+      const localLogCount = allLogs.length
+      const remoteLogCount = (remote.logs || []).length
+
+      if (remoteStudentCount !== localStudentCount || remoteLogCount !== localLogCount) {
+        throw new Error(
+          `資料不完整！本機：${localStudentCount} 學生 / ${localLogCount} 筆日誌，` +
+          `雲端：${remoteStudentCount} 學生 / ${remoteLogCount} 筆日誌`
+        )
+      }
+
       localStorage.setItem('ppt_backup_url', backupUrl.trim())
-      localStorage.setItem('ppt_backup_token', backupToken.trim())
-      const meta = { updatedAt: payload.data.updatedAt, className: className || '', classId }
+      localStorage.setItem('ppt_backup_token', token)
+      const meta = { updatedAt: uploadData.updatedAt, className: className || '', classId }
       localStorage.setItem(`ppt_backup_meta_${classId}`, JSON.stringify(meta))
       setBackupMeta(meta)
-      setBackupMsg('☁️ 備份已送出（因跨域限制無法確認結果，建議執行一次雲端下載驗證）')
+      setBackupMsg(`備份成功！已驗證：${localStudentCount} 學生、${localLogCount} 筆日誌`)
     } catch (err) {
       console.error('備份失敗:', err)
-      setBackupMsg('❌ 備份失敗，請檢查網址')
+      setBackupMsg(`❌ ${err.message || '備份失敗，請檢查網址'}`)
     } finally {
       setBackupBusy(false)
     }
@@ -151,7 +180,9 @@ function SettingsModal({ classId, className, classEntry, settings, students, all
       const meta = { updatedAt: restored.updatedAt || new Date().toISOString(), className: className || '', classId }
       localStorage.setItem(`ppt_backup_meta_${classId}`, JSON.stringify(meta))
       setBackupMeta(meta)
-      setBackupMsg('✅ 還原成功！')
+      const studentCount = (restored.students || []).length
+      const logCount = (restored.logs || []).length
+      setBackupMsg(`還原成功！${studentCount} 學生、${logCount} 筆日誌`)
     } catch (err) {
       console.error('還原失敗:', err)
       setBackupMsg('❌ 還原失敗，找不到備份')

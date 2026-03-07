@@ -35,6 +35,7 @@ function RestoreClassModal({ onClose, onRestoreClass, existingClassIds }) {
       const response = await fetch(url)
       if (!response.ok) throw new Error('Download failed')
       const result = await response.json()
+      if (!result?.success) throw new Error(result?.message || 'Server returned error')
       if (!result?.data) throw new Error('Invalid data')
 
       const restored = result.data
