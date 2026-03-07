@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Sparkles, X, Timer, Dice5 } from 'lucide-react'
+import { Sparkles, X } from 'lucide-react'
 import AvatarEmoji from '../common/AvatarEmoji'
 
 // 使用 Web Audio API 合成輕柔鐘聲（三音和弦 + 自然衰減）
@@ -186,17 +186,15 @@ function GadgetsModal({ students, onClose }) {
           <div className="flex gap-3 mb-6">
             <button
               onClick={() => setActiveTab('timer')}
-              className={`px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap transition-all flex items-center gap-1.5 ${activeTab === 'timer' ? 'bg-[#A8D8B9] text-white shadow-md' : 'bg-[#E8E8E8] text-[#5D5D5D]'}`}
+              className={`px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap transition-all ${activeTab === 'timer' ? 'bg-[#A8D8B9] text-white shadow-md' : 'bg-[#E8E8E8] text-[#5D5D5D]'}`}
             >
-              <Timer size={16} />
-              專注時鐘
+              ⏳ 專注時鐘
             </button>
             <button
               onClick={() => setActiveTab('draw')}
-              className={`px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap transition-all flex items-center gap-1.5 ${activeTab === 'draw' ? 'bg-[#FFD6A5] text-white shadow-md' : 'bg-[#E8E8E8] text-[#5D5D5D]'}`}
+              className={`px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap transition-all ${activeTab === 'draw' ? 'bg-[#FFD6A5] text-white shadow-md' : 'bg-[#E8E8E8] text-[#5D5D5D]'}`}
             >
-              <Dice5 size={16} />
-              幸運抽籤
+              🎲 幸運抽籤
             </button>
           </div>
 
