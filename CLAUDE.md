@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**呼嚕嚕小鎮 (Purr Purr Town)** v3.8.0 - Local-First 遊戲化班級經營系統
+**呼嚕嚕小鎮 (Purr Purr Town)** v3.9.0 - Local-First 遊戲化班級經營系統
 - React 19 + Vite 7 + Tailwind CSS 4 SPA
 - LocalStorage 持久化，Google Apps Script 雲端備份
 - 部署至 GitHub Pages (`/purr-purr-town/`)
@@ -67,6 +67,7 @@ src/
 │   ├── HistoryModal.jsx
 │   ├── GadgetsModal.jsx
 │   ├── AnnouncementModal.jsx
+│   ├── WealthLeaderboardModal.jsx # v3.9.0: 財富榜排行
 │   └── CreateClassModal.jsx
 └── utils/
     ├── constants.js      # All defaults, enums, emoji libraries
@@ -82,6 +83,12 @@ src/
 // Points (base) → Fish (rate:100) → Cookie (rate:1000)
 // Use resolveCurrency(), formatCurrency(), toPoints() from helpers.js
 // All prices stored as { price, priceUnit }, converted to points for comparison
+
+// v3.9.0: totalEarned — 總獲取累計點數（排除商店消費）
+// bank: { balance, totalEarned, transactions: [] }
+// createTransaction(bank, amount, reason, { excludeFromTotal }) — 商店消費傳 excludeFromTotal:true
+// calcTotalEarnedFromTransactions(transactions) — 從既有交易遷移回算
+// ensureStudentBank() 自動遷移：若 totalEarned 不存在則從 transactions 回算
 ```
 
 ### Banking Transactions

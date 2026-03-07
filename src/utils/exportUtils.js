@@ -37,6 +37,25 @@ function toArgb(hex) {
   return 'FF' + hex.replace('#', '')
 }
 
+/** v3.9.0: 財富榜排名對應 Excel 底色 */
+function rankFillColor(rank) {
+  if (rank === 1) return 'FFFFF8E1' // 金
+  if (rank === 2) return 'FFF5F5F5' // 銀
+  if (rank === 3) return 'FFFFF3E0' // 銅
+  if (rank <= 5) return 'FFFFFDE7' // 淡黃
+  return null
+}
+
+/** v3.9.0: 排名符號 */
+function rankBadge(rank) {
+  if (rank === 1) return '\uD83E\uDD47' // 🥇
+  if (rank === 2) return '\uD83E\uDD48' // 🥈
+  if (rank === 3) return '\uD83E\uDD49' // 🥉
+  if (rank === 4) return '\uD83D\uDCAB' // 💫
+  if (rank === 5) return '\u2B50'       // ⭐
+  return String(rank)
+}
+
 /** 任務狀態 → Excel 底色（非準時的狀態均標色，確保不影響閱讀） */
 function statusFillColor(status) {
   switch (status) {
@@ -273,6 +292,75 @@ export async function exportJobsToExcel(jobs, jobAssignments, students, classNam
   }
 
   await downloadWorkbook(workbook, `${className || '班級'}_職務表.xlsx`)
+}
+
+/**
+ * v3.9.0: 匯出財富榜為 Excel (styled)
+ * @param {Array<{rank, number, name, totalEarned, balance}>} leaderboard 已排序的排行資料
+ * @param {string} [clsName] 班級名稱
+ * @param {object} [currency] 貨幣設定
+ */
+export async function exportWealthLeaderboardToExcel(leaderboard, clsName, currency) {
+  const exceljs = await loadExcelJS()
+  const workbook = new exceljs.Workbook()
+  const ws = workbook.addWorksheet('財富榜')
+
+  // --- 標題列 ---
+  ws.mergeCells(1, 1, 1, 5)
+  const titleCell = ws.getCell(1, 1)
+  titleCell.value = `\uD83C\uDFC6 ${clsName || '班級'} 呼嚕嚕財富榜`
+  titleCell.font = { bold: true, size: 14, color: { argb: toArgb('#FFFFFF') } }
+  titleCell.alignment = { horizontal: 'center', vertical: 'middle' }
+  titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: toArgb('#7BC496') } }
+  ws.getRow(1).height = 32
+
+  // --- 空行 ---
+  ws.getRow(2).height = 6
+
+  // --- 標頭列 ---
+  const headers = ['名次', '座號', '姓名', '總累計點數', '目前餘額']
+  headers.forEach((h, i) => {
+    const cell = ws.getCell(3, i + 1)
+    cell.value = h
+    cell.font = { bold: true, size: 10, color: { argb: toArgb('#5D5D5D') } }
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: toArgb('#F5F5F5') } }
+    cell.alignment = { horizontal: 'center', vertical: 'middle' }
+    cell.border = { bottom: { style: 'thin', color: { argb: toArgb('#E8E8E8') } } }
+  })
+  ws.getRow(3).height = 24
+
+  // --- 資料列 ---
+  leaderboard.forEach((entry, idx) => {
+    const rowNum = idx + 4
+    ws.getCell(rowNum, 1).value = `${rankBadge(entry.rank)} ${entry.rank}`
+    ws.getCell(rowNum, 2).value = entry.number
+    ws.getCell(rowNum, 3).value = entry.name
+    ws.getCell(rowNum, 4).value = entry.totalEarned
+    ws.getCell(rowNum, 5).value = entry.balance
+
+    const fill = rankFillColor(entry.rank)
+    for (let c = 1; c <= 5; c++) {
+      const cell = ws.getCell(rowNum, c)
+      cell.alignment = { horizontal: 'center', vertical: 'middle' }
+      cell.border = { bottom: { style: 'hair', color: { argb: toArgb('#F0F0F0') } } }
+      if (fill) {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fill } }
+      }
+      if (entry.rank <= 3) {
+        cell.font = { bold: true, size: 11, color: { argb: toArgb('#5D5D5D') } }
+      }
+    }
+  })
+
+  // --- 欄寬 ---
+  ws.getColumn(1).width = 12
+  ws.getColumn(2).width = 8
+  ws.getColumn(3).width = 14
+  ws.getColumn(4).width = 16
+  ws.getColumn(5).width = 14
+
+  const filename = `${clsName || '班級'}_財富榜.xlsx`
+  await downloadWorkbook(workbook, filename)
 }
 
 /**

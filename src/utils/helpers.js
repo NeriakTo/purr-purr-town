@@ -374,17 +374,49 @@ export function formatBalanceBadge(balance, currencyInput) {
   return `${balance}${currency.base.icon || ''}`
 }
 
+// v3.9.0: 判斷交易是否為商店消費（購買/使用道具），不計入 totalEarned
+function isStorePurchaseReason(reason) {
+  const r = reason || ''
+  return r.startsWith('購買') || r.startsWith('使用道具')
+}
+
+// v3.9.0: 從既有交易紀錄回算 totalEarned（遷移用）
+// 排除 voided 交易、商店消費交易、以及修正商店消費的 correction 交易
+export function calcTotalEarnedFromTransactions(transactions) {
+  if (!transactions?.length) return 0
+  const txMap = Object.fromEntries(transactions.map(tx => [tx.id, tx]))
+  return transactions
+    .filter(tx => {
+      if (tx.voided) return false
+      if (isStorePurchaseReason(tx.reason)) return false
+      if (tx.type === 'correction' && tx.correctedTxId) {
+        const original = txMap[tx.correctedTxId]
+        if (original && isStorePurchaseReason(original.reason)) return false
+      }
+      return true
+    })
+    .reduce((sum, tx) => sum + (tx.amount || 0), 0)
+}
+
 export function ensureStudentBank(student) {
-  if (student.bank && student.inventory) return student
+  const hasBank = student.bank && student.inventory
+  const hasTotalEarned = student.bank?.totalEarned !== undefined
+  if (hasBank && hasTotalEarned) return student
+  const bank = student.bank || { balance: 0, transactions: [] }
   return {
     ...student,
-    bank: student.bank || { balance: 0, transactions: [] },
+    bank: {
+      ...bank,
+      totalEarned: hasTotalEarned ? bank.totalEarned : calcTotalEarnedFromTransactions(bank.transactions),
+    },
     inventory: student.inventory || [],
   }
 }
 
-export function createTransaction(bank, amount, reason) {
+export function createTransaction(bank, amount, reason, options = {}) {
   const newBalance = (bank.balance || 0) + amount
+  const totalEarnedDelta = options.excludeFromTotal ? 0 : amount
+  const newTotalEarned = (bank.totalEarned || 0) + totalEarnedDelta
   const tx = {
     id: `tx_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
     date: new Date().toISOString(),
@@ -394,6 +426,7 @@ export function createTransaction(bank, amount, reason) {
   }
   return {
     balance: newBalance,
+    totalEarned: newTotalEarned,
     transactions: [...(bank.transactions || []), tx],
   }
 }

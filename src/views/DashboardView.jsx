@@ -16,8 +16,9 @@ import HistoryModal from '../components/modals/HistoryModal'
 import PassportModal from '../components/modals/PassportModal'
 import AnnouncementModal from '../components/modals/AnnouncementModal'
 import OrangeCatStoreModal from '../components/modals/OrangeCatStoreModal'
+import WealthLeaderboardModal from '../components/modals/WealthLeaderboardModal'
 import { DEFAULT_SETTINGS, DEFAULT_SEATING_CHART, DEFAULT_AUTOMATION, STATUS_VALUES } from '../utils/constants'
-import { formatDate, getTodayStr, getNextDay, getTasksForDate, makeTaskId, normalizeStatus, getTaskDueDate, parseDate, isDoneStatus, isCountedInDenominator, isActiveStudent, loadClassCache, saveClassCache, ensureStudentBank, createTransaction, toPoints, generateId, resolveCurrency, getDailyQuestNetCount, shouldAutoExempt } from '../utils/helpers'
+import { formatDate, getTodayStr, getNextDay, getTasksForDate, makeTaskId, normalizeStatus, getTaskDueDate, parseDate, isDoneStatus, isCountedInDenominator, isActiveStudent, loadClassCache, saveClassCache, ensureStudentBank, createTransaction, toPoints, generateId, resolveCurrency, getDailyQuestNetCount, shouldAutoExempt, calcTotalEarnedFromTransactions } from '../utils/helpers'
 
 function DashboardView({ classId, className, classAlias, classEntry, onLogout, onClearLocalClass, onUpdateClassInfo }) {
   const [students, setStudents] = useState([])
@@ -37,6 +38,7 @@ function DashboardView({ classId, className, classAlias, classEntry, onLogout, o
   const [showAnnouncements, setShowAnnouncements] = useState(false)
   const [showStore, setShowStore] = useState(false)
   const [showSeating, setShowSeating] = useState(false)
+  const [showWealthLeaderboard, setShowWealthLeaderboard] = useState(false)
 
   // v3.4.0: 從 students array 派生 selectedStudent，避免快照過期
   const selectedStudent = useMemo(
@@ -399,6 +401,11 @@ function DashboardView({ classId, className, classAlias, classEntry, onLogout, o
       )
       const correctionAmount = -originalTx.amount
       const newBalance = student.bank.balance + correctionAmount
+      // v3.9.0: 商店消費不影響 totalEarned
+      const isStoreRelated = originalTx.reason?.startsWith('購買') || originalTx.reason?.startsWith('使用道具')
+      const newTotalEarned = isStoreRelated
+        ? (student.bank.totalEarned || 0)
+        : (student.bank.totalEarned || 0) + correctionAmount
       const correctionTx = {
         id: generateId('tx'),
         date: new Date().toISOString(),
@@ -408,7 +415,7 @@ function DashboardView({ classId, className, classAlias, classEntry, onLogout, o
         type: 'correction',
         correctedTxId: txId,
       }
-      return { ...student, bank: { balance: newBalance, transactions: [...updatedTransactions, correctionTx] } }
+      return { ...student, bank: { balance: newBalance, totalEarned: newTotalEarned, transactions: [...updatedTransactions, correctionTx] } }
     }))
   }, [])
 
@@ -428,6 +435,11 @@ function DashboardView({ classId, className, classAlias, classEntry, onLogout, o
       // 淨修正金額 = 新金額 - 原始金額
       const correctionAmount = newAmount - originalTx.amount
       const newBalance = student.bank.balance + correctionAmount
+      // v3.9.0: 商店消費不影響 totalEarned
+      const isStoreRelated = originalTx.reason?.startsWith('購買') || originalTx.reason?.startsWith('使用道具')
+      const newTotalEarned = isStoreRelated
+        ? (student.bank.totalEarned || 0)
+        : (student.bank.totalEarned || 0) + correctionAmount
 
       const correctionTx = {
         id: generateId('tx'),
@@ -443,6 +455,7 @@ function DashboardView({ classId, className, classAlias, classEntry, onLogout, o
         ...student,
         bank: {
           balance: newBalance,
+          totalEarned: newTotalEarned,
           transactions: [...updatedTransactions, correctionTx],
         },
       }
@@ -474,7 +487,7 @@ function DashboardView({ classId, className, classAlias, classEntry, onLogout, o
       if (s.id !== studentId) return s
       const student = ensureStudentBank(s)
       if (student.bank.balance < priceInPoints) return s
-      const newBank = createTransaction(student.bank, -priceInPoints, `購買 ${item.name}`)
+      const newBank = createTransaction(student.bank, -priceInPoints, `購買 ${item.name}`, { excludeFromTotal: true })
       const newInventory = [...(student.inventory || []), {
         itemId: item.id,
         name: item.name,
@@ -505,7 +518,7 @@ function DashboardView({ classId, className, classAlias, classEntry, onLogout, o
       const item = student.inventory?.[itemIndex]
       if (!item) return s
       const newInventory = student.inventory.filter((_, i) => i !== itemIndex)
-      const newBank = createTransaction(student.bank, 0, `使用道具: ${item.name}`)
+      const newBank = createTransaction(student.bank, 0, `使用道具: ${item.name}`, { excludeFromTotal: true })
       return { ...student, bank: newBank, inventory: newInventory }
     }))
   }, [])
@@ -540,6 +553,7 @@ function DashboardView({ classId, className, classAlias, classEntry, onLogout, o
         onOpenHistory={() => setShowHistory(true)}
         onOpenStore={() => setShowStore(true)}
         onOpenSeating={() => setShowSeating(true)}
+        onOpenWealthLeaderboard={() => setShowWealthLeaderboard(true)}
       />
 
       <div className="flex flex-col lg:flex-row gap-4 2xl:gap-3 flex-1 min-h-0">
@@ -757,6 +771,15 @@ function DashboardView({ classId, className, classAlias, classEntry, onLogout, o
           className={className}
           onClose={() => setShowSeating(false)}
           onSave={(chart) => setSettings(prev => ({ ...prev, seatingChart: chart }))}
+        />
+      )}
+
+      {showWealthLeaderboard && (
+        <WealthLeaderboardModal
+          students={activeStudents}
+          settings={settings}
+          className={className}
+          onClose={() => setShowWealthLeaderboard(false)}
         />
       )}
     </div>
