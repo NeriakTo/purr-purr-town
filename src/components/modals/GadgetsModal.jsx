@@ -166,13 +166,13 @@ function GadgetsModal({ students, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-      <div className="relative bg-[#fdfbf7] rounded-3xl shadow-2xl max-w-3xl w-full overflow-hidden">
-        <div className="h-3 bg-gradient-to-r from-[#A8D8B9] to-[#FFD6A5]" />
-        <button onClick={onClose} className="absolute top-5 right-5 p-2 rounded-full bg-white/80 hover:bg-white shadow-md">
+      <div className="relative bg-[#fdfbf7] rounded-3xl shadow-2xl max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+        <div className="h-3 shrink-0 bg-gradient-to-r from-[#A8D8B9] to-[#FFD6A5]" />
+        <button onClick={onClose} className="absolute top-5 right-5 z-10 p-2 rounded-full bg-white/80 hover:bg-white shadow-md">
           <X size={20} className="text-[#5D5D5D]" />
         </button>
 
-        <div className="p-6 md:p-8">
+        <div className="p-6 md:p-8 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
           <div className="flex items-center gap-3 mb-6">
             <div className="w-12 h-12 rounded-2xl bg-[#A8D8B9] flex items-center justify-center text-white shadow-md">
               <Sparkles size={24} />
@@ -186,13 +186,13 @@ function GadgetsModal({ students, onClose }) {
           <div className="flex gap-3 mb-6">
             <button
               onClick={() => setActiveTab('timer')}
-              className={`px-4 py-2 rounded-xl font-bold text-sm transition-all ${activeTab === 'timer' ? 'bg-[#A8D8B9] text-white shadow-md' : 'bg-[#E8E8E8] text-[#5D5D5D]'}`}
+              className={`px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap transition-all ${activeTab === 'timer' ? 'bg-[#A8D8B9] text-white shadow-md' : 'bg-[#E8E8E8] text-[#5D5D5D]'}`}
             >
               ⏳ 專注時鐘
             </button>
             <button
               onClick={() => setActiveTab('draw')}
-              className={`px-4 py-2 rounded-xl font-bold text-sm transition-all ${activeTab === 'draw' ? 'bg-[#FFD6A5] text-white shadow-md' : 'bg-[#E8E8E8] text-[#5D5D5D]'}`}
+              className={`px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap transition-all ${activeTab === 'draw' ? 'bg-[#FFD6A5] text-white shadow-md' : 'bg-[#E8E8E8] text-[#5D5D5D]'}`}
             >
               🎲 幸運抽籤
             </button>
@@ -379,9 +379,5 @@ function GadgetsModal({ students, onClose }) {
     </div>
   )
 }
-
-// ============================================
-// 村民卡片 (v2.0 重新設計)
-// ============================================
 
 export default GadgetsModal
