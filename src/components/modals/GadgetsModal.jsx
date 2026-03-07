@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Sparkles, X, Loader2 } from 'lucide-react'
+import { Sparkles, X, Timer, Dice5 } from 'lucide-react'
 import AvatarEmoji from '../common/AvatarEmoji'
 
 // 使用 Web Audio API 合成輕柔鐘聲（三音和弦 + 自然衰減）
@@ -172,7 +172,7 @@ function GadgetsModal({ students, onClose }) {
           <X size={20} className="text-[#5D5D5D]" />
         </button>
 
-        <div className="p-6 md:p-8 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
+        <div className="flex-1 min-h-0 p-6 md:p-8 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
           <div className="flex items-center gap-3 mb-6">
             <div className="w-12 h-12 rounded-2xl bg-[#A8D8B9] flex items-center justify-center text-white shadow-md">
               <Sparkles size={24} />
@@ -186,15 +186,17 @@ function GadgetsModal({ students, onClose }) {
           <div className="flex gap-3 mb-6">
             <button
               onClick={() => setActiveTab('timer')}
-              className={`px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap transition-all ${activeTab === 'timer' ? 'bg-[#A8D8B9] text-white shadow-md' : 'bg-[#E8E8E8] text-[#5D5D5D]'}`}
+              className={`px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap transition-all flex items-center gap-1.5 ${activeTab === 'timer' ? 'bg-[#A8D8B9] text-white shadow-md' : 'bg-[#E8E8E8] text-[#5D5D5D]'}`}
             >
-              ⏳ 專注時鐘
+              <Timer size={16} />
+              專注時鐘
             </button>
             <button
               onClick={() => setActiveTab('draw')}
-              className={`px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap transition-all ${activeTab === 'draw' ? 'bg-[#FFD6A5] text-white shadow-md' : 'bg-[#E8E8E8] text-[#5D5D5D]'}`}
+              className={`px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap transition-all flex items-center gap-1.5 ${activeTab === 'draw' ? 'bg-[#FFD6A5] text-white shadow-md' : 'bg-[#E8E8E8] text-[#5D5D5D]'}`}
             >
-              🎲 幸運抽籤
+              <Dice5 size={16} />
+              幸運抽籤
             </button>
           </div>
 
