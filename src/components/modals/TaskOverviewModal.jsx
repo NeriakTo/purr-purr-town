@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ListTodo, Filter, Trash2, ChevronDown, X, AlertCircle, CheckCircle, Check, Eye, RotateCcw, Calendar as CalendarIcon, Download } from 'lucide-react'
+import { ListTodo, Filter, Trash2, ChevronDown, X, AlertCircle, CheckCircle, Check, Clock, XCircle, Coffee, Eye, RotateCcw, Calendar as CalendarIcon, Download } from 'lucide-react'
 import AvatarEmoji from '../common/AvatarEmoji'
 import { STATUS_VALUES, BATCH_STATUS_CONFIG } from '../../utils/constants'
 import { formatDateDisplay, getTaskDueDate, getTaskIcon, isDoneStatus, normalizeStatus, isCountedInDenominator, parseDate, shouldAutoExempt, getStatusLabel, BATCH_STATUS_ICONS } from '../../utils/helpers'
@@ -423,7 +423,7 @@ function TaskOverviewModal({ allLogs, students, onClose, onNavigateToDate, onTog
                       {task.leaveStudents.length > 0 && (
                         <div className="mt-4">
                           <h5 className="text-sm font-bold text-[#8B8B8B] mb-2 flex items-center gap-2">
-                            <Clock size={16} />
+                            <Coffee size={16} />
                             請假 ({task.leaveStudents.length})
                           </h5>
                           <div className="flex flex-wrap gap-2">

@@ -205,6 +205,7 @@ function DashboardView({ classId, className, classAlias, classEntry, onLogout, o
   }, [handleDeleteTaskFromLog, tasks])
 
   const toggleStatus = useCallback((studentId, taskId, checked, dateOverride) => {
+    try {
     const automation = settings.automation || DEFAULT_AUTOMATION
     // Status 2.0: normalize true → on_time
     let newValue = checked
@@ -353,6 +354,9 @@ function DashboardView({ classId, className, classAlias, classEntry, onLogout, o
       }
     }, 0)
 
+    } catch (err) {
+      console.error('[toggleStatus] 狀態切換錯誤:', err, { studentId, taskId, checked, dateOverride })
+    }
   }, [currentDate, normalizeDate, settings])
 
   const checkOverdue = useCallback((studentId) => {
