@@ -95,11 +95,14 @@ function JobSettingsTab({ localSettings, setLocalSettings, students, className, 
     }))
   }
 
-  // --- Payroll ---
+  // --- Payroll (v4.0.0: 兩層結構 by-cycle + per-job) ---
+  const [excludedJobIds, setExcludedJobIds] = useState([])
+
   const payrollPreview = () => {
     const entries = []
     localSettings.jobs.forEach(job => {
       if (!selectedPayrollCycles.includes(job.cycle)) return
+      if (excludedJobIds.includes(job.id)) return
       const assignedIds = localSettings.jobAssignments[job.id] || []
       assignedIds.forEach(sid => {
         const student = students.find(s => s.id === sid)
@@ -110,12 +113,17 @@ function JobSettingsTab({ localSettings, setLocalSettings, students, className, 
     return entries
   }
 
+  const toggleJobExclusion = (jobId) => {
+    setExcludedJobIds(prev => prev.includes(jobId) ? prev.filter(id => id !== jobId) : [...prev, jobId])
+  }
+
   const handleProcessPayroll = () => {
     const entries = payrollPreview()
     if (entries.length === 0) return
     if (onProcessPayroll) onProcessPayroll(entries)
     setShowPayroll(false)
     setSelectedPayrollCycles([])
+    setExcludedJobIds([])
   }
 
   const handleExportJobs = () => {
@@ -423,46 +431,57 @@ function JobSettingsTab({ localSettings, setLocalSettings, students, className, 
             </div>
 
             <div className="flex-1 min-h-0 overflow-y-auto space-y-4" style={{ scrollbarWidth: 'thin' }}>
-              <p className="text-xs text-[#8B8B8B]">勾選要發放的薪資週期，系統會自動計算並批次入帳</p>
+              <p className="text-xs text-[#8B8B8B]">勾選週期後，可細選要發放的個別職務</p>
 
               <div className="space-y-2">
                 {Object.entries(JOB_CYCLES).map(([cycleKey, cycleLabel]) => {
                   const jobsInCycle = localSettings.jobs.filter(j => j.cycle === cycleKey)
                   if (jobsInCycle.length === 0) return null
-                  const checked = selectedPayrollCycles.includes(cycleKey)
+                  const cycleChecked = selectedPayrollCycles.includes(cycleKey)
                   return (
-                    <label key={cycleKey} className={`flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${checked ? 'border-[#FFD6A5] bg-[#FFD6A5]/10' : 'border-[#E8E8E8] hover:border-[#FFD6A5]/50'}`}>
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => {
-                          setSelectedPayrollCycles(prev =>
-                            prev.includes(cycleKey) ? prev.filter(c => c !== cycleKey) : [...prev, cycleKey]
-                          )
-                        }}
-                        className="mt-0.5 accent-[#FFD6A5]"
-                      />
-                      <div className="flex-1">
-                        <div className="text-sm font-bold text-[#5D5D5D]">{cycleLabel}</div>
-                        <div className="mt-1 space-y-1">
+                    <div key={cycleKey} className={`rounded-xl border-2 transition-all ${cycleChecked ? 'border-[#FFD6A5] bg-[#FFD6A5]/10' : 'border-[#E8E8E8] hover:border-[#FFD6A5]/50'}`}>
+                      <label className="flex items-center gap-3 p-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={cycleChecked}
+                          onChange={() => {
+                            setSelectedPayrollCycles(prev =>
+                              prev.includes(cycleKey) ? prev.filter(c => c !== cycleKey) : [...prev, cycleKey]
+                            )
+                            setExcludedJobIds(prev => prev.filter(id => !jobsInCycle.some(j => j.id === id)))
+                          }}
+                          className="accent-[#FFD6A5]"
+                        />
+                        <span className="text-sm font-bold text-[#5D5D5D]">{cycleLabel}</span>
+                        <span className="text-xs text-[#8B8B8B]">({jobsInCycle.length} 個職務)</span>
+                      </label>
+                      {cycleChecked && (
+                        <div className="px-3 pb-3 space-y-1 ml-7">
                           {jobsInCycle.map(job => {
                             const assigned = (localSettings.jobAssignments[job.id] || [])
                               .map(sid => students.find(s => s.id === sid))
                               .filter(Boolean)
+                            const jobChecked = !excludedJobIds.includes(job.id)
+                            const noAssignees = assigned.length === 0
                             return (
-                              <div key={job.id} className="text-xs text-[#8B8B8B] flex items-center gap-2">
+                              <label key={job.id} className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs cursor-pointer transition-colors ${noAssignees ? 'opacity-50' : 'hover:bg-white/50'}`}>
+                                <input
+                                  type="checkbox"
+                                  checked={jobChecked && !noAssignees}
+                                  disabled={noAssignees}
+                                  onChange={() => toggleJobExclusion(job.id)}
+                                  className="accent-[#FFD6A5]"
+                                />
                                 <RenderIcon name={job.icon} size={14} />
                                 <span className="font-medium text-[#5D5D5D]">{job.title}</span>
-                                <span>({job.salary} pt)</span>
-                                <span className="text-[10px]">
-                                  {assigned.length > 0 ? assigned.map(s => s.name).join(', ') : '(未指派)'}
-                                </span>
-                              </div>
+                                <span className="text-[#8B8B8B]">({job.salary} pt × {assigned.length} 人)</span>
+                                {noAssignees && <span className="text-[10px] text-[#AAAAAA]">未指派</span>}
+                              </label>
                             )
                           })}
                         </div>
-                      </div>
-                    </label>
+                      )}
+                    </div>
                   )
                 })}
               </div>

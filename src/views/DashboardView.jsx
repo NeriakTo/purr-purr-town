@@ -17,7 +17,7 @@ import PassportModal from '../components/modals/PassportModal'
 import AnnouncementModal from '../components/modals/AnnouncementModal'
 import OrangeCatStoreModal from '../components/modals/OrangeCatStoreModal'
 import WealthLeaderboardModal from '../components/modals/WealthLeaderboardModal'
-import { DEFAULT_SETTINGS, DEFAULT_SEATING_CHART, DEFAULT_AUTOMATION, STATUS_VALUES } from '../utils/constants'
+import { DEFAULT_SETTINGS, DEFAULT_SEATING_CHART, DEFAULT_AUTOMATION, DEFAULT_SEMESTER_PERIODS, DEFAULT_DAILY_DUTY, STATUS_VALUES } from '../utils/constants'
 import { formatDate, getTodayStr, getNextDay, getTasksForDate, makeTaskId, normalizeStatus, getTaskDueDate, parseDate, isDoneStatus, isCountedInDenominator, isActiveStudent, loadClassCache, saveClassCache, ensureStudentBank, createTransaction, toPoints, generateId, resolveCurrency, getDailyQuestNetCount, shouldAutoExempt, calcTotalEarnedFromTransactions } from '../utils/helpers'
 
 function DashboardView({ classId, className, classAlias, classEntry, onLogout, onClearLocalClass, onUpdateClassInfo }) {
@@ -73,6 +73,18 @@ function DashboardView({ classId, className, classAlias, classEntry, onLogout, o
       // v3.5.1: Migrate currencyRates → currency
       if (!cached.settings?.currency && cached.settings?.currencyRates) {
         loadedSettings.currency = resolveCurrency({ currencyRates: cached.settings.currencyRates })
+      }
+      // v4.0.0: 深層合併巢狀設定（H2 修正）
+      loadedSettings.semesterPeriods = {
+        midterm: { ...DEFAULT_SEMESTER_PERIODS.midterm, ...(cached.settings?.semesterPeriods?.midterm) },
+        final: { ...DEFAULT_SEMESTER_PERIODS.final, ...(cached.settings?.semesterPeriods?.final) },
+      }
+      loadedSettings.dailyDuty = { ...DEFAULT_DAILY_DUTY, ...(cached.settings?.dailyDuty) }
+      if (loadedSettings.dutyJobId === undefined) loadedSettings.dutyJobId = null
+      // v4.0.0: 值日生每日自動重置（C2 workflow）
+      const today = getTodayStr()
+      if (loadedSettings.dailyDuty.date && loadedSettings.dailyDuty.date !== today) {
+        loadedSettings.dailyDuty = { ...DEFAULT_DAILY_DUTY, date: today }
       }
       setSettings(loadedSettings)
     }
@@ -482,6 +494,33 @@ function DashboardView({ classId, className, classAlias, classEntry, onLogout, o
     })
   }, [])
 
+  // v4.0.0: 值日生變更
+  const handleDutyChange = useCallback((studentIds) => {
+    setSettings(prev => ({
+      ...prev,
+      dailyDuty: { date: getTodayStr(), studentIds, paid: false },
+    }))
+  }, [])
+
+  // v4.0.0: 值日生發薪
+  const handleDutyPayroll = useCallback(() => {
+    const dutyJob = settings.jobs?.find(j => j.id === settings.dutyJobId)
+    if (!dutyJob) return
+    const { studentIds } = settings.dailyDuty || {}
+    if (!studentIds?.length) return
+    const todayShort = getTodayStr().slice(5).replace('-', '/')
+    const entries = studentIds.map(sid => {
+      const s = students.find(x => x.id === sid)
+      return s ? { studentId: sid, amount: dutyJob.salary, reason: `${dutyJob.title} 薪資 (${todayShort})` } : null
+    }).filter(Boolean)
+    if (entries.length === 0) return
+    handleProcessPayroll(entries)
+    setSettings(prev => ({
+      ...prev,
+      dailyDuty: { ...prev.dailyDuty, paid: true },
+    }))
+  }, [settings, students, handleProcessPayroll])
+
   // v3.5.0: 商店購買
   const handlePurchase = useCallback((studentId, item) => {
     const currency = resolveCurrency(settings)
@@ -576,6 +615,17 @@ function DashboardView({ classId, className, classAlias, classEntry, onLogout, o
               <BulletinBoard
                 announcements={settings.announcements || []}
                 onOpenAnnouncements={() => setShowAnnouncements(true)}
+                activeStudents={activeStudents}
+                dailyDuty={settings.dailyDuty || DEFAULT_DAILY_DUTY}
+                dutyJob={settings.dutyJobId ? settings.jobs?.find(j => j.id === settings.dutyJobId) : null}
+                onDutyChange={handleDutyChange}
+                onDutyPayroll={handleDutyPayroll}
+                onDutySetup={(jobId, newJob) => setSettings(prev => ({
+                  ...prev,
+                  dutyJobId: jobId,
+                  ...(newJob ? { jobs: [...(prev.jobs || []), newJob] } : {}),
+                }))}
+                jobs={settings.jobs || []}
               />
             </div>
           </div>
@@ -783,6 +833,7 @@ function DashboardView({ classId, className, classAlias, classEntry, onLogout, o
           students={activeStudents}
           settings={settings}
           className={className}
+          semesterPeriods={settings.semesterPeriods || DEFAULT_SEMESTER_PERIODS}
           onClose={() => setShowWealthLeaderboard(false)}
         />
       )}

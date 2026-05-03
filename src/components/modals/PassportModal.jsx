@@ -3,7 +3,7 @@ import { X, Clock, XCircle, AlertTriangle, Check, Coffee, CircleMinus, RotateCcw
 import AvatarEmoji from '../common/AvatarEmoji'
 import { RenderIcon } from '../common/IconPicker'
 import { STATUS_VALUES } from '../../utils/constants'
-import { formatDate, formatDateDisplay, getTaskDueDate, getTodayStr, isDoneStatus, normalizeStatus, parseDate, getTaskIcon, getStatusVisual, formatCurrency, resolveCurrency, migrateExemptRules } from '../../utils/helpers'
+import { formatDate, formatDateDisplay, getTaskDueDate, getTodayStr, isDoneStatus, normalizeStatus, parseDate, getTaskIcon, getStatusVisual, formatCurrency, resolveCurrency, migrateExemptRules, calcEarnedFromTransactions } from '../../utils/helpers'
 
 function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus, onStudentUpdate, hasOverdue, settings, allLogs, currentDateStr, onBankTransaction, onUndoTransaction, onCorrectTransaction, onConsumeItem }) {
   const [activeTab, setActiveTab] = useState('tasks')
@@ -21,6 +21,7 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
   const [correctingTx, setCorrectingTx] = useState(null)
   const [correctAmount, setCorrectAmount] = useState('')
   const [correctReason, setCorrectReason] = useState('')
+  const [periodFilter, setPeriodFilter] = useState('all')
 
   const status = studentStatus[student.id] || {}
   const hasTasks = tasks.length > 0
@@ -535,6 +536,46 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
                     </div>
                   </div>
 
+                  {/* v4.0.0: 區間切換 + 小計 */}
+                  {(() => {
+                    const sp = settings?.semesterPeriods
+                    const hasMidterm = sp?.midterm?.start && sp?.midterm?.end
+                    const hasFinal = sp?.final?.start && sp?.final?.end
+                    if (!hasMidterm && !hasFinal) return null
+                    const txs = student.bank?.transactions || []
+                    const periodRange = periodFilter === 'midterm' && hasMidterm ? sp.midterm
+                      : periodFilter === 'final' && hasFinal ? sp.final : null
+                    const periodEarned = periodRange ? calcEarnedFromTransactions(txs, { startDate: periodRange.start, endDate: periodRange.end }) : null
+                    return (
+                      <div className="p-3 bg-[#F9F9F9] rounded-xl border border-[#E8E8E8] space-y-2">
+                        <div className="flex gap-1.5">
+                          {['all', 'midterm', 'final'].map(key => {
+                            const label = key === 'all' ? '全部' : key === 'midterm' ? '期中' : '期末'
+                            const enabled = key === 'all' || (key === 'midterm' && hasMidterm) || (key === 'final' && hasFinal)
+                            if (!enabled) return null
+                            return (
+                              <button
+                                key={key}
+                                onClick={() => setPeriodFilter(key)}
+                                className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${periodFilter === key ? 'bg-[#A8D8B9] text-white' : 'bg-white text-[#8B8B8B] hover:bg-[#A8D8B9]/20'}`}
+                              >
+                                {label}
+                              </button>
+                            )
+                          })}
+                        </div>
+                        {periodEarned !== null && (
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-[#8B8B8B]">{periodFilter === 'midterm' ? '期中' : '期末'}區間淨加減分</span>
+                            <span className={`font-bold ${periodEarned >= 0 ? 'text-[#4A7C59]' : 'text-[#D64545]'}`}>
+                              {periodEarned > 0 ? '+' : ''}{periodEarned} pt
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })()}
+
                   {/* Transaction History with Undo */}
                   <div>
                     <div className="text-sm font-bold text-[#5D5D5D] mb-2">交易紀錄</div>
@@ -557,7 +598,13 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
                               </td>
                             </tr>
                           ) : (
-                            [...(student.bank?.transactions || [])].reverse().map(tx => {
+                            [...(student.bank?.transactions || [])].reverse().filter(tx => {
+                              if (periodFilter === 'all') return true
+                              const sp = settings?.semesterPeriods?.[periodFilter]
+                              if (!sp?.start || !sp?.end) return true
+                              const txLocal = formatDate(new Date(tx.date))
+                              return txLocal >= sp.start && txLocal <= sp.end
+                            }).map(tx => {
                               const isVoided = tx.voided
                               const isCorrection = tx.type === 'correction'
                               return (

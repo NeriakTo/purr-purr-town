@@ -380,12 +380,22 @@ function isStorePurchaseReason(reason) {
   return r.startsWith('購買') || r.startsWith('使用道具')
 }
 
-// v3.9.0: 從既有交易紀錄回算 totalEarned（遷移用）
+// v4.0.0: 統一區間統計函數（C1 修正：共用完整排除邏輯）
 // 排除 voided 交易、商店消費交易、以及修正商店消費的 correction 交易
-export function calcTotalEarnedFromTransactions(transactions) {
+// 可選 startDate/endDate (yyyy-MM-dd) 限縮區間
+export function calcEarnedFromTransactions(transactions, { startDate, endDate } = {}) {
   if (!transactions?.length) return 0
-  const txMap = Object.fromEntries(transactions.map(tx => [tx.id, tx]))
-  return transactions
+  let filtered = transactions
+  if (startDate || endDate) {
+    filtered = filtered.filter(tx => {
+      const txLocalDate = formatDate(new Date(tx.date))
+      if (startDate && txLocalDate < startDate) return false
+      if (endDate && txLocalDate > endDate) return false
+      return true
+    })
+  }
+  const txMap = Object.fromEntries(filtered.map(tx => [tx.id, tx]))
+  return filtered
     .filter(tx => {
       if (tx.voided) return false
       if (isStorePurchaseReason(tx.reason)) return false
@@ -397,6 +407,9 @@ export function calcTotalEarnedFromTransactions(transactions) {
     })
     .reduce((sum, tx) => sum + (tx.amount || 0), 0)
 }
+
+// 向後相容 alias
+export const calcTotalEarnedFromTransactions = (tx) => calcEarnedFromTransactions(tx)
 
 export function ensureStudentBank(student) {
   const hasBank = student.bank && student.inventory

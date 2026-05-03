@@ -15,8 +15,9 @@ export const DEFAULT_AUTOMATION = {
 // v3.4.0: 貨幣單位識別
 export const CURRENCY_UNITS = { POINT: 'point', FISH: 'fish', COOKIE: 'cookie' }
 
-// v3.4.2: 薪資發放週期
+// v3.4.2: 薪資發放週期 (v4.0.0: 新增 daily)
 export const JOB_CYCLES = {
+  daily: '每日',
   weekly: '每週',
   monthly: '每月',
   semester: '每學期',
@@ -97,6 +98,19 @@ export const DEFAULT_SHOP = {
   products: DEFAULT_SHOP_PRODUCTS,
 }
 
+// v4.0.0: 預設學期區間
+export const DEFAULT_SEMESTER_PERIODS = {
+  midterm: { start: null, end: null },
+  final: { start: null, end: null },
+}
+
+// v4.0.0: 預設值日生狀態
+export const DEFAULT_DAILY_DUTY = {
+  date: null,
+  studentIds: [],
+  paid: false,
+}
+
 export const DEFAULT_SETTINGS = {
   taskTypes: ['作業', '訂正', '攜帶物品', '考試', '通知單', '回條'],
   groupAliases: {},
@@ -109,6 +123,9 @@ export const DEFAULT_SETTINGS = {
   jobAssignments: {},
   automation: DEFAULT_AUTOMATION,
   seatingChart: DEFAULT_SEATING_CHART,
+  semesterPeriods: DEFAULT_SEMESTER_PERIODS,
+  dailyDuty: DEFAULT_DAILY_DUTY,
+  dutyJobId: null,
 }
 
 export const STATUS_VALUES = {

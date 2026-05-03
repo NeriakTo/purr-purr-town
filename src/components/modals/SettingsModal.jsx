@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { X, Save, Link, Download, Plus, Trash2, Settings, ClipboardList, Briefcase, Scale, Coins, Banknote, ChevronDown, ShoppingBag, Zap, Home } from 'lucide-react'
-import { DEFAULT_SETTINGS, JOB_CYCLES, DEFAULT_RULE_CATEGORIES, DEFAULT_SHOP, DEFAULT_AUTOMATION, DEFAULT_SEATING_CHART } from '../../utils/constants'
+import { DEFAULT_SETTINGS, JOB_CYCLES, DEFAULT_RULE_CATEGORIES, DEFAULT_SHOP, DEFAULT_AUTOMATION, DEFAULT_SEATING_CHART, DEFAULT_SEMESTER_PERIODS } from '../../utils/constants'
 import { saveClassCache, generateId, resolveCurrency, formatCurrency } from '../../utils/helpers'
 import IconPicker, { RenderIcon } from '../common/IconPicker'
 import JobSettingsTab from './settings/JobSettingsTab'
@@ -20,6 +20,10 @@ function SettingsModal({ classId, className, classEntry, settings, students, all
     jobAssignments: settings?.jobAssignments || DEFAULT_SETTINGS.jobAssignments,
     automation: settings?.automation || DEFAULT_AUTOMATION,
     seatingChart: settings?.seatingChart || DEFAULT_SEATING_CHART,
+    semesterPeriods: {
+      midterm: { ...DEFAULT_SEMESTER_PERIODS.midterm, ...(settings?.semesterPeriods?.midterm) },
+      final: { ...DEFAULT_SEMESTER_PERIODS.final, ...(settings?.semesterPeriods?.final) },
+    },
   })
   const currency = resolveCurrency(localSettings)
   const currencyPreview = formatCurrency(6500, currency)
@@ -606,6 +610,80 @@ function SettingsModal({ classId, className, classEntry, settings, students, all
                   >
                     <Plus size={20} /> 新增
                   </button>
+                </div>
+              </div>
+
+              {/* v4.0.0: 學期區間設定 */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-bold text-[#5D5D5D] flex items-center gap-2">
+                  📅 學期區間
+                </h3>
+                <p className="text-xs text-[#8B8B8B]">設定期中/期末結算區間，用於存摺分段統計與財富榜區間排行</p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="p-4 bg-white rounded-xl border border-[#E8E8E8] space-y-3">
+                    <div className="text-xs font-bold text-[#5D5D5D]">期中區間</div>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs text-[#8B8B8B] w-8 shrink-0">起</label>
+                        <input
+                          type="date"
+                          value={localSettings.semesterPeriods.midterm.start || ''}
+                          onChange={e => setLocalSettings(p => ({
+                            ...p,
+                            semesterPeriods: { ...p.semesterPeriods, midterm: { ...p.semesterPeriods.midterm, start: e.target.value || null } }
+                          }))}
+                          className="flex-1 px-3 py-1.5 rounded-lg border border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-sm"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs text-[#8B8B8B] w-8 shrink-0">迄</label>
+                        <input
+                          type="date"
+                          value={localSettings.semesterPeriods.midterm.end || ''}
+                          onChange={e => setLocalSettings(p => ({
+                            ...p,
+                            semesterPeriods: { ...p.semesterPeriods, midterm: { ...p.semesterPeriods.midterm, end: e.target.value || null } }
+                          }))}
+                          className="flex-1 px-3 py-1.5 rounded-lg border border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-sm"
+                        />
+                      </div>
+                      {localSettings.semesterPeriods.midterm.start && localSettings.semesterPeriods.midterm.end && localSettings.semesterPeriods.midterm.start > localSettings.semesterPeriods.midterm.end && (
+                        <p className="text-[10px] text-[#D64545]">起始日期不得晚於結束日期</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="p-4 bg-white rounded-xl border border-[#E8E8E8] space-y-3">
+                    <div className="text-xs font-bold text-[#5D5D5D]">期末區間</div>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs text-[#8B8B8B] w-8 shrink-0">起</label>
+                        <input
+                          type="date"
+                          value={localSettings.semesterPeriods.final.start || ''}
+                          onChange={e => setLocalSettings(p => ({
+                            ...p,
+                            semesterPeriods: { ...p.semesterPeriods, final: { ...p.semesterPeriods.final, start: e.target.value || null } }
+                          }))}
+                          className="flex-1 px-3 py-1.5 rounded-lg border border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-sm"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs text-[#8B8B8B] w-8 shrink-0">迄</label>
+                        <input
+                          type="date"
+                          value={localSettings.semesterPeriods.final.end || ''}
+                          onChange={e => setLocalSettings(p => ({
+                            ...p,
+                            semesterPeriods: { ...p.semesterPeriods, final: { ...p.semesterPeriods.final, end: e.target.value || null } }
+                          }))}
+                          className="flex-1 px-3 py-1.5 rounded-lg border border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-sm"
+                        />
+                      </div>
+                      {localSettings.semesterPeriods.final.start && localSettings.semesterPeriods.final.end && localSettings.semesterPeriods.final.start > localSettings.semesterPeriods.final.end && (
+                        <p className="text-[10px] text-[#D64545]">起始日期不得晚於結束日期</p>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
 
