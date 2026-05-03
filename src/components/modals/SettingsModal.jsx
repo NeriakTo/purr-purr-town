@@ -628,78 +628,69 @@ function SettingsModal({ classId, className, classEntry, settings, students, all
               </div>
 
               {/* v4.0.0: 學期區間設定 */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-bold text-[#5D5D5D] flex items-center gap-2">
-                  📅 學期區間
-                </h3>
-                <p className="text-xs text-[#8B8B8B]">設定期中/期末結算區間，用於存摺分段統計與財富榜區間排行</p>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="p-4 bg-white rounded-xl border border-[#E8E8E8] space-y-3">
-                    <div className="text-xs font-bold text-[#5D5D5D]">期中區間</div>
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <label className="text-xs text-[#8B8B8B] w-8 shrink-0">起</label>
-                        <input
-                          type="date"
-                          value={localSettings.semesterPeriods.midterm.start || ''}
-                          onChange={e => setLocalSettings(p => ({
-                            ...p,
-                            semesterPeriods: { ...p.semesterPeriods, midterm: { ...p.semesterPeriods.midterm, start: e.target.value || null } }
-                          }))}
-                          className="flex-1 px-3 py-1.5 rounded-lg border border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-sm"
-                        />
+              {(() => {
+                const sp = localSettings.semesterPeriods || DEFAULT_SEMESTER_PERIODS
+                const mid = sp.midterm || DEFAULT_SEMESTER_PERIODS.midterm
+                const fin = sp.final || DEFAULT_SEMESTER_PERIODS.final
+                const updatePeriod = (period, field, value) => {
+                  setLocalSettings(p => {
+                    const prev = p.semesterPeriods || DEFAULT_SEMESTER_PERIODS
+                    return {
+                      ...p,
+                      semesterPeriods: {
+                        ...prev,
+                        [period]: { ...(prev[period] || {}), [field]: value || null },
+                      },
+                    }
+                  })
+                }
+                return (
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-bold text-[#5D5D5D] flex items-center gap-2">
+                      📅 學期區間
+                    </h3>
+                    <p className="text-xs text-[#8B8B8B]">設定期中/期末結算區間，用於存摺分段統計與財富榜區間排行</p>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="p-4 bg-white rounded-xl border border-[#E8E8E8] space-y-3">
+                        <div className="text-xs font-bold text-[#5D5D5D]">期中區間</div>
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <label className="text-xs text-[#8B8B8B] w-8 shrink-0">起</label>
+                            <input type="date" value={mid.start || ''} onChange={e => updatePeriod('midterm', 'start', e.target.value)}
+                              className="flex-1 px-3 py-1.5 rounded-lg border border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-sm" />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <label className="text-xs text-[#8B8B8B] w-8 shrink-0">迄</label>
+                            <input type="date" value={mid.end || ''} onChange={e => updatePeriod('midterm', 'end', e.target.value)}
+                              className="flex-1 px-3 py-1.5 rounded-lg border border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-sm" />
+                          </div>
+                          {mid.start && mid.end && mid.start > mid.end && (
+                            <p className="text-[10px] text-[#D64545]">起始日期不得晚於結束日期</p>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <label className="text-xs text-[#8B8B8B] w-8 shrink-0">迄</label>
-                        <input
-                          type="date"
-                          value={localSettings.semesterPeriods.midterm.end || ''}
-                          onChange={e => setLocalSettings(p => ({
-                            ...p,
-                            semesterPeriods: { ...p.semesterPeriods, midterm: { ...p.semesterPeriods.midterm, end: e.target.value || null } }
-                          }))}
-                          className="flex-1 px-3 py-1.5 rounded-lg border border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-sm"
-                        />
+                      <div className="p-4 bg-white rounded-xl border border-[#E8E8E8] space-y-3">
+                        <div className="text-xs font-bold text-[#5D5D5D]">期末區間</div>
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <label className="text-xs text-[#8B8B8B] w-8 shrink-0">起</label>
+                            <input type="date" value={fin.start || ''} onChange={e => updatePeriod('final', 'start', e.target.value)}
+                              className="flex-1 px-3 py-1.5 rounded-lg border border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-sm" />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <label className="text-xs text-[#8B8B8B] w-8 shrink-0">迄</label>
+                            <input type="date" value={fin.end || ''} onChange={e => updatePeriod('final', 'end', e.target.value)}
+                              className="flex-1 px-3 py-1.5 rounded-lg border border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-sm" />
+                          </div>
+                          {fin.start && fin.end && fin.start > fin.end && (
+                            <p className="text-[10px] text-[#D64545]">起始日期不得晚於結束日期</p>
+                          )}
+                        </div>
                       </div>
-                      {localSettings.semesterPeriods.midterm.start && localSettings.semesterPeriods.midterm.end && localSettings.semesterPeriods.midterm.start > localSettings.semesterPeriods.midterm.end && (
-                        <p className="text-[10px] text-[#D64545]">起始日期不得晚於結束日期</p>
-                      )}
                     </div>
                   </div>
-                  <div className="p-4 bg-white rounded-xl border border-[#E8E8E8] space-y-3">
-                    <div className="text-xs font-bold text-[#5D5D5D]">期末區間</div>
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <label className="text-xs text-[#8B8B8B] w-8 shrink-0">起</label>
-                        <input
-                          type="date"
-                          value={localSettings.semesterPeriods.final.start || ''}
-                          onChange={e => setLocalSettings(p => ({
-                            ...p,
-                            semesterPeriods: { ...p.semesterPeriods, final: { ...p.semesterPeriods.final, start: e.target.value || null } }
-                          }))}
-                          className="flex-1 px-3 py-1.5 rounded-lg border border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-sm"
-                        />
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <label className="text-xs text-[#8B8B8B] w-8 shrink-0">迄</label>
-                        <input
-                          type="date"
-                          value={localSettings.semesterPeriods.final.end || ''}
-                          onChange={e => setLocalSettings(p => ({
-                            ...p,
-                            semesterPeriods: { ...p.semesterPeriods, final: { ...p.semesterPeriods.final, end: e.target.value || null } }
-                          }))}
-                          className="flex-1 px-3 py-1.5 rounded-lg border border-[#E8E8E8] focus:border-[#A8D8B9] outline-none text-sm"
-                        />
-                      </div>
-                      {localSettings.semesterPeriods.final.start && localSettings.semesterPeriods.final.end && localSettings.semesterPeriods.final.start > localSettings.semesterPeriods.final.end && (
-                        <p className="text-[10px] text-[#D64545]">起始日期不得晚於結束日期</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
+                )
+              })()}
 
               <div className="grid gap-6 lg:grid-cols-2">
                 {/* 雲端備份中心 */}
