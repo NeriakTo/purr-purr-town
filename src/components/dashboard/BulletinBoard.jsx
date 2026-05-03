@@ -7,7 +7,7 @@ function DutySetupCard({ jobs, onDutySetup }) {
 
   const handleAutoCreate = () => {
     const newJobId = generateId('job')
-    onDutySetup(newJobId, { id: newJobId, title: '值日生', salary: 50, icon: '💂', cycle: 'daily', category: 'other' })
+    onDutySetup(newJobId, { id: newJobId, title: '值日生', salary: 100, icon: '💂', cycle: 'once', category: 'other' })
   }
 
   return (
