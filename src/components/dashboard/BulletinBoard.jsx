@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Settings, Pin, UserCheck, Coins, ChevronDown, Check, Plus } from 'lucide-react'
+import { Settings, Pin, Coins, Check } from 'lucide-react'
 import { generateId } from '../../utils/helpers'
 
 function DutySetupCard({ jobs, onDutySetup }) {
@@ -11,46 +11,37 @@ function DutySetupCard({ jobs, onDutySetup }) {
   }
 
   return (
-    <div className="mb-3 p-3 rounded-xl bg-[#FFD6A5]/10 border border-[#FFD6A5]/30">
-      <div className="text-xs font-bold text-[#8B6914] mb-2 flex items-center gap-1.5">
-        <UserCheck size={14} />
-        設定值日生職務
+    <div className="relative polaroid-card rounded-xl text-[#5D5D5D] mb-3" style={{ backgroundColor: '#FFF8E7', '--rotation': '-1deg' }}>
+      <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+        <Pin size={14} className="text-[#D97706]" />
       </div>
+      <div className="text-sm font-bold mb-2">💂 值日生設定</div>
       {!expanded ? (
         <div className="space-y-2">
-          <p className="text-[10px] text-[#8B8B8B]">首次使用需先指定哪個職務是「值日生」</p>
+          <p className="text-xs text-[#8B8B8B]">首次使用需先指定值日生職務</p>
           <div className="flex gap-2">
-            <button
-              onClick={handleAutoCreate}
-              className="flex-1 py-1.5 rounded-lg bg-[#FFD6A5] text-white text-xs font-bold hover:bg-[#FFBF69] transition-colors"
-            >
+            <button onClick={handleAutoCreate}
+              className="flex-1 py-1.5 rounded-lg bg-[#FFD6A5] text-white text-xs font-bold hover:bg-[#FFBF69] transition-colors">
               一鍵建立
             </button>
-            <button
-              onClick={() => setExpanded(true)}
-              className="flex-1 py-1.5 rounded-lg bg-white border border-[#E8E8E8] text-xs font-medium text-[#5D5D5D] hover:bg-[#F9F9F9] transition-colors"
-            >
+            <button onClick={() => setExpanded(true)}
+              className="flex-1 py-1.5 rounded-lg bg-white border border-[#E8E8E8] text-xs font-medium text-[#5D5D5D] hover:bg-[#F9F9F9] transition-colors">
               從現有選擇
             </button>
           </div>
         </div>
       ) : (
-        <div className="space-y-1.5 max-h-32 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
+        <div className="space-y-1 max-h-28 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
           {jobs.length === 0 ? (
-            <p className="text-[10px] text-[#8B8B8B]">尚無職務，請先到設定中新增</p>
-          ) : (
-            jobs.map(job => (
-              <button
-                key={job.id}
-                onClick={() => onDutySetup(job.id)}
-                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[#FFD6A5]/20 text-xs text-[#5D5D5D] transition-colors text-left"
-              >
-                <span>{job.icon}</span>
-                <span className="font-medium">{job.title}</span>
-                <span className="text-[#8B8B8B]">({job.salary} pt)</span>
-              </button>
-            ))
-          )}
+            <p className="text-xs text-[#8B8B8B]">尚無職務，請先到設定中新增</p>
+          ) : jobs.map(job => (
+            <button key={job.id} onClick={() => onDutySetup(job.id)}
+              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[#FFD6A5]/20 text-xs text-[#5D5D5D] transition-colors text-left">
+              <span>{job.icon}</span>
+              <span className="font-medium">{job.title}</span>
+              <span className="text-[#8B8B8B]">({job.salary} pt)</span>
+            </button>
+          ))}
         </div>
       )}
     </div>
@@ -58,7 +49,7 @@ function DutySetupCard({ jobs, onDutySetup }) {
 }
 
 function DutyStudentSection({ activeStudents, dailyDuty, dutyJob, onDutyChange, onDutyPayroll, onDutySetup, jobs }) {
-  const [showPicker, setShowPicker] = useState(false)
+  const [inputValue, setInputValue] = useState('')
 
   if (!dutyJob) {
     return <DutySetupCard jobs={jobs} onDutySetup={onDutySetup} />
@@ -66,81 +57,103 @@ function DutyStudentSection({ activeStudents, dailyDuty, dutyJob, onDutyChange, 
 
   const { studentIds = [], paid = false } = dailyDuty || {}
   const selectedStudents = studentIds.map(id => activeStudents.find(s => s.id === id)).filter(Boolean)
+  const validNumbers = activeStudents.map(s => s.number).filter(Boolean)
 
-  const toggleStudent = (studentId) => {
-    const next = studentIds.includes(studentId)
-      ? studentIds.filter(id => id !== studentId)
-      : [...studentIds, studentId]
-    onDutyChange(next)
+  const handleSubmit = () => {
+    const numbers = inputValue
+      .replace(/[,，、\s]+/g, ' ')
+      .trim()
+      .split(' ')
+      .map(n => parseInt(n, 10))
+      .filter(n => !isNaN(n) && validNumbers.includes(n))
+
+    const ids = numbers
+      .map(num => activeStudents.find(s => s.number === num))
+      .filter(Boolean)
+      .map(s => s.id)
+
+    const unique = [...new Set(ids)]
+    if (unique.length > 0) {
+      onDutyChange(unique)
+      setInputValue('')
+    }
+  }
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleSubmit()
+    }
   }
 
   return (
-    <div className="mb-3 p-3 rounded-xl bg-white/80 border border-[#E8E8E8]">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-bold text-[#5D5D5D] flex items-center gap-1.5">
-          <UserCheck size={13} className="text-[#FFD6A5]" />
-          今日值日生
-        </span>
-        <span className="text-[10px] text-[#8B8B8B]">{dutyJob.icon} {dutyJob.salary} pt</span>
+    <div className="relative polaroid-card rounded-xl text-[#5D5D5D] mb-3" style={{ backgroundColor: '#FFF8E7', '--rotation': '-1deg' }}>
+      <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+        <Pin size={14} className="text-[#D97706]" />
       </div>
 
       {selectedStudents.length > 0 ? (
-        <div className="flex flex-wrap gap-1.5 mb-2">
-          {selectedStudents.map(s => (
-            <span
-              key={s.id}
-              className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#FFD6A5]/20 rounded-full text-xs font-medium text-[#8B6914] cursor-pointer hover:bg-[#FFADAD]/20 transition-colors"
-              onClick={() => toggleStudent(s.id)}
-            >
-              {s.number}號 {s.name}
-              <span className="text-[10px]">✕</span>
-            </span>
-          ))}
-        </div>
-      ) : (
-        <p className="text-[10px] text-[#8B8B8B] mb-2">尚未選擇值日生</p>
-      )}
-
-      <div className="flex gap-1.5">
-        <button
-          onClick={() => setShowPicker(v => !v)}
-          className="flex-1 py-1.5 rounded-lg bg-[#fdfbf7] border border-[#E8E8E8] text-xs text-[#5D5D5D] hover:border-[#FFD6A5] transition-colors flex items-center justify-center gap-1"
-        >
-          {showPicker ? <ChevronDown size={12} className="rotate-180" /> : <Plus size={12} />}
-          選擇
-        </button>
-        {selectedStudents.length > 0 && (
-          <button
-            onClick={onDutyPayroll}
-            disabled={paid}
-            className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1
-              ${paid
-                ? 'bg-[#E8F5E9] text-[#4A7C59] cursor-default'
-                : 'bg-gradient-to-r from-[#FFD6A5] to-[#FFBF69] text-white hover:shadow-md'
+        <>
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-sm font-bold">💂 今日值日生</span>
+            <button
+              onClick={onDutyPayroll}
+              disabled={paid}
+              className={`p-1.5 rounded-lg transition-all ${paid
+                ? 'bg-[#E8F5E9] cursor-default'
+                : 'bg-[#FFD6A5]/30 hover:bg-[#FFD6A5]/60'
               }`}
+              title={paid ? '已發放' : '發放值日薪資'}
+            >
+              {paid
+                ? <Check size={14} className="text-[#4A7C59]" />
+                : <Coins size={14} className="text-[#8B6914]" />
+              }
+            </button>
+          </div>
+          <div className="text-base leading-relaxed">
+            {selectedStudents.map((s, i) => (
+              <span key={s.id}>
+                {i > 0 && '、'}<span className="font-bold">{s.number}</span>號 {s.name}
+              </span>
+            ))}
+          </div>
+          {paid && (
+            <div className="mt-1.5 text-[10px] text-[#4A7C59] font-medium">
+              ✓ 已發放 {dutyJob.salary} pt / 人
+            </div>
+          )}
+          <button
+            onClick={() => onDutyChange([])}
+            className="mt-2 text-[10px] text-[#AAAAAA] hover:text-[#8B8B8B] transition-colors"
           >
-            {paid ? <><Check size={12} /> 已發放</> : <><Coins size={12} /> 發薪</>}
+            重新設定
           </button>
-        )}
-      </div>
-
-      {showPicker && (
-        <div className="mt-2 max-h-36 overflow-y-auto border border-[#E8E8E8] rounded-lg p-1.5 space-y-0.5" style={{ scrollbarWidth: 'thin' }}>
-          {activeStudents.map(s => {
-            const isSelected = studentIds.includes(s.id)
-            return (
-              <button
-                key={s.id}
-                onClick={() => toggleStudent(s.id)}
-                className={`w-full flex items-center gap-2 px-2 py-1 rounded-md text-xs transition-colors text-left
-                  ${isSelected ? 'bg-[#FFD6A5]/20 text-[#8B6914] font-bold' : 'text-[#8B8B8B] hover:bg-[#F9F9F9]'}`}
-              >
-                {isSelected && <Check size={10} />}
-                <span>{s.number}號 {s.name}</span>
-              </button>
-            )
-          })}
-        </div>
+        </>
+      ) : (
+        <>
+          <div className="text-sm font-bold mb-2">💂 今日值日生</div>
+          <div className="flex gap-1.5">
+            <input
+              type="text"
+              value={inputValue}
+              onChange={e => setInputValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="輸入座號（如 3 12）"
+              className="flex-1 min-w-0 px-2.5 py-1.5 rounded-lg border border-[#E8E8E8] focus:border-[#FFD6A5] outline-none text-sm bg-white"
+            />
+            <button
+              onClick={handleSubmit}
+              disabled={!inputValue.trim()}
+              className="px-3 py-1.5 rounded-lg bg-[#FFD6A5] text-white text-xs font-bold hover:bg-[#FFBF69] transition-colors disabled:opacity-40 shrink-0"
+            >
+              確定
+            </button>
+          </div>
+          <p className="mt-1.5 text-[10px] text-[#AAAAAA]">
+            座號範圍 {Math.min(...validNumbers)}~{Math.max(...validNumbers)}，空格或逗號分隔
+          </p>
+        </>
       )}
     </div>
   )
@@ -179,12 +192,17 @@ function BulletinBoard({ announcements = [], onOpenAnnouncements, activeStudents
           />
         )}
 
-        {announcements.length === 0 ? (
+        {announcements.length === 0 && !(onDutyChange) ? (
           <div className="text-xs text-[#5D5D5D]/70 bg-white/60 rounded-xl p-3 text-center">
             尚無公告，點擊右上角齒輪新增吧！
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-3">
+            {(announcements.length === 0 && onDutyChange) && (
+              <div className="text-xs text-[#5D5D5D]/70 bg-white/60 rounded-xl p-3 text-center">
+                尚無公告，點擊右上角齒輪新增吧！
+              </div>
+            )}
             {announcements.map((item) => (
               <div
                 key={item.id}
