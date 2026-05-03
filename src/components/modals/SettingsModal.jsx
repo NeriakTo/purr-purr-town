@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { X, Save, Link, Download, Plus, Trash2, Settings, ClipboardList, Briefcase, Scale, Coins, Banknote, ChevronDown, ShoppingBag, Zap, Home } from 'lucide-react'
-import { DEFAULT_SETTINGS, JOB_CYCLES, DEFAULT_RULE_CATEGORIES, DEFAULT_SHOP, DEFAULT_AUTOMATION, DEFAULT_SEATING_CHART, DEFAULT_SEMESTER_PERIODS } from '../../utils/constants'
+import { DEFAULT_SETTINGS, JOB_CYCLES, DEFAULT_RULE_CATEGORIES, DEFAULT_SHOP, DEFAULT_AUTOMATION, DEFAULT_SEATING_CHART, DEFAULT_SEMESTER_PERIODS, DEFAULT_DAILY_DUTY } from '../../utils/constants'
 import { saveClassCache, generateId, resolveCurrency, formatCurrency } from '../../utils/helpers'
 import IconPicker, { RenderIcon } from '../common/IconPicker'
 import JobSettingsTab from './settings/JobSettingsTab'
@@ -24,6 +24,8 @@ function SettingsModal({ classId, className, classEntry, settings, students, all
       midterm: { ...DEFAULT_SEMESTER_PERIODS.midterm, ...(settings?.semesterPeriods?.midterm) },
       final: { ...DEFAULT_SEMESTER_PERIODS.final, ...(settings?.semesterPeriods?.final) },
     },
+    dailyDuty: settings?.dailyDuty || DEFAULT_DAILY_DUTY,
+    dutyJobId: settings?.dutyJobId ?? null,
   })
   const currency = resolveCurrency(localSettings)
   const currencyPreview = formatCurrency(6500, currency)
@@ -178,6 +180,12 @@ function SettingsModal({ classId, className, classEntry, settings, students, all
         jobAssignments: restored.settings?.jobAssignments || prev.jobAssignments,
         automation: restored.settings?.automation || prev.automation,
         seatingChart: restored.settings?.seatingChart || prev.seatingChart,
+        semesterPeriods: {
+          midterm: { ...DEFAULT_SEMESTER_PERIODS.midterm, ...(restored.settings?.semesterPeriods?.midterm) },
+          final: { ...DEFAULT_SEMESTER_PERIODS.final, ...(restored.settings?.semesterPeriods?.final) },
+        },
+        dailyDuty: restored.settings?.dailyDuty || prev.dailyDuty,
+        dutyJobId: restored.settings?.dutyJobId ?? prev.dutyJobId,
       }))
       localStorage.setItem('ppt_backup_url', backupUrl.trim())
       localStorage.setItem('ppt_backup_token', backupToken.trim())
@@ -280,6 +288,12 @@ function SettingsModal({ classId, className, classEntry, settings, students, all
           jobAssignments: restored.settings?.jobAssignments || prev.jobAssignments,
           automation: restored.settings?.automation || DEFAULT_AUTOMATION,
           seatingChart: restored.settings?.seatingChart || prev.seatingChart,
+          semesterPeriods: {
+            midterm: { ...DEFAULT_SEMESTER_PERIODS.midterm, ...(restored.settings?.semesterPeriods?.midterm) },
+            final: { ...DEFAULT_SEMESTER_PERIODS.final, ...(restored.settings?.semesterPeriods?.final) },
+          },
+          dailyDuty: restored.settings?.dailyDuty || prev.dailyDuty,
+          dutyJobId: restored.settings?.dutyJobId ?? prev.dutyJobId,
         }))
         setFileMsg('✅ 還原成功！')
       } catch (err) {

@@ -18,7 +18,7 @@ function DutySetupCard({ jobs, onDutySetup }) {
       </div>
       {!expanded ? (
         <div className="space-y-2">
-          <p className="text-[10px] text-[#8B8B8B]">��次使用需先指定哪個職務是「值日生」</p>
+          <p className="text-[10px] text-[#8B8B8B]">首次使用需先指定哪個職務是「值日生」</p>
           <div className="flex gap-2">
             <button
               onClick={handleAutoCreate}
