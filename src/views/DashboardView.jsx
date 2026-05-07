@@ -733,7 +733,7 @@ function DashboardView({ classId, className, classAlias, classEntry, onLogout, o
           students={students}
           allLogs={allLogs}
           onClose={() => setShowSettings(false)}
-          onSave={setSettings}
+          onSave={(newSettings) => setSettings(prev => ({ ...prev, ...newSettings }))}
           onUpdateClassInfo={onUpdateClassInfo}
           onRestoreFromBackup={(restored) => {
             setStudents((restored.students || []).map((s, i) => ensureStudentBank({ ...s, id: s.id || s.uuid || `student_${i}` })))

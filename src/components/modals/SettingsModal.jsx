@@ -102,7 +102,10 @@ function SettingsModal({ classId, className, classEntry, settings, students, all
         body: JSON.stringify(payload)
       })
 
-      // Step 2: Verify — download back and check integrity
+      // Step 2: Wait for GAS to process (no-cors POST has opaque response)
+      await new Promise(r => setTimeout(r, 2000))
+
+      // Step 3: Verify — download back and check integrity
       const verifyUrl = `${backupUrl.trim()}?action=backup_download&classId=${classId}&token=${encodeURIComponent(token)}`
       const verifyRes = await fetch(verifyUrl)
       if (!verifyRes.ok) throw new Error('驗證請求失敗')
@@ -112,7 +115,6 @@ function SettingsModal({ classId, className, classEntry, settings, students, all
         throw new Error('雲端未收到資料，請確認 GAS 部署設定（執行者：自己、存取：所有人）')
       }
 
-      // Check data integrity
       const remote = verifyData.data
       const localStudentCount = students.length
       const remoteStudentCount = (remote.students || []).length
@@ -126,12 +128,29 @@ function SettingsModal({ classId, className, classEntry, settings, students, all
         )
       }
 
+      // Verify settings integrity
+      const remoteSettings = remote.settings || {}
+      const remoteSettingsKeys = Object.keys(remoteSettings).length
+      const criticalKeys = ['dailyDuty', 'dutyJobId', 'jobs', 'semesterPeriods']
+      const missingCritical = criticalKeys.filter(k => !(k in remoteSettings))
+      const timestampStale = remote.updatedAt && uploadData.updatedAt &&
+        remote.updatedAt !== uploadData.updatedAt
+
+      const warnings = []
+      if (missingCritical.length > 0) warnings.push(`缺少關鍵設定：${missingCritical.join('、')}`)
+      if (timestampStale) warnings.push('雲端時間戳與本次上傳不符，可能為舊資料')
+
       localStorage.setItem('ppt_backup_url', backupUrl.trim())
       localStorage.setItem('ppt_backup_token', token)
       const meta = { updatedAt: uploadData.updatedAt, className: className || '', classId }
       localStorage.setItem(`ppt_backup_meta_${classId}`, JSON.stringify(meta))
       setBackupMeta(meta)
-      setBackupMsg(`備份成功！已驗證：${localStudentCount} 學生、${localLogCount} 筆日誌`)
+
+      if (warnings.length > 0) {
+        setBackupMsg(`⚠️ 備份已上傳但有疑慮：${warnings.join('；')}。建議重新上傳一次。`)
+      } else {
+        setBackupMsg(`備份成功！已驗證：${localStudentCount} 學生、${localLogCount} 筆日誌、${remoteSettingsKeys} 項設定`)
+      }
     } catch (err) {
       console.error('備份失敗:', err)
       setBackupMsg(`❌ ${err.message || '備份失敗，請檢查網址'}`)
