@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { X, Save, Link, Download, Plus, Trash2, Settings, ClipboardList, Briefcase, Scale, Coins, Banknote, ChevronDown, ShoppingBag, Zap, Home } from 'lucide-react'
 import { DEFAULT_SETTINGS, JOB_CYCLES, DEFAULT_RULE_CATEGORIES, DEFAULT_SHOP, DEFAULT_AUTOMATION, DEFAULT_SEATING_CHART, DEFAULT_SEMESTER_PERIODS, DEFAULT_DAILY_DUTY } from '../../utils/constants'
-import { saveClassCache, generateId, resolveCurrency, formatCurrency } from '../../utils/helpers'
+import { saveClassCache, snapshotClassCache, generateId, resolveCurrency, formatCurrency } from '../../utils/helpers'
 import IconPicker, { RenderIcon } from '../common/IconPicker'
 import JobSettingsTab from './settings/JobSettingsTab'
 
@@ -102,20 +102,28 @@ function SettingsModal({ classId, className, classEntry, settings, students, all
         body: JSON.stringify(payload)
       })
 
-      // Step 2: Wait for GAS to process (no-cors POST has opaque response)
-      await new Promise(r => setTimeout(r, 2000))
-
-      // Step 3: Verify — download back and check integrity
+      // Step 2: Verify with retry — GAS processing may take >2s
       const verifyUrl = `${backupUrl.trim()}?action=backup_download&classId=${classId}&token=${encodeURIComponent(token)}`
-      const verifyRes = await fetch(verifyUrl)
-      if (!verifyRes.ok) throw new Error('驗證請求失敗')
-      const verifyData = await verifyRes.json()
-
-      if (!verifyData?.success || !verifyData?.data) {
-        throw new Error('雲端未收到資料，請確認 GAS 部署設定（執行者：自己、存取：所有人）')
+      const delays = [2500, 4000, 6000]
+      let remote = null
+      for (let attempt = 0; attempt < delays.length; attempt++) {
+        await new Promise(r => setTimeout(r, delays[attempt]))
+        try {
+          const verifyRes = await fetch(verifyUrl)
+          if (!verifyRes.ok) continue
+          const verifyData = await verifyRes.json()
+          if (verifyData?.success && verifyData?.data &&
+              verifyData.data.updatedAt === uploadData.updatedAt) {
+            remote = verifyData.data
+            break
+          }
+        } catch { /* retry */ }
       }
 
-      const remote = verifyData.data
+      if (!remote) {
+        throw new Error('雲端驗證失敗：多次嘗試後仍無法確認資料已更新。請稍後重試。')
+      }
+
       const localStudentCount = students.length
       const remoteStudentCount = (remote.students || []).length
       const localLogCount = allLogs.length
@@ -128,17 +136,26 @@ function SettingsModal({ classId, className, classEntry, settings, students, all
         )
       }
 
-      // Verify settings integrity
+      const warnings = []
       const remoteSettings = remote.settings || {}
       const remoteSettingsKeys = Object.keys(remoteSettings).length
-      const criticalKeys = ['dailyDuty', 'dutyJobId', 'jobs', 'semesterPeriods']
+      const criticalKeys = ['dailyDuty', 'dutyJobId', 'jobs', 'jobAssignments', 'semesterPeriods']
       const missingCritical = criticalKeys.filter(k => !(k in remoteSettings))
-      const timestampStale = remote.updatedAt && uploadData.updatedAt &&
-        remote.updatedAt !== uploadData.updatedAt
-
-      const warnings = []
       if (missingCritical.length > 0) warnings.push(`缺少關鍵設定：${missingCritical.join('、')}`)
-      if (timestampStale) warnings.push('雲端時間戳與本次上傳不符，可能為舊資料')
+
+      const localJobAssign = settings?.jobAssignments || {}
+      const remoteJobAssign = remoteSettings.jobAssignments || {}
+      const localAssignCount = Object.values(localJobAssign).reduce((sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0), 0)
+      const remoteAssignCount = Object.values(remoteJobAssign).reduce((sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0), 0)
+      if (localAssignCount > 0 && remoteAssignCount === 0) {
+        warnings.push('職務指派資料遺失（雲端為空但本機有資料）')
+      }
+
+      const localStatusCount = allLogs.reduce((sum, log) => sum + Object.keys(log.status || {}).length, 0)
+      const remoteStatusCount = (remote.logs || []).reduce((sum, log) => sum + Object.keys(log.status || {}).length, 0)
+      if (localStatusCount > 0 && remoteStatusCount < localStatusCount * 0.8) {
+        warnings.push(`作業狀態可能不完整（本機 ${localStatusCount} 筆，雲端 ${remoteStatusCount} 筆）`)
+      }
 
       localStorage.setItem('ppt_backup_url', backupUrl.trim())
       localStorage.setItem('ppt_backup_token', token)
@@ -177,6 +194,7 @@ function SettingsModal({ classId, className, classEntry, settings, students, all
       if (!Array.isArray(restored.students) || !Array.isArray(restored.logs)) {
         throw new Error('備份資料結構不完整（缺少 students 或 logs）')
       }
+      snapshotClassCache(classId)
       saveClassCache(classId, {
         classId,
         students: restored.students,
@@ -285,6 +303,7 @@ function SettingsModal({ classId, className, classEntry, settings, students, all
         if (!restored || !restored.students || !restored.logs || !restored.settings) {
           throw new Error('Invalid backup file')
         }
+        snapshotClassCache(classId)
         saveClassCache(classId, {
           classId,
           students: restored.students || [],

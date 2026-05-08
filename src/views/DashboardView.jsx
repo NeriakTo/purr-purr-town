@@ -81,10 +81,10 @@ function DashboardView({ classId, className, classAlias, classEntry, onLogout, o
       }
       loadedSettings.dailyDuty = { ...DEFAULT_DAILY_DUTY, ...(cached.settings?.dailyDuty) }
       if (loadedSettings.dutyJobId === undefined) loadedSettings.dutyJobId = null
-      // v4.0.0: 值日生每日自動重置（C2 workflow）
+      // v4.0.0: 值日生跨日 — 保留 studentIds，只重置 paid
       const today = getTodayStr()
       if (loadedSettings.dailyDuty.date && loadedSettings.dailyDuty.date !== today) {
-        loadedSettings.dailyDuty = { ...DEFAULT_DAILY_DUTY, date: today }
+        loadedSettings.dailyDuty = { ...loadedSettings.dailyDuty, date: today, paid: false }
       }
       setSettings(loadedSettings)
     }

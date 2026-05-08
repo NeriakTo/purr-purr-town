@@ -100,6 +100,19 @@ export function saveClassCache(classId, payload) {
   }
 }
 
+export function snapshotClassCache(classId) {
+  if (!classId) return false
+  try {
+    const current = localStorage.getItem(getClassCacheKey(classId))
+    if (!current) return false
+    localStorage.setItem(`${getClassCacheKey(classId)}_prev`, current)
+    return true
+  } catch (err) {
+    console.error('快照失敗:', err)
+    return false
+  }
+}
+
 export function getLocalClassesKey() {
   return 'ppt_local_classes'
 }
