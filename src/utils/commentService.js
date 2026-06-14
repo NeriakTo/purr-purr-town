@@ -8,7 +8,14 @@ const API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models'
 const MODEL_TIMEOUT_MS = 15000
 const TOTAL_TIMEOUT_MS = 30000
 
-function buildPrompt(name, rawComment) {
+function buildPrompt(name, rawComment, { lockedComment = false, lockedMotto = false } = {}) {
+  let taskInstruction = '請同時生成 comment 與 motto。'
+  if (lockedComment && !lockedMotto) {
+    taskInstruction = '⚠️ 任務限制：使用者已鎖定「comment」欄位，請**僅生成 motto (八字箴言)**，comment 欄位請回傳空字串。'
+  } else if (!lockedComment && lockedMotto) {
+    taskInstruction = '⚠️ 任務限制：使用者已鎖定「motto」欄位，請**僅生成 comment (暖心評語)**，motto 欄位請回傳空字串。'
+  }
+
   return `
 角色設定：你現在身兼兩個角色。
 1. 【給家長看】你是一位溫暖、正向的台灣國小導師。
@@ -18,7 +25,7 @@ function buildPrompt(name, rawComment) {
 - 學生姓名：${name}
 - 觀察紀錄：${rawComment}
 
-請同時生成 comment 與 motto。
+${taskInstruction}
 
 任務：請根據「觀察紀錄」進行分析，並輸出 JSON 格式結果。
 
@@ -77,12 +84,12 @@ function parseGeminiResponse(text) {
  * @param {AbortSignal} [params.signal] 外部中斷信號（批次模式用）
  * @returns {Promise<{analysis: string, comment: string, motto: string, modelUsed: string}>}
  */
-export async function generateComment({ name, rawComment, keyTier, apiKey, signal }) {
+export async function generateComment({ name, rawComment, keyTier, apiKey, signal, lockedComment = false, lockedMotto = false }) {
   if (!apiKey) throw new Error('未設定 Gemini API Key')
   if (!rawComment?.trim()) throw new Error('觀察紀錄不能為空')
 
   const candidateModels = keyTier === 'paid' ? PAID_MODELS : FREE_MODELS
-  const prompt = buildPrompt(name, rawComment)
+  const prompt = buildPrompt(name, rawComment, { lockedComment, lockedMotto })
   let lastError = ''
 
   const totalStart = Date.now()
@@ -187,6 +194,8 @@ export async function generateCommentsBatch({ students, keyTier, apiKey, semeste
         keyTier,
         apiKey,
         signal,
+        lockedComment: student.lockedComment,
+        lockedMotto: student.lockedMotto,
       })
       completed++
       progressPayload = { success: true, ...result, semester }

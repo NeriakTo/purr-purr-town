@@ -113,7 +113,9 @@ function CommentModal({ students, settings, className, onClose, onUpdateStudents
     const ensured = ensureStudentComments(student)
     const comments = initializeSemesterComment(ensured.comments, sem)
     const semData = comments[sem]
-    if (semData.locked || !semData.rawComment?.trim()) return
+    const isCommentLocked = semData.lockedComment ?? semData.locked ?? false
+    const isMottoLocked = semData.lockedMotto ?? semData.locked ?? false
+    if ((isCommentLocked && isMottoLocked) || !semData.rawComment?.trim()) return
 
     setGeneratingIds(prev => new Set(prev).add(studentId))
 
@@ -128,11 +130,13 @@ function CommentModal({ students, settings, className, onClose, onUpdateStudents
         rawComment: semData.rawComment,
         keyTier,
         apiKey,
+        lockedComment: isCommentLocked,
+        lockedMotto: isMottoLocked,
       })
       applyGenerationResult(studentId, sem, (sd) => ({
         ...sd,
-        polishedComment: result.comment,
-        motto: result.motto,
+        polishedComment: isCommentLocked ? sd.polishedComment : result.comment,
+        motto: isMottoLocked ? sd.motto : result.motto,
         analysis: result.analysis,
         modelUsed: result.modelUsed,
         status: COMMENT_STATUS.DONE,
@@ -167,12 +171,18 @@ function CommentModal({ students, settings, className, onClose, onUpdateStudents
       const ensured = ensureStudentComments(s)
       const comments = initializeSemesterComment(ensured.comments, semester)
       const sd = comments[semester]
-      return !sd.locked && sd.rawComment?.trim() && sd.status !== COMMENT_STATUS.DONE
-    }).map(s => ({
-      id: s.id,
-      name: s.name,
-      rawComment: ensureStudentComments(s).comments[semester]?.rawComment || initializeSemesterComment(ensureStudentComments(s).comments, semester)[semester].rawComment,
-    }))
+      const bothLocked = (sd.lockedComment ?? sd.locked ?? false) && (sd.lockedMotto ?? sd.locked ?? false)
+      return !bothLocked && sd.rawComment?.trim() && sd.status !== COMMENT_STATUS.DONE
+    }).map(s => {
+      const sd = ensureStudentComments(s).comments[semester] || initializeSemesterComment(ensureStudentComments(s).comments, semester)[semester]
+      return {
+        id: s.id,
+        name: s.name,
+        rawComment: sd.rawComment || '',
+        lockedComment: sd.lockedComment ?? sd.locked ?? false,
+        lockedMotto: sd.lockedMotto ?? sd.locked ?? false,
+      }
+    })
 
     if (pending.length === 0) return
 
@@ -212,8 +222,8 @@ function CommentModal({ students, settings, className, onClose, onUpdateStudents
           if (result.success) {
             applyGenerationResult(studentId, semester, (sd) => ({
               ...sd,
-              polishedComment: result.comment,
-              motto: result.motto,
+              polishedComment: (sd.lockedComment ?? sd.locked) ? sd.polishedComment : result.comment,
+              motto: (sd.lockedMotto ?? sd.locked) ? sd.motto : result.motto,
               analysis: result.analysis,
               modelUsed: result.modelUsed,
               status: COMMENT_STATUS.DONE,
@@ -268,7 +278,7 @@ function CommentModal({ students, settings, className, onClose, onUpdateStudents
       if (!sd) return
       if (sd.status === COMMENT_STATUS.DONE) done++
       if (sd.rawComment?.trim()) hasRaw++
-      if (sd.locked) locked++
+      if (sd.lockedComment || sd.lockedMotto || sd.locked) locked++
     })
     return { done, hasRaw, locked, total: activeStudents.length }
   }, [activeStudents, semester])
@@ -492,7 +502,7 @@ function CommentModal({ students, settings, className, onClose, onUpdateStudents
                   </span>
 
                   {/* 鎖定標記 */}
-                  {sd.locked && <Lock size={14} className="text-[#D64545] shrink-0" />}
+                  {(sd.lockedComment || sd.lockedMotto || sd.locked) && <Lock size={14} className="text-[#D64545] shrink-0" />}
 
                   <ChevronDown
                     size={16}
