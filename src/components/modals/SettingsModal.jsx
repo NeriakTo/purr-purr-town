@@ -519,12 +519,13 @@ function SettingsModal({ classId, className, classEntry, settings, students, all
         </div>
 
         {/* Tab Navigation */}
-        <div className="px-6 pt-4 flex gap-1 border-b border-[#E8E8E8] overflow-x-auto shrink-0">
+        <div className="px-6 pt-4 flex gap-1 border-b border-[#E8E8E8] overflow-x-auto shrink-0" style={{ scrollbarWidth: 'thin' }}>
           {tabs.map(tab => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`px-4 py-2.5 rounded-t-xl font-bold text-sm transition-colors whitespace-nowrap flex items-center gap-2 border -mb-px ${activeTab === tab.key
+              ref={el => { if (el && activeTab === tab.key) el.scrollIntoView({ block: 'nearest', inline: 'nearest' }) }}
+              className={`px-3 py-2.5 rounded-t-xl font-bold text-xs sm:text-sm transition-colors whitespace-nowrap flex items-center gap-1.5 border -mb-px ${activeTab === tab.key
                 ? 'bg-white text-[#5D5D5D] border-[#E8E8E8] border-b-white'
                 : 'text-[#8B8B8B] hover:text-[#5D5D5D] hover:bg-[#F9F9F9] border-transparent'
                 }`}
