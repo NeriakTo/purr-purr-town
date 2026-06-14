@@ -111,7 +111,31 @@ export const DEFAULT_DAILY_DUTY = {
   paid: false,
 }
 
+// 評語助手：觀察紀錄快速標籤（依學科分類）
+export const DEFAULT_COMMENT_TAGS = {
+  '一般導師': ['熱心助人', '負責盡職', '活潑外向', '人緣極佳', '沉默寡言', '專注力佳', '容易分心', '作業優良', '需加強整潔', '禮貌周到', '愛惜公物', '樂於分享'],
+  '國語文': ['字跡工整', '喜愛閱讀', '朗讀流暢', '語意表達佳', '成語運用豐富', '寫作具創意', '字音字形需加強'],
+  '數學': ['邏輯清晰', '計算細心', '理解力強', '解題速度快', '粗心大意', '空間概念佳', '運算需加強'],
+  '英語文': ['發音標準', '樂於開口', '單字量豐富', '聽力敏銳', '勇於表達', '需加強拼字'],
+  '藝術': ['具備美感', '富有創意', '色彩豐富', '線條大膽', '歌聲優美', '節奏感強', '鑑賞能力佳'],
+  '健康與體育': ['體能優異', '協調性佳', '團隊合作', '遵守規則', '反應靈敏', '展現運動家精神'],
+  '自然科學': ['觀察入微', '勇於實驗', '喜愛發問', '邏輯推演', '紀錄詳實'],
+  '社會': ['關懷環境', '具備國際觀', '尊重多元', '樂於討論', '具備公民素養'],
+}
+
+// 評語助手：學科選項（對應 DEFAULT_COMMENT_TAGS 的 key）
+export const COMMENT_SUBJECTS = Object.keys(DEFAULT_COMMENT_TAGS)
+
+// 評語助手：生成狀態
+export const COMMENT_STATUS = {
+  IDLE: 'idle',
+  GENERATING: 'generating',
+  DONE: 'done',
+  ERROR: 'error',
+}
+
 export const DEFAULT_SETTINGS = {
+  currentSemester: null,
   taskTypes: ['作業', '訂正', '攜帶物品', '考試', '通知單', '回條'],
   groupAliases: {},
   announcements: [],

@@ -3,9 +3,10 @@ import { X, Clock, XCircle, AlertTriangle, Check, Coffee, CircleMinus, RotateCcw
 import AvatarEmoji from '../common/AvatarEmoji'
 import { RenderIcon } from '../common/IconPicker'
 import { STATUS_VALUES } from '../../utils/constants'
-import { formatDate, formatDateDisplay, getTaskDueDate, getTodayStr, isDoneStatus, normalizeStatus, parseDate, getTaskIcon, getStatusVisual, formatCurrency, resolveCurrency, migrateExemptRules, calcEarnedFromTransactions } from '../../utils/helpers'
+import { formatDate, formatDateDisplay, getTaskDueDate, getTodayStr, isDoneStatus, normalizeStatus, parseDate, getTaskIcon, getStatusVisual, formatCurrency, resolveCurrency, migrateExemptRules, calcEarnedFromTransactions, getCurrentSemester, ensureStudentComments } from '../../utils/helpers'
+import CommentPanel from './CommentPanel'
 
-function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus, onStudentUpdate, hasOverdue, settings, allLogs, currentDateStr, onBankTransaction, onUndoTransaction, onCorrectTransaction, onConsumeItem }) {
+function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus, onStudentUpdate, hasOverdue, settings, allLogs, currentDateStr, onBankTransaction, onUndoTransaction, onCorrectTransaction, onConsumeItem, onUpdateComment, onGenerateComment, isGeneratingComment }) {
   const [activeTab, setActiveTab] = useState('tasks')
   const [editData, setEditData] = useState({
     name: student.name || '',
@@ -158,8 +159,18 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
     { key: 'tasks', label: '📋 任務' },
     { key: 'passbook', label: '💰 存摺與操作' },
 
+    { key: 'comment', label: '📝 評語' },
     { key: 'edit', label: '⚙️ 編輯資料' },
   ]
+
+  const commentSemester = settings.currentSemester || getCurrentSemester()
+  const ensuredStudent = ensureStudentComments(student)
+
+  // 評語密碼閘門
+  const commentPassword = localStorage.getItem('ppt_comment_password')
+  const [commentAuthenticated, setCommentAuthenticated] = useState(!commentPassword)
+  const [commentPwdInput, setCommentPwdInput] = useState('')
+  const [commentPwdError, setCommentPwdError] = useState(false)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -778,6 +789,49 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
                       取消
                     </button>
                   </div>
+                </div>
+              )}
+
+              {/* ===== Comment Tab ===== */}
+              {activeTab === 'comment' && (
+                <div>
+                  {!commentAuthenticated ? (
+                    <div className="text-center py-8">
+                      <p className="text-sm text-[#8B8B8B] mb-3">請輸入老師密碼以查看評語</p>
+                      <form onSubmit={(e) => {
+                        e.preventDefault()
+                        if (commentPwdInput === commentPassword) {
+                          setCommentAuthenticated(true)
+                          setCommentPwdError(false)
+                        } else {
+                          setCommentPwdError(true)
+                        }
+                      }} className="max-w-xs mx-auto space-y-2">
+                        <input
+                          type="password"
+                          value={commentPwdInput}
+                          onChange={(e) => { setCommentPwdInput(e.target.value); setCommentPwdError(false) }}
+                          placeholder="密碼"
+                          className={`w-full px-4 py-2.5 rounded-xl border ${commentPwdError ? 'border-[#D64545]' : 'border-[#E8E8E8]'} focus:border-[#A8D8B9] outline-none text-center text-sm`}
+                        />
+                        {commentPwdError && <p className="text-xs text-[#D64545]">密碼錯誤</p>}
+                        <button type="submit" className="w-full py-2.5 rounded-xl bg-gradient-to-r from-[#A8D8B9] to-[#7BC496] text-white font-medium text-sm">確認</button>
+                      </form>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="text-sm text-[#8B8B8B] mb-3">
+                        {commentSemester.replace('-', '學年 第')}學期
+                      </div>
+                      <CommentPanel
+                        student={ensuredStudent}
+                        semester={commentSemester}
+                        onUpdateComment={onUpdateComment}
+                        onGenerate={onGenerateComment}
+                        isGenerating={isGeneratingComment}
+                      />
+                    </>
+                  )}
                 </div>
               )}
             </div>

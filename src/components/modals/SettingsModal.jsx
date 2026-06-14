@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { X, Save, Link, Download, Plus, Trash2, Settings, ClipboardList, Briefcase, Scale, Coins, Banknote, ChevronDown, ShoppingBag, Zap, Home } from 'lucide-react'
+import { X, Save, Link, Download, Plus, Trash2, Settings, ClipboardList, Briefcase, Scale, Coins, Banknote, ChevronDown, ShoppingBag, Zap, Home, Cloud, MessageSquareText, Eye, EyeOff } from 'lucide-react'
 import { DEFAULT_SETTINGS, JOB_CYCLES, DEFAULT_RULE_CATEGORIES, DEFAULT_SHOP, DEFAULT_AUTOMATION, DEFAULT_SEATING_CHART, DEFAULT_SEMESTER_PERIODS, DEFAULT_DAILY_DUTY } from '../../utils/constants'
-import { saveClassCache, snapshotClassCache, generateId, resolveCurrency, formatCurrency } from '../../utils/helpers'
+import { saveClassCache, snapshotClassCache, generateId, resolveCurrency, formatCurrency, getCurrentSemester } from '../../utils/helpers'
 import IconPicker, { RenderIcon } from '../common/IconPicker'
 import JobSettingsTab from './settings/JobSettingsTab'
+import SyncSettingsTab from './settings/SyncSettingsTab'
 
 function SettingsModal({ classId, className, classEntry, settings, students, allLogs, onClose, onSave, onUpdateClassInfo, onRestoreFromBackup, onClearLocalClass, onProcessPayroll }) {
   const [activeTab, setActiveTab] = useState('general')
@@ -64,7 +65,8 @@ function SettingsModal({ classId, className, classEntry, settings, students, all
         teacher: villageTeacher.trim(),
       })
     }
-    if (onSave) onSave(localSettings)
+    handleSaveCommentSettings()
+    if (onSave) onSave({ ...localSettings, currentSemester: commentSemester })
     onClose()
   }
 
@@ -103,13 +105,14 @@ function SettingsModal({ classId, className, classEntry, settings, students, all
       })
 
       // Step 2: Verify with retry — GAS processing may take >2s
-      const verifyUrl = `${backupUrl.trim()}?action=backup_download&classId=${classId}&token=${encodeURIComponent(token)}`
+      const baseVerifyUrl = `${backupUrl.trim()}?action=backup_download&classId=${classId}&token=${encodeURIComponent(token)}`
       const delays = [2500, 4000, 6000]
       let remote = null
       for (let attempt = 0; attempt < delays.length; attempt++) {
         await new Promise(r => setTimeout(r, delays[attempt]))
         try {
-          const verifyRes = await fetch(verifyUrl)
+          const verifyUrl = `${baseVerifyUrl}&_t=${Date.now()}`
+          const verifyRes = await fetch(verifyUrl, { cache: 'no-store' })
           if (!verifyRes.ok) continue
           const verifyData = await verifyRes.json()
           if (verifyData?.success && verifyData?.data &&
@@ -153,8 +156,11 @@ function SettingsModal({ classId, className, classEntry, settings, students, all
 
       const localStatusCount = allLogs.reduce((sum, log) => sum + Object.keys(log.status || {}).length, 0)
       const remoteStatusCount = (remote.logs || []).reduce((sum, log) => sum + Object.keys(log.status || {}).length, 0)
-      if (localStatusCount > 0 && remoteStatusCount < localStatusCount * 0.8) {
-        warnings.push(`作業狀態可能不完整（本機 ${localStatusCount} 筆，雲端 ${remoteStatusCount} 筆）`)
+      if (localStatusCount > 0 && remoteStatusCount < localStatusCount * 0.9) {
+        throw new Error(
+          `作業狀態不完整！本機 ${localStatusCount} 筆，雲端僅 ${remoteStatusCount} 筆。` +
+          `請稍後重試，若持續失敗請聯繫管理員。`
+        )
       }
 
       localStorage.setItem('ppt_backup_url', backupUrl.trim())
@@ -185,14 +191,25 @@ function SettingsModal({ classId, className, classEntry, settings, students, all
       setBackupBusy(true)
       setBackupMsg(null)
       const token = backupToken.trim()
-      const url = `${backupUrl.trim()}?action=backup_download&classId=${classId}&token=${encodeURIComponent(token)}`
-      const response = await fetch(url)
+      const url = `${backupUrl.trim()}?action=backup_download&classId=${classId}&token=${encodeURIComponent(token)}&_t=${Date.now()}`
+      const response = await fetch(url, { cache: 'no-store' })
       if (!response.ok) throw new Error('Download failed')
       const data = await response.json()
       if (!data?.data) throw new Error('Invalid data')
       const restored = data.data
       if (!Array.isArray(restored.students) || !Array.isArray(restored.logs)) {
         throw new Error('備份資料結構不完整（缺少 students 或 logs）')
+      }
+      const remoteStatusCount = (restored.logs || []).reduce((sum, log) => sum + Object.keys(log.status || {}).length, 0)
+      const localStatusCount = allLogs.reduce((sum, log) => sum + Object.keys(log.status || {}).length, 0)
+      if (localStatusCount > 0 && remoteStatusCount < localStatusCount * 0.9) {
+        const proceed = window.confirm(
+          `⚠️ 雲端備份的作業狀態（${remoteStatusCount} 筆）少於本機（${localStatusCount} 筆）。\n\n還原將覆蓋本機資料，確定要繼續嗎？`
+        )
+        if (!proceed) {
+          setBackupMsg('已取消還原')
+          return
+        }
       }
       snapshotClassCache(classId)
       saveClassCache(classId, {
@@ -454,7 +471,30 @@ function SettingsModal({ classId, className, classEntry, settings, students, all
     { key: 'shop', label: '商店設定', icon: ShoppingBag },
     { key: 'currency', label: '貨幣設定', icon: Coins },
     { key: 'automation', label: '自動化設定', icon: Zap },
+    { key: 'sync', label: '雲端同步', icon: Cloud },
+    { key: 'comment', label: '評語設定', icon: MessageSquareText },
   ]
+
+  // 評語設定 state（獨立 localStorage，不進 settings）
+  const [commentPassword, setCommentPassword] = useState(() => localStorage.getItem('ppt_comment_password') || '')
+  const [commentApiKey, setCommentApiKey] = useState(() => localStorage.getItem('ppt_gemini_api_key') || '')
+  const [commentKeyTier, setCommentKeyTier] = useState(() => localStorage.getItem('ppt_gemini_key_tier') || 'free')
+  const [showCommentApiKey, setShowCommentApiKey] = useState(false)
+  const [commentSemester, setCommentSemester] = useState(() => settings?.currentSemester || getCurrentSemester())
+
+  const handleSaveCommentSettings = () => {
+    if (commentPassword) {
+      localStorage.setItem('ppt_comment_password', commentPassword)
+    } else {
+      localStorage.removeItem('ppt_comment_password')
+    }
+    if (commentApiKey) {
+      localStorage.setItem('ppt_gemini_api_key', commentApiKey)
+    } else {
+      localStorage.removeItem('ppt_gemini_api_key')
+    }
+    localStorage.setItem('ppt_gemini_key_tier', commentKeyTier)
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -1272,6 +1312,91 @@ function SettingsModal({ classId, className, classEntry, settings, students, all
                     1 {currency.tier2.icon} {currency.tier2.name} = {Math.round(currency.tier2.rate / currency.tier1.rate)} {currency.tier1.icon} {currency.tier1.name}
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'sync' && (
+            <SyncSettingsTab classId={classId} />
+          )}
+
+          {/* ===== Comment Settings Tab ===== */}
+          {activeTab === 'comment' && (
+            <div className="space-y-6">
+              <h3 className="text-lg font-bold text-[#5D5D5D] flex items-center gap-2">
+                <MessageSquareText size={20} className="text-[#A8D8B9]" />
+                評語助手設定
+              </h3>
+
+              {/* 密碼設定 */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-[#5D5D5D]">老師密碼（防誤觸）</label>
+                <input
+                  type="text"
+                  value={commentPassword}
+                  onChange={(e) => setCommentPassword(e.target.value)}
+                  placeholder="留空表示不設密碼"
+                  className="w-full px-4 py-2.5 rounded-xl border border-[#E8E8E8] focus:border-[#A8D8B9] focus:ring-1 focus:ring-[#A8D8B9] outline-none text-sm"
+                />
+                <p className="text-xs text-[#B8B8B8]">此密碼僅防止學生誤觸評語功能，不防 DevTools。密碼為裝置本機設定，換電腦需重新設定。</p>
+              </div>
+
+              {/* API Key */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-[#5D5D5D]">Gemini API Key</label>
+                <div className="relative">
+                  <input
+                    type={showCommentApiKey ? 'text' : 'password'}
+                    value={commentApiKey}
+                    onChange={(e) => setCommentApiKey(e.target.value)}
+                    placeholder="貼上你的 Gemini API Key"
+                    className="w-full px-4 py-2.5 pr-12 rounded-xl border border-[#E8E8E8] focus:border-[#A8D8B9] focus:ring-1 focus:ring-[#A8D8B9] outline-none text-sm"
+                  />
+                  <button
+                    onClick={() => setShowCommentApiKey(v => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-[#8B8B8B] hover:text-[#5D5D5D]"
+                  >
+                    {showCommentApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+                <p className="text-xs text-[#B8B8B8]">API Key 僅存於本機瀏覽器，不會隨班級資料同步上傳。</p>
+              </div>
+
+              {/* 方案選擇 */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-[#5D5D5D]">API 方案</label>
+                <div className="flex gap-3">
+                  {[
+                    { value: 'free', label: '免費版', desc: '間隔 5 秒，使用 Flash 模型' },
+                    { value: 'paid', label: '付費版', desc: '間隔 2 秒，優先 Pro 模型' },
+                  ].map(opt => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setCommentKeyTier(opt.value)}
+                      className={`flex-1 p-3 rounded-xl border-2 text-left transition-colors ${
+                        commentKeyTier === opt.value
+                          ? 'border-[#A8D8B9] bg-[#A8D8B9]/10'
+                          : 'border-[#E8E8E8] hover:border-[#D8D8D8]'
+                      }`}
+                    >
+                      <div className="font-medium text-sm text-[#5D5D5D]">{opt.label}</div>
+                      <div className="text-xs text-[#8B8B8B] mt-0.5">{opt.desc}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 學期設定 */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-[#5D5D5D]">當前學期</label>
+                <input
+                  type="text"
+                  value={commentSemester}
+                  onChange={(e) => setCommentSemester(e.target.value)}
+                  placeholder="例如：114-2"
+                  className="w-full px-4 py-2.5 rounded-xl border border-[#E8E8E8] focus:border-[#A8D8B9] focus:ring-1 focus:ring-[#A8D8B9] outline-none text-sm"
+                />
+                <p className="text-xs text-[#B8B8B8]">格式：學年-學期（例如 114-2 代表 114 學年第 2 學期）。系統會根據日期自動推算，通常不需手動修改。</p>
               </div>
             </div>
           )}

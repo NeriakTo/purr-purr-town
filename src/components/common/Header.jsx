@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { PawPrint, LogOut, Menu, ListTodo, ScrollText, Sparkles, Flag, Settings, ShoppingCart, LayoutGrid, Trophy } from 'lucide-react'
+import { PawPrint, LogOut, Menu, ListTodo, ScrollText, Sparkles, Flag, Settings, ShoppingCart, LayoutGrid, Trophy, MessageSquareText } from 'lucide-react'
 import { formatDateDisplay } from '../../utils/helpers'
 
-function Header({ todayStr, completionRate, className, classAlias, onLogout, onOpenSettings, onOpenTeamManagement, onOpenTaskOverview, onOpenGadgets, onOpenHistory, onOpenStore, onOpenSeating, onOpenWealthLeaderboard }) {
+function Header({ todayStr, completionRate, className, classAlias, onLogout, onOpenSettings, onOpenTeamManagement, onOpenTaskOverview, onOpenGadgets, onOpenHistory, onOpenStore, onOpenSeating, onOpenWealthLeaderboard, onOpenComment }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const displayName = classAlias || className
 
@@ -12,6 +12,7 @@ function Header({ todayStr, completionRate, className, classAlias, onLogout, onO
     { onClick: onOpenHistory, icon: ScrollText, label: '村莊歷史' },
     { onClick: onOpenStore, icon: ShoppingCart, label: '橘貓商店' },
     { onClick: onOpenWealthLeaderboard, icon: Trophy, label: '財富榜' },
+    { onClick: onOpenComment, icon: MessageSquareText, label: '評語助手' },
     { onClick: onOpenGadgets, icon: Sparkles, label: '課堂法寶' },
     { onClick: onOpenSeating, icon: LayoutGrid, label: '座位表' },
     { onClick: onOpenTeamManagement, icon: Flag, label: '小隊管理' },

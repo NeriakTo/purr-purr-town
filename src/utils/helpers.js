@@ -1,6 +1,8 @@
 import { format } from 'date-fns'
-import { STATUS_VALUES, AVATAR_EMOJIS, AVATAR_COLORS, DEFAULT_CURRENCY } from './constants'
+import { STATUS_VALUES, AVATAR_EMOJIS, AVATAR_COLORS, DEFAULT_CURRENCY, COMMENT_STATUS } from './constants'
 import { Check, Clock, XCircle, Coffee, CircleMinus, RotateCcw, BookOpen, AlertTriangle, Palette, ScrollText } from 'lucide-react'
+import { saveClassCacheIDB, loadClassCacheIDB, saveLocalClassesIDB, loadLocalClassesIDB, deleteClassCacheIDB } from './storage'
+import { scheduleSyncSnapshot, isSyncEnabled, syncClassToServer } from './syncService'
 
 export function getTodayStr() {
   return format(new Date(), 'yyyy-MM-dd')
@@ -91,12 +93,29 @@ export function loadClassCache(classId) {
   }
 }
 
+export async function loadClassCacheAsync(classId) {
+  if (!classId) return null
+  try {
+    const idbData = await loadClassCacheIDB(classId)
+    if (idbData) return idbData
+    const raw = localStorage.getItem(getClassCacheKey(classId))
+    return raw ? JSON.parse(raw) : null
+  } catch (err) {
+    console.error('非同步讀取快取失敗:', err)
+    return loadClassCache(classId)
+  }
+}
+
 export function saveClassCache(classId, payload) {
   if (!classId || !payload) return
   try {
     localStorage.setItem(getClassCacheKey(classId), JSON.stringify(payload))
   } catch (err) {
     console.error('寫入本地快取失敗:', err)
+  }
+  saveClassCacheIDB(classId, payload)
+  if (isSyncEnabled()) {
+    scheduleSyncSnapshot(classId, payload)
   }
 }
 
@@ -127,12 +146,29 @@ export function loadLocalClasses() {
   }
 }
 
+export async function loadLocalClassesAsync() {
+  try {
+    const idbData = await loadLocalClassesIDB()
+    if (idbData && idbData.length > 0) return idbData
+    return loadLocalClasses()
+  } catch {
+    return loadLocalClasses()
+  }
+}
+
 export function saveLocalClasses(classes) {
   try {
     localStorage.setItem(getLocalClassesKey(), JSON.stringify(classes))
   } catch (err) {
     console.error('寫入本地班級清單失敗:', err)
   }
+  saveLocalClassesIDB(classes)
+}
+
+export function clearClassCache(classId) {
+  localStorage.removeItem(getClassCacheKey(classId))
+  localStorage.removeItem(`ppt_backup_meta_${classId}`)
+  deleteClassCacheIDB(classId)
 }
 
 export function normalizeStatus(value) {
@@ -502,6 +538,62 @@ export function shouldAutoExempt(student, taskTitle, taskType) {
   if (rules.length === 0) return false
   const title = (taskTitle || '').toLowerCase()
   return rules.some(r => r.keyword && title.includes(r.keyword.toLowerCase()) && r.taskType === taskType)
+}
+
+// ============================================
+// 評語助手 (Comment Helper)
+// ============================================
+
+/**
+ * 根據當前日期推算學期 key
+ * 8-12 月 → 學年 = 西元年 - 1911，學期 = 1
+ * 1 月 → 學年 = 西元年 - 1911 - 1，學期 = 1
+ * 2-7 月 → 學年 = 西元年 - 1911 - 1，學期 = 2
+ */
+export function getCurrentSemester(date = new Date()) {
+  const year = date.getFullYear()
+  const month = date.getMonth() + 1
+
+  if (month >= 8) {
+    return `${year - 1911}-1`
+  }
+  if (month === 1) {
+    return `${year - 1911 - 1}-1`
+  }
+  return `${year - 1911 - 1}-2`
+}
+
+/**
+ * 確保學生物件有 comments 欄位（向後相容遷移）
+ * 不改變原物件，回傳新物件
+ */
+export function ensureStudentComments(student) {
+  if (student.comments && typeof student.comments === 'object') return student
+  return { ...student, comments: {} }
+}
+
+/**
+ * 為學生的特定學期初始化空白評語結構
+ * 回傳更新後的 comments 物件
+ */
+export function initializeSemesterComment(comments, semester) {
+  const safe = (comments && typeof comments === 'object') ? comments : {}
+  if (safe[semester]) return safe
+  return {
+    ...safe,
+    [semester]: {
+      rawComment: '',
+      polishedComment: '',
+      motto: '',
+      analysis: '',
+      locked: false,
+      status: COMMENT_STATUS.IDLE,
+      errorMessage: '',
+      generatedAt: null,
+      updatedAt: null,
+      modelUsed: '',
+    },
+  }
 }
 
 // ============================================

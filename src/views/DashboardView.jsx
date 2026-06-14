@@ -17,8 +17,12 @@ import PassportModal from '../components/modals/PassportModal'
 import AnnouncementModal from '../components/modals/AnnouncementModal'
 import OrangeCatStoreModal from '../components/modals/OrangeCatStoreModal'
 import WealthLeaderboardModal from '../components/modals/WealthLeaderboardModal'
-import { DEFAULT_SETTINGS, DEFAULT_SEATING_CHART, DEFAULT_AUTOMATION, DEFAULT_SEMESTER_PERIODS, DEFAULT_DAILY_DUTY, STATUS_VALUES } from '../utils/constants'
-import { formatDate, getTodayStr, getNextDay, getTasksForDate, makeTaskId, normalizeStatus, getTaskDueDate, parseDate, isDoneStatus, isCountedInDenominator, isActiveStudent, loadClassCache, saveClassCache, ensureStudentBank, createTransaction, toPoints, generateId, resolveCurrency, getDailyQuestNetCount, shouldAutoExempt } from '../utils/helpers'
+import CommentModal from '../components/modals/CommentModal'
+import { DEFAULT_SETTINGS, DEFAULT_SEATING_CHART, DEFAULT_AUTOMATION, DEFAULT_SEMESTER_PERIODS, DEFAULT_DAILY_DUTY, STATUS_VALUES, COMMENT_STATUS } from '../utils/constants'
+import { formatDate, getTodayStr, getNextDay, getTasksForDate, makeTaskId, normalizeStatus, getTaskDueDate, parseDate, isDoneStatus, isCountedInDenominator, isActiveStudent, loadClassCache, saveClassCache, ensureStudentBank, createTransaction, toPoints, generateId, resolveCurrency, getDailyQuestNetCount, shouldAutoExempt, getCurrentSemester, ensureStudentComments, initializeSemesterComment } from '../utils/helpers'
+import { generateComment } from '../utils/commentService'
+import { isSyncEnabled, pullSnapshot, getRemoteVersion, syncClassToServer, getLocalSyncVersion } from '../utils/syncService'
+import SyncConflictModal from '../components/modals/SyncConflictModal'
 
 function DashboardView({ classId, className, classAlias, classEntry, onLogout, onClearLocalClass, onUpdateClassInfo }) {
   const [students, setStudents] = useState([])
@@ -39,6 +43,9 @@ function DashboardView({ classId, className, classAlias, classEntry, onLogout, o
   const [showStore, setShowStore] = useState(false)
   const [showSeating, setShowSeating] = useState(false)
   const [showWealthLeaderboard, setShowWealthLeaderboard] = useState(false)
+  const [showComment, setShowComment] = useState(false)
+  const [syncConflict, setSyncConflict] = useState(null)
+  const [hydrated, setHydrated] = useState(false)
 
   // v3.4.0: 從 students array 派生 selectedStudent，避免快照過期
   const selectedStudent = useMemo(
@@ -89,6 +96,41 @@ function DashboardView({ classId, className, classAlias, classEntry, onLogout, o
       setSettings(loadedSettings)
     }
     setLoading(false)
+
+    // Check remote version for conflict
+    let cancelled = false
+    if (isSyncEnabled() && cached) {
+      if (!cached.updatedAt) {
+        // First sync on new device: pull silently
+        pullSnapshot(classId).then(snap => {
+          if (cancelled || !snap?.payload) return
+          saveClassCache(classId, snap.payload)
+          window.location.reload()
+        })
+      } else {
+        getRemoteVersion(classId).then(remote => {
+          if (cancelled || !remote) return
+          const localVersion = getLocalSyncVersion(classId)
+          const remoteVersion = remote.version || 0
+          if (remoteVersion > localVersion) {
+            pullSnapshot(classId).then(snap => {
+              if (cancelled || !snap?.payload) return
+              setSyncConflict({
+                localDate: cached.updatedAt,
+                remoteDate: remote.updatedAt,
+                localStudentCount: (cached.students || []).length,
+                remoteStudentCount: (snap.payload.students || []).length,
+                localLogCount: (cached.logs || []).length,
+                remoteLogCount: (snap.payload.logs || []).length,
+                remotePayload: snap.payload
+              })
+            })
+          }
+        })
+      }
+    }
+    requestAnimationFrame(() => { if (!cancelled) setHydrated(true) })
+    return () => { cancelled = true }
   }, [classId, normalizeDate])
 
   // v3.0.1: 儀表板 - 顯示 dueDate === currentDate 的任務
@@ -163,7 +205,7 @@ function DashboardView({ classId, className, classAlias, classEntry, onLogout, o
   }, [activeStudents, tasks, studentStatus])
 
   useEffect(() => {
-    if (!classId || loading) return  // 等待資料載入完成後才保存
+    if (!classId || !hydrated || syncConflict) return
     saveClassCache(classId, {
       classId,
       students,
@@ -171,7 +213,7 @@ function DashboardView({ classId, className, classAlias, classEntry, onLogout, o
       settings,
       updatedAt: new Date().toISOString()
     })
-  }, [classId, students, allLogs, settings, loading])
+  }, [classId, students, allLogs, settings, hydrated, syncConflict])
 
   // v3.0.1: 新增任務 - 存入今天 log (createdAt=今天, dueDate=明天)
   // v3.8.0: 自動免交 — 符合規則的學生自動標記 exempt
@@ -203,11 +245,16 @@ function DashboardView({ classId, className, classAlias, classEntry, onLogout, o
 
   const handleDeleteTaskFromLog = useCallback((date, taskId) => {
     const normDate = normalizeDate(typeof date === 'string' ? date : formatDate(date))
-    setAllLogs(prev => prev.map(log =>
-      normalizeDate(log.date) === normDate
-        ? { ...log, tasks: (log.tasks || []).filter(t => t.id !== taskId) }
-        : log
-    ))
+    setAllLogs(prev => prev.map(log => {
+      if (normalizeDate(log.date) !== normDate) return log
+      const newTasks = (log.tasks || []).filter(t => t.id !== taskId)
+      const newStatus = {}
+      for (const [sid, tasks] of Object.entries(log.status || {})) {
+        const { [taskId]: _removed, ...rest } = tasks || {}
+        if (Object.keys(rest).length > 0) newStatus[sid] = rest
+      }
+      return { ...log, tasks: newTasks, status: newStatus }
+    }))
   }, [normalizeDate])
 
   const handleDeleteTask = useCallback((taskId) => {
@@ -579,6 +626,52 @@ function DashboardView({ classId, className, classAlias, classEntry, onLogout, o
     return { purrCount: purr, angryCount: angry, lateCount: late, leaveCount: leave }
   }, [activeStudents, tasks, studentStatus])
 
+  // 護照用：單一學生評語更新 + 生成
+  const [passportGeneratingId, setPassportGeneratingId] = useState(null)
+
+  const handlePassportUpdateComment = useCallback((studentId, newComments) => {
+    setStudents(prev => prev.map(s =>
+      s.id === studentId ? { ...s, comments: newComments } : s
+    ))
+  }, [])
+
+  const handlePassportGenerateComment = useCallback(async (studentId, sem) => {
+    const apiKey = localStorage.getItem('ppt_gemini_api_key')
+    const keyTier = localStorage.getItem('ppt_gemini_key_tier') || 'free'
+    if (!apiKey) return
+
+    const student = students.find(s => s.id === studentId)
+    if (!student) return
+    const ensured = ensureStudentComments(student)
+    const comments = initializeSemesterComment(ensured.comments, sem)
+    const semData = comments[sem]
+    if (semData.locked || !semData.rawComment?.trim()) return
+
+    setPassportGeneratingId(studentId)
+    setStudents(prev => prev.map(s => {
+      if (s.id !== studentId) return s
+      const c = initializeSemesterComment(ensureStudentComments(s).comments, sem)
+      return { ...s, comments: { ...c, [sem]: { ...c[sem], status: COMMENT_STATUS.GENERATING, errorMessage: '' } } }
+    }))
+
+    try {
+      const result = await generateComment({ name: student.name, rawComment: semData.rawComment, keyTier, apiKey })
+      setStudents(prev => prev.map(s => {
+        if (s.id !== studentId) return s
+        const c = initializeSemesterComment(ensureStudentComments(s).comments, sem)
+        return { ...s, comments: { ...c, [sem]: { ...c[sem], polishedComment: result.comment, motto: result.motto, analysis: result.analysis, modelUsed: result.modelUsed, status: COMMENT_STATUS.DONE, errorMessage: '', generatedAt: new Date().toISOString(), updatedAt: new Date().toISOString() } } }
+      }))
+    } catch (err) {
+      setStudents(prev => prev.map(s => {
+        if (s.id !== studentId) return s
+        const c = initializeSemesterComment(ensureStudentComments(s).comments, sem)
+        return { ...s, comments: { ...c, [sem]: { ...c[sem], status: COMMENT_STATUS.ERROR, errorMessage: err.message, updatedAt: new Date().toISOString() } } }
+      }))
+    } finally {
+      setPassportGeneratingId(null)
+    }
+  }, [students])
+
   if (loading) return <LoadingScreen message="正在進入村莊..." />
 
   return (
@@ -597,6 +690,7 @@ function DashboardView({ classId, className, classAlias, classEntry, onLogout, o
         onOpenStore={() => setShowStore(true)}
         onOpenSeating={() => setShowSeating(true)}
         onOpenWealthLeaderboard={() => setShowWealthLeaderboard(true)}
+        onOpenComment={() => setShowComment(true)}
       />
 
       <div className="flex flex-col lg:flex-row gap-4 2xl:gap-3 flex-1 min-h-0">
@@ -721,6 +815,9 @@ function DashboardView({ classId, className, classAlias, classEntry, onLogout, o
           onUndoTransaction={handleUndoTransaction}
           onCorrectTransaction={handleCorrectTransaction}
           onConsumeItem={handleConsumeItem}
+          onUpdateComment={handlePassportUpdateComment}
+          onGenerateComment={handlePassportGenerateComment}
+          isGeneratingComment={passportGeneratingId === selectedStudentId}
         />
       )}
 
@@ -835,6 +932,47 @@ function DashboardView({ classId, className, classAlias, classEntry, onLogout, o
           className={className}
           semesterPeriods={settings.semesterPeriods || DEFAULT_SEMESTER_PERIODS}
           onClose={() => setShowWealthLeaderboard(false)}
+        />
+      )}
+
+      {showComment && (
+        <CommentModal
+          students={students}
+          settings={settings}
+          className={className}
+          onClose={() => setShowComment(false)}
+          onUpdateStudents={setStudents}
+        />
+      )}
+
+      {syncConflict && (
+        <SyncConflictModal
+          localDate={syncConflict.localDate}
+          remoteDate={syncConflict.remoteDate}
+          localStudentCount={syncConflict.localStudentCount}
+          remoteStudentCount={syncConflict.remoteStudentCount}
+          localLogCount={syncConflict.localLogCount}
+          remoteLogCount={syncConflict.remoteLogCount}
+          onUseLocal={() => {
+            setSyncConflict(null)
+          }}
+          onUseRemote={() => {
+            const remote = syncConflict.remotePayload
+            if (remote) {
+              const normStudents = (remote.students || []).map((s, i) =>
+                ensureStudentBank({ ...s, id: s.id || s.uuid || `student_${i}` })
+              )
+              const normLogs = (remote.logs || []).map(log => {
+                const dateStr = normalizeDate(log.date)
+                const logTasks = (log.tasks || []).map((t, i) => ({ ...t, id: t.id || makeTaskId(dateStr, t, i) }))
+                return { ...log, date: dateStr, tasks: logTasks }
+              })
+              setStudents(normStudents)
+              setAllLogs(normLogs)
+              setSettings(remote.settings ? { ...DEFAULT_SETTINGS, ...remote.settings } : DEFAULT_SETTINGS)
+            }
+            setSyncConflict(null)
+          }}
         />
       )}
     </div>

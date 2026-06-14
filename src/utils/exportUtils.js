@@ -1,10 +1,19 @@
 // v3.7.1: Excel 匯出與列印工具 (ExcelJS for styled export)
 import { cellKey } from './seatingUtils'
-import { SEATING_OBJECTS, JOB_CATEGORIES, STATUS_VALUES } from './constants'
+import { SEATING_OBJECTS, JOB_CATEGORIES, STATUS_VALUES, COMMENT_STATUS } from './constants'
 
 /** HTML 跳脫 — 防止 XSS (用於 document.write 路徑) */
 function escapeHtml(str) {
   return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+}
+
+/** Excel 公式注入防護 — 前綴 ' 使 Excel 視為純文字 */
+function sanitizeExcelValue(str) {
+  const s = String(str ?? '')
+  if (s.length > 0 && '=+-@\t\r'.includes(s[0])) {
+    return `'${s}`
+  }
+  return s
 }
 
 // ExcelJS 動態載入，降低首次載入體積
@@ -517,4 +526,77 @@ export function printSeatingChart(seatingChart, students, className) {
     printWindow.document.write(html)
     printWindow.document.close()
   }
+}
+
+/**
+ * 匯出全班評語為 Excel
+ * @param {Array<{number, name, rawComment, polishedComment, motto, analysis, status}>} commentData 已排序的評語資料
+ * @param {string} semester 學期 key（如 "114-2"）
+ * @param {string} [clsName] 班級名稱
+ */
+export async function exportCommentsToExcel(commentData, semester, clsName) {
+  const exceljs = await loadExcelJS()
+  const workbook = new exceljs.Workbook()
+  const ws = workbook.addWorksheet('學期評語')
+
+  const semesterDisplay = semester.replace('-', '學年 第') + '學期'
+
+  // --- 標題列 ---
+  ws.mergeCells(1, 1, 1, 5)
+  const titleCell = ws.getCell(1, 1)
+  titleCell.value = `📝 ${clsName || '班級'} ${semesterDisplay} 評語`
+  titleCell.font = { bold: true, size: 14, color: { argb: toArgb('#FFFFFF') } }
+  titleCell.alignment = { horizontal: 'center', vertical: 'middle' }
+  titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: toArgb('#7BC496') } }
+  ws.getRow(1).height = 32
+
+  // --- 空行 ---
+  ws.getRow(2).height = 6
+
+  // --- 標頭列 ---
+  const headers = ['座號', '姓名', '觀察紀錄', '評語', '八字箴言']
+  headers.forEach((h, i) => {
+    const cell = ws.getCell(3, i + 1)
+    cell.value = h
+    cell.font = { bold: true, size: 10, color: { argb: toArgb('#5D5D5D') } }
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: toArgb('#F5F5F5') } }
+    cell.alignment = { horizontal: 'center', vertical: 'middle' }
+    cell.border = { bottom: { style: 'thin', color: { argb: toArgb('#E8E8E8') } } }
+  })
+  ws.getRow(3).height = 24
+
+  // --- 資料列 ---
+  commentData.forEach((entry, idx) => {
+    const rowNum = idx + 4
+    ws.getCell(rowNum, 1).value = entry.number
+    ws.getCell(rowNum, 2).value = entry.name
+    ws.getCell(rowNum, 3).value = sanitizeExcelValue(entry.rawComment)
+    ws.getCell(rowNum, 4).value = sanitizeExcelValue(entry.polishedComment)
+    ws.getCell(rowNum, 5).value = sanitizeExcelValue(entry.motto)
+
+    for (let c = 1; c <= 5; c++) {
+      const cell = ws.getCell(rowNum, c)
+      cell.alignment = {
+        horizontal: c <= 2 ? 'center' : 'left',
+        vertical: 'middle',
+        wrapText: c >= 3,
+      }
+      cell.border = { bottom: { style: 'hair', color: { argb: toArgb('#F0F0F0') } } }
+    }
+
+    if (entry.status === COMMENT_STATUS.DONE) {
+      ws.getCell(rowNum, 4).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8F5E9' } }
+      ws.getCell(rowNum, 5).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8F5E9' } }
+    }
+  })
+
+  // --- 欄寬 ---
+  ws.getColumn(1).width = 8
+  ws.getColumn(2).width = 10
+  ws.getColumn(3).width = 30
+  ws.getColumn(4).width = 40
+  ws.getColumn(5).width = 16
+
+  const filename = `${clsName || '班級'}_${semester}_評語.xlsx`
+  await downloadWorkbook(workbook, filename)
 }

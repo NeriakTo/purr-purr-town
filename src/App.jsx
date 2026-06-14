@@ -1,12 +1,34 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import LoginView from './views/LoginView'
 import DashboardView from './views/DashboardView'
 import { DEFAULT_SETTINGS } from './utils/constants'
-import { getClassCacheKey, loadLocalClasses, saveClassCache, saveLocalClasses } from './utils/helpers'
+import { getClassCacheKey, loadLocalClasses, saveClassCache, saveLocalClasses, clearClassCache } from './utils/helpers'
+import { migrateFromLocalStorage, getMeta, loadLocalClassesIDB } from './utils/storage'
+import { restoreSession, initSyncVersions } from './utils/syncService'
 
 function App() {
   const [localClasses, setLocalClasses] = useState(() => loadLocalClasses())
   const [selectedClass, setSelectedClass] = useState(null)
+
+  useEffect(() => {
+    let cancelled = false
+    async function initStorage() {
+      const migrated = await getMeta('migrated_from_ls')
+      if (!migrated) {
+        await migrateFromLocalStorage()
+      }
+      await restoreSession()
+      const idbClasses = await loadLocalClassesIDB()
+      if (cancelled) return
+      const finalClasses = (idbClasses && idbClasses.length > 0) ? idbClasses : loadLocalClasses()
+      if (finalClasses.length > 0) {
+        setLocalClasses(finalClasses)
+        await initSyncVersions(finalClasses.map(c => c.id))
+      }
+    }
+    initStorage()
+    return () => { cancelled = true }
+  }, [])
 
   const handleCreateLocalClass = (payload) => {
     const classId = `${payload.year}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`
@@ -107,8 +129,7 @@ function App() {
   }
 
   const handleClearLocalClass = (classId) => {
-    localStorage.removeItem(getClassCacheKey(classId))
-    localStorage.removeItem(`ppt_backup_meta_${classId}`)
+    clearClassCache(classId)
     const next = loadLocalClasses().filter(c => c.id !== classId)
     setLocalClasses(next)
     saveLocalClasses(next)

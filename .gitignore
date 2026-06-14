@@ -44,3 +44,4 @@ CLAUDE.md
 *.temp
 *.cache
 .cache
+.gstack/
