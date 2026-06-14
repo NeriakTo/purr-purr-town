@@ -18,9 +18,8 @@ import AnnouncementModal from '../components/modals/AnnouncementModal'
 import OrangeCatStoreModal from '../components/modals/OrangeCatStoreModal'
 import WealthLeaderboardModal from '../components/modals/WealthLeaderboardModal'
 import CommentModal from '../components/modals/CommentModal'
-import { DEFAULT_SETTINGS, DEFAULT_SEATING_CHART, DEFAULT_AUTOMATION, DEFAULT_SEMESTER_PERIODS, DEFAULT_DAILY_DUTY, STATUS_VALUES, COMMENT_STATUS } from '../utils/constants'
-import { formatDate, getTodayStr, getNextDay, getTasksForDate, makeTaskId, normalizeStatus, getTaskDueDate, parseDate, isDoneStatus, isCountedInDenominator, isActiveStudent, loadClassCache, saveClassCache, ensureStudentBank, createTransaction, toPoints, generateId, resolveCurrency, getDailyQuestNetCount, shouldAutoExempt, getCurrentSemester, ensureStudentComments, initializeSemesterComment } from '../utils/helpers'
-import { generateComment } from '../utils/commentService'
+import { DEFAULT_SETTINGS, DEFAULT_SEATING_CHART, DEFAULT_AUTOMATION, DEFAULT_SEMESTER_PERIODS, DEFAULT_DAILY_DUTY, STATUS_VALUES } from '../utils/constants'
+import { formatDate, getTodayStr, getNextDay, getTasksForDate, makeTaskId, normalizeStatus, getTaskDueDate, parseDate, isDoneStatus, isCountedInDenominator, isActiveStudent, loadClassCache, saveClassCache, ensureStudentBank, createTransaction, toPoints, generateId, resolveCurrency, getDailyQuestNetCount, shouldAutoExempt } from '../utils/helpers'
 import { isSyncEnabled, pullSnapshot, getRemoteVersion, syncClassToServer, getLocalSyncVersion } from '../utils/syncService'
 import SyncConflictModal from '../components/modals/SyncConflictModal'
 
@@ -626,52 +625,6 @@ function DashboardView({ classId, className, classAlias, classEntry, onLogout, o
     return { purrCount: purr, angryCount: angry, lateCount: late, leaveCount: leave }
   }, [activeStudents, tasks, studentStatus])
 
-  // 護照用：單一學生評語更新 + 生成
-  const [passportGeneratingId, setPassportGeneratingId] = useState(null)
-
-  const handlePassportUpdateComment = useCallback((studentId, newComments) => {
-    setStudents(prev => prev.map(s =>
-      s.id === studentId ? { ...s, comments: newComments } : s
-    ))
-  }, [])
-
-  const handlePassportGenerateComment = useCallback(async (studentId, sem) => {
-    const apiKey = localStorage.getItem('ppt_gemini_api_key')
-    const keyTier = localStorage.getItem('ppt_gemini_key_tier') || 'free'
-    if (!apiKey) return
-
-    const student = students.find(s => s.id === studentId)
-    if (!student) return
-    const ensured = ensureStudentComments(student)
-    const comments = initializeSemesterComment(ensured.comments, sem)
-    const semData = comments[sem]
-    if (semData.locked || !semData.rawComment?.trim()) return
-
-    setPassportGeneratingId(studentId)
-    setStudents(prev => prev.map(s => {
-      if (s.id !== studentId) return s
-      const c = initializeSemesterComment(ensureStudentComments(s).comments, sem)
-      return { ...s, comments: { ...c, [sem]: { ...c[sem], status: COMMENT_STATUS.GENERATING, errorMessage: '' } } }
-    }))
-
-    try {
-      const result = await generateComment({ name: student.name, rawComment: semData.rawComment, keyTier, apiKey })
-      setStudents(prev => prev.map(s => {
-        if (s.id !== studentId) return s
-        const c = initializeSemesterComment(ensureStudentComments(s).comments, sem)
-        return { ...s, comments: { ...c, [sem]: { ...c[sem], polishedComment: result.comment, motto: result.motto, analysis: result.analysis, modelUsed: result.modelUsed, status: COMMENT_STATUS.DONE, errorMessage: '', generatedAt: new Date().toISOString(), updatedAt: new Date().toISOString() } } }
-      }))
-    } catch (err) {
-      setStudents(prev => prev.map(s => {
-        if (s.id !== studentId) return s
-        const c = initializeSemesterComment(ensureStudentComments(s).comments, sem)
-        return { ...s, comments: { ...c, [sem]: { ...c[sem], status: COMMENT_STATUS.ERROR, errorMessage: err.message, updatedAt: new Date().toISOString() } } }
-      }))
-    } finally {
-      setPassportGeneratingId(null)
-    }
-  }, [students])
-
   if (loading) return <LoadingScreen message="正在進入村莊..." />
 
   return (
@@ -815,9 +768,6 @@ function DashboardView({ classId, className, classAlias, classEntry, onLogout, o
           onUndoTransaction={handleUndoTransaction}
           onCorrectTransaction={handleCorrectTransaction}
           onConsumeItem={handleConsumeItem}
-          onUpdateComment={handlePassportUpdateComment}
-          onGenerateComment={handlePassportGenerateComment}
-          isGeneratingComment={passportGeneratingId === selectedStudentId}
         />
       )}
 
