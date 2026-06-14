@@ -172,7 +172,8 @@ function CommentModal({ students, settings, className, onClose, onUpdateStudents
       const comments = initializeSemesterComment(ensured.comments, semester)
       const sd = comments[semester]
       const bothLocked = (sd.lockedComment ?? sd.locked ?? false) && (sd.lockedMotto ?? sd.locked ?? false)
-      return !bothLocked && sd.rawComment?.trim() && sd.status !== COMMENT_STATUS.DONE
+      const isDone = sd.status === COMMENT_STATUS.DONE || (sd.polishedComment?.trim() && sd.motto?.trim() && sd.status !== COMMENT_STATUS.GENERATING && sd.status !== COMMENT_STATUS.ERROR)
+      return !bothLocked && sd.rawComment?.trim() && !isDone
     }).map(s => {
       const sd = ensureStudentComments(s).comments[semester] || initializeSemesterComment(ensureStudentComments(s).comments, semester)[semester]
       return {
@@ -244,8 +245,16 @@ function CommentModal({ students, settings, className, onClose, onUpdateStudents
     } finally {
       setBatchRunning(false)
       abortRef.current = null
+      onUpdateStudents(prev => prev.map(s => {
+        const ensured = ensureStudentComments(s)
+        const sd = ensured.comments[semester]
+        if (sd && sd.status === COMMENT_STATUS.GENERATING) {
+          return { ...s, comments: { ...ensured.comments, [semester]: { ...sd, status: COMMENT_STATUS.IDLE } } }
+        }
+        return s
+      }))
     }
-  }, [apiKey, keyTier, activeStudents, semester, applyGenerationResult])
+  }, [apiKey, keyTier, activeStudents, semester, applyGenerationResult, onUpdateStudents])
 
   const handleStopBatch = () => {
     abortRef.current?.abort()
@@ -276,9 +285,9 @@ function CommentModal({ students, settings, className, onClose, onUpdateStudents
     activeStudents.forEach(s => {
       const sd = ensureStudentComments(s).comments[semester]
       if (!sd) return
-      if (sd.status === COMMENT_STATUS.DONE) done++
+      if (sd.status === COMMENT_STATUS.DONE || (sd.polishedComment?.trim() && sd.motto?.trim())) done++
       if (sd.rawComment?.trim()) hasRaw++
-      if (sd.lockedComment || sd.lockedMotto || sd.locked) locked++
+      if ((sd.lockedComment ?? sd.locked ?? false) || (sd.lockedMotto ?? sd.locked ?? false)) locked++
     })
     return { done, hasRaw, locked, total: activeStudents.length }
   }, [activeStudents, semester])
@@ -502,7 +511,7 @@ function CommentModal({ students, settings, className, onClose, onUpdateStudents
                   </span>
 
                   {/* 鎖定標記 */}
-                  {(sd.lockedComment || sd.lockedMotto || sd.locked) && <Lock size={14} className="text-[#D64545] shrink-0" />}
+                  {((sd.lockedComment ?? sd.locked ?? false) || (sd.lockedMotto ?? sd.locked ?? false)) && <Lock size={14} className="text-[#D64545] shrink-0" />}
 
                   <ChevronDown
                     size={16}
