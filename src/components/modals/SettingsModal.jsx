@@ -1323,7 +1323,7 @@ function SettingsModal({ classId, className, classEntry, settings, students, all
 
           {/* ===== Comment Settings Tab ===== */}
           {activeTab === 'comment' && (
-            <div className="space-y-6">
+            <div className="p-6 space-y-6">
               <h3 className="text-lg font-bold text-[#5D5D5D] flex items-center gap-2">
                 <MessageSquareText size={20} className="text-[#A8D8B9]" />
                 評語助手設定
