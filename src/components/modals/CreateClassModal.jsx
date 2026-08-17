@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
-import { X, Home, Calendar as CalendarIcon, School, User, Sparkles, Users, Loader2, Plus } from 'lucide-react'
+import { useEffect, useState, useMemo } from 'react'
+import { X, Home, Calendar as CalendarIcon, School, User, Sparkles, Users, Loader2, Plus, Copy } from 'lucide-react'
+import { loadClassCache } from '../../utils/helpers'
+import { summarizeInheritance } from '../../utils/classInherit'
 
-function CreateClassModal({ onClose, onSuccess, onCreateLocalClass }) {
+function CreateClassModal({ onClose, onSuccess, onCreateLocalClass, existingClasses = [] }) {
   const [formData, setFormData] = useState({
     year: '',
     className: '',
@@ -9,9 +11,17 @@ function CreateClassModal({ onClose, onSuccess, onCreateLocalClass }) {
     alias: '',
     studentCount: '30'
   })
+  const [sourceClassId, setSourceClassId] = useState('')
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState(null)
+
+  // 選定來源班級時，預覽會帶走哪些設定
+  const inheritPreview = useMemo(() => {
+    if (!sourceClassId) return []
+    const cache = loadClassCache(sourceClassId)
+    return cache?.settings ? summarizeInheritance(cache.settings) : []
+  }, [sourceClassId])
 
   useEffect(() => {
     document.body.style.overflow = 'hidden'
@@ -52,7 +62,8 @@ function CreateClassModal({ onClose, onSuccess, onCreateLocalClass }) {
         className: formData.className.trim(),
         teacher: formData.teacher.trim(),
         alias: formData.alias.trim(),
-        studentCount: parseInt(formData.studentCount.trim(), 10)
+        studentCount: parseInt(formData.studentCount.trim(), 10),
+        sourceClassId: sourceClassId || null
       })
       onSuccess()
     } catch (err) {
@@ -161,6 +172,34 @@ function CreateClassModal({ onClose, onSuccess, onCreateLocalClass }) {
               />
               {errors.studentCount && <p className="mt-1 text-xs text-[#D64545]">{errors.studentCount}</p>}
             </div>
+
+            {existingClasses.length > 0 && (
+              <div>
+                <label className="flex items-center gap-2 text-sm font-medium text-[#5D5D5D] mb-2">
+                  <Copy size={16} className="text-[#A0C4FF]" />帶入既有村莊設定 <span className="text-xs text-[#8B8B8B] font-normal">(選填)</span>
+                </label>
+                <select
+                  value={sourceClassId}
+                  onChange={(e) => setSourceClassId(e.target.value)}
+                  disabled={submitting}
+                  className="w-full px-4 py-3 rounded-2xl border-2 transition-all outline-none border-[#E8E8E8] focus:border-[#A8D8B9] bg-white text-[#5D5D5D]"
+                >
+                  <option value="">不帶入，使用預設設定</option>
+                  {existingClasses.map(c => (
+                    <option key={c.id} value={c.id}>{c.alias || c.name}</option>
+                  ))}
+                </select>
+                {sourceClassId && (
+                  <div className="mt-2 p-3 rounded-xl bg-[#F0F5FF] border border-[#A0C4FF]/30 text-xs text-[#5D5D5D] space-y-1">
+                    <p className="font-medium">會帶走：</p>
+                    {inheritPreview.length > 0
+                      ? <ul className="list-disc list-inside text-[#6B7B8B] space-y-0.5">{inheritPreview.map((t, i) => <li key={i}>{t}</li>)}</ul>
+                      : <p className="text-[#8B8B8B]">此村莊沒有可帶入的自訂設定。</p>}
+                    <p className="text-[10px] text-[#8B8B8B] pt-1">學生名單、職務指派、座位、公告不會帶入，維持新班空白。</p>
+                  </div>
+                )}
+              </div>
+            )}
 
             <button
               type="submit"

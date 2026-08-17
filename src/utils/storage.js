@@ -73,6 +73,30 @@ async function getAllKeys(storeName) {
 
 // --- Public API ---
 
+// 向瀏覽器申請持久儲存，避免資料在磁碟不足或長期未造訪時被自動回收。
+// 這是同步失效期間本機資料唯一的保命符。回傳是否已取得持久化。
+export async function requestPersistentStorage() {
+  try {
+    if (!navigator.storage?.persist) return false
+    if (await navigator.storage.persisted?.()) return true
+    return await navigator.storage.persist()
+  } catch (err) {
+    console.error('申請持久儲存失敗:', err)
+    return false
+  }
+}
+
+// 估算目前儲存用量與配額（供容量預警）。回傳 { usage, quota, ratio } 或 null。
+export async function estimateStorage() {
+  try {
+    if (!navigator.storage?.estimate) return null
+    const { usage = 0, quota = 0 } = await navigator.storage.estimate()
+    return { usage, quota, ratio: quota > 0 ? usage / quota : 0 }
+  } catch {
+    return null
+  }
+}
+
 export async function loadClassCacheIDB(classId) {
   if (!classId) return null
   try {

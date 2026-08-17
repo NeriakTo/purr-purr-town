@@ -1,0 +1,30 @@
+# nginx 反向代理範本。實際設定（含真實網域與憑證路徑）存私有維運庫，不進公開 repo。
+# 將 YOUR_API_DOMAIN 換成實際網域，並確認憑證路徑後放到 /etc/nginx/sites-available/。
+server {
+    listen 443 ssl http2;
+    server_name YOUR_API_DOMAIN;
+
+    ssl_certificate     /etc/letsencrypt/live/YOUR_API_DOMAIN/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/YOUR_API_DOMAIN/privkey.pem;
+    ssl_protocols TLSv1.3;
+
+    client_max_body_size 5m;
+
+    location / {
+        proxy_pass http://127.0.0.1:3010;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+
+server {
+    listen 80;
+    server_name YOUR_API_DOMAIN;
+    return 301 https://$host$request_uri;
+}

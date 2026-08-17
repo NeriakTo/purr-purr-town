@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react'
 import LoginView from './views/LoginView'
 import DashboardView from './views/DashboardView'
 import { DEFAULT_SETTINGS } from './utils/constants'
-import { getClassCacheKey, loadLocalClasses, saveClassCache, saveLocalClasses, clearClassCache } from './utils/helpers'
-import { migrateFromLocalStorage, getMeta, loadLocalClassesIDB } from './utils/storage'
-import { restoreSession, initSyncVersions } from './utils/syncService'
+import { loadLocalClasses, loadClassCache, saveClassCache, saveLocalClasses, clearClassCache } from './utils/helpers'
+import { deriveInheritedSettings } from './utils/classInherit'
+import { migrateFromLocalStorage, getMeta, loadLocalClassesIDB, requestPersistentStorage } from './utils/storage'
+import { validateSession, initSyncVersions } from './utils/syncService'
+import SyncStatusBanner from './components/common/SyncStatusBanner'
 
 function App() {
   const [localClasses, setLocalClasses] = useState(() => loadLocalClasses())
@@ -13,11 +15,14 @@ function App() {
   useEffect(() => {
     let cancelled = false
     async function initStorage() {
+      // 先向瀏覽器要持久儲存權，降低本機資料被自動回收的風險
+      await requestPersistentStorage()
       const migrated = await getMeta('migrated_from_ls')
       if (!migrated) {
         await migrateFromLocalStorage()
       }
-      await restoreSession()
+      // 開機時向伺服器驗證憑證是否仍有效，讓同步狀態反映真相（取代只看本機有無 token 的假連線）
+      await validateSession()
       const idbClasses = await loadLocalClassesIDB()
       if (cancelled) return
       const finalClasses = (idbClasses && idbClasses.length > 0) ? idbClasses : loadLocalClasses()
@@ -56,11 +61,21 @@ function App() {
       bank: { balance: 0, transactions: [] },
       inventory: [],
     }))
+
+    // 從既有班級承接基礎設定（商店／職務／獎懲等），排除綁定學生或學期的欄位。
+    let settings = DEFAULT_SETTINGS
+    if (payload.sourceClassId) {
+      const sourceCache = loadClassCache(payload.sourceClassId)
+      if (sourceCache?.settings) {
+        settings = deriveInheritedSettings(sourceCache.settings)
+      }
+    }
+
     saveClassCache(classId, {
       classId,
       students,
       logs: [],
-      settings: DEFAULT_SETTINGS,
+      settings,
       updatedAt: new Date().toISOString()
     })
   }
@@ -140,27 +155,33 @@ function App() {
 
   if (!selectedClass) {
     return (
-      <LoginView
-        localClasses={localClasses}
-        onCreateLocalClass={handleCreateLocalClass}
-        onSelectClass={handleSelectClass}
-        onRestoreClass={handleRestoreClass}
-      />
+      <>
+        <SyncStatusBanner />
+        <LoginView
+          localClasses={localClasses}
+          onCreateLocalClass={handleCreateLocalClass}
+          onSelectClass={handleSelectClass}
+          onRestoreClass={handleRestoreClass}
+        />
+      </>
     )
   }
 
   const classEntry = localClasses.find(c => c.id === selectedClass?.id) || null
 
   return (
-    <DashboardView
-      classId={selectedClass.id}
-      className={selectedClass.name}
-      classAlias={selectedClass.alias}
-      classEntry={classEntry}
-      onLogout={() => setSelectedClass(null)}
-      onClearLocalClass={handleClearLocalClass}
-      onUpdateClassInfo={handleUpdateClassInfo}
-    />
+    <>
+      <SyncStatusBanner />
+      <DashboardView
+        classId={selectedClass.id}
+        className={selectedClass.name}
+        classAlias={selectedClass.alias}
+        classEntry={classEntry}
+        onLogout={() => setSelectedClass(null)}
+        onClearLocalClass={handleClearLocalClass}
+        onUpdateClassInfo={handleUpdateClassInfo}
+      />
+    </>
   )
 }
 

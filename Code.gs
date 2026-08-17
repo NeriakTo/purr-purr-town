@@ -4,8 +4,17 @@ const SHEET_ID = SpreadsheetApp.getActiveSpreadsheet().getId();
 const SETTINGS_COLS = { KEY: 0, VALUE: 1 };
 const CHUNK_SIZE = 40000; // 40K chars per chunk (safe under 50K cell limit)
 
-// Token（可自行改）
-const TOKEN = "meow1234";
+// 驗證碼改由 Script Properties 提供，不再硬編碼（舊版寫死於此並隨公開 repo 外洩）。
+// 設定方式：Apps Script 編輯器 → 專案設定 → 指令碼屬性 → 新增 BACKUP_TOKEN。
+// 未設定時直接拒絕所有請求（無預設 fallback）。
+function getToken() {
+  return PropertiesService.getScriptProperties().getProperty('BACKUP_TOKEN');
+}
+
+function tokenValid(provided) {
+  const expected = getToken();
+  return !!expected && provided === expected;
+}
 
 function ensureSettingsSheet(ss) {
   let sheet = ss.getSheetByName("Settings");
@@ -106,7 +115,7 @@ function doGet(e) {
   const token = e.parameter.token;
   const ss = SpreadsheetApp.openById(SHEET_ID);
 
-  if (token !== TOKEN) return response({ success: false, message: "Invalid token" });
+  if (!tokenValid(token)) return response({ success: false, message: "Invalid token" });
 
   if (action === "backup_download") {
     const classId = e.parameter.classId;
@@ -148,7 +157,7 @@ function doPost(e) {
 
   const ss = SpreadsheetApp.openById(SHEET_ID);
 
-  if (data.token !== TOKEN) return response({ success: false, message: "Invalid token" });
+  if (!tokenValid(data.token)) return response({ success: false, message: "Invalid token" });
 
   if (data.action === "backup_upload") {
     const { classId, className, data: payload } = data;

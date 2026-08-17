@@ -20,7 +20,8 @@ import WealthLeaderboardModal from '../components/modals/WealthLeaderboardModal'
 import CommentModal from '../components/modals/CommentModal'
 import { DEFAULT_SETTINGS, DEFAULT_SEATING_CHART, DEFAULT_AUTOMATION, DEFAULT_SEMESTER_PERIODS, DEFAULT_DAILY_DUTY, STATUS_VALUES } from '../utils/constants'
 import { formatDate, getTodayStr, getNextDay, getTasksForDate, makeTaskId, normalizeStatus, getTaskDueDate, parseDate, isDoneStatus, isCountedInDenominator, isActiveStudent, loadClassCache, saveClassCache, ensureStudentBank, createTransaction, toPoints, generateId, resolveCurrency, getDailyQuestNetCount, shouldAutoExempt } from '../utils/helpers'
-import { isSyncEnabled, pullSnapshot, getRemoteVersion, syncClassToServer, getLocalSyncVersion } from '../utils/syncService'
+import { isSyncEnabled, pullSnapshot, pullSnapshotPreview, getRemoteVersion, getLocalSyncVersion, commitSyncVersion } from '../utils/syncService'
+import { clearConflict } from '../utils/syncStatus'
 import SyncConflictModal from '../components/modals/SyncConflictModal'
 
 function DashboardView({ classId, className, classAlias, classEntry, onLogout, onClearLocalClass, onUpdateClassInfo }) {
@@ -44,6 +45,7 @@ function DashboardView({ classId, className, classAlias, classEntry, onLogout, o
   const [showWealthLeaderboard, setShowWealthLeaderboard] = useState(false)
   const [showComment, setShowComment] = useState(false)
   const [syncConflict, setSyncConflict] = useState(null)
+  const resolvingConflictRef = useRef(false)
   const [hydrated, setHydrated] = useState(false)
 
   // v3.4.0: 從 students array 派生 selectedStudent，避免快照過期
@@ -112,7 +114,9 @@ function DashboardView({ classId, className, classAlias, classEntry, onLogout, o
           const localVersion = getLocalSyncVersion(classId)
           const remoteVersion = remote.version || 0
           if (remoteVersion > localVersion) {
-            pullSnapshot(classId).then(snap => {
+            // 用「預覽」讀遠端：在老師於選擇視窗做決定前，絕不提交遠端版本為本機基準，
+            // 否則視窗期間重新整理會讓下次載入跳過選擇並覆蓋遠端（黑喵覆審 BLOCKING 1）。
+            pullSnapshotPreview(classId).then(snap => {
               if (cancelled || !snap?.payload) return
               setSyncConflict({
                 localDate: cached.updatedAt,
@@ -121,7 +125,10 @@ function DashboardView({ classId, className, classAlias, classEntry, onLogout, o
                 remoteStudentCount: (snap.payload.students || []).length,
                 localLogCount: (cached.logs || []).length,
                 remoteLogCount: (snap.payload.logs || []).length,
-                remotePayload: snap.payload
+                remotePayload: snap.payload,
+                // 用 preview 實際拿到的版本作提交基準（而非另一支 version API 的值）：
+                // 兩支請求之間遠端可能又更新，用看到的那份版本可避免採用後立刻 409。
+                remoteVersion: snap.version ?? remoteVersion
               })
             })
           }
@@ -903,25 +910,50 @@ function DashboardView({ classId, className, classAlias, classEntry, onLogout, o
           remoteStudentCount={syncConflict.remoteStudentCount}
           localLogCount={syncConflict.localLogCount}
           remoteLogCount={syncConflict.remoteLogCount}
-          onUseLocal={() => {
-            setSyncConflict(null)
-          }}
-          onUseRemote={() => {
-            const remote = syncConflict.remotePayload
-            if (remote) {
-              const normStudents = (remote.students || []).map((s, i) =>
-                ensureStudentBank({ ...s, id: s.id || s.uuid || `student_${i}` })
-              )
-              const normLogs = (remote.logs || []).map(log => {
-                const dateStr = normalizeDate(log.date)
-                const logTasks = (log.tasks || []).map((t, i) => ({ ...t, id: t.id || makeTaskId(dateStr, t, i) }))
-                return { ...log, date: dateStr, tasks: logTasks }
-              })
-              setStudents(normStudents)
-              setAllLogs(normLogs)
-              setSettings(remote.settings ? { ...DEFAULT_SETTINGS, ...remote.settings } : DEFAULT_SETTINGS)
+          onUseLocal={async () => {
+            // 防重複點擊：解衝突進行中忽略後續點擊（單一提交）。
+            if (resolvingConflictRef.current) return
+            resolvingConflictRef.current = true
+            try {
+              // 保留本機：把基準版本設為遠端版本，下一次儲存即以此明確覆蓋遠端。
+              // 等版本持久化完成再解衝突，避免寫入未落地就恢復推送。
+              await commitSyncVersion(classId, syncConflict.remoteVersion)
+              clearConflict(classId)
+              setSyncConflict(null)
+            } catch (err) {
+              console.error('保留本機提交版本失敗:', err)
+              // 提交失敗不解衝突（安全側）：視窗留著讓老師重試。
+            } finally {
+              resolvingConflictRef.current = false
             }
-            setSyncConflict(null)
+          }}
+          onUseRemote={async () => {
+            if (resolvingConflictRef.current) return
+            resolvingConflictRef.current = true
+            try {
+              const remote = syncConflict.remotePayload
+              if (remote) {
+                const normStudents = (remote.students || []).map((s, i) =>
+                  ensureStudentBank({ ...s, id: s.id || s.uuid || `student_${i}` })
+                )
+                const normLogs = (remote.logs || []).map(log => {
+                  const dateStr = normalizeDate(log.date)
+                  const logTasks = (log.tasks || []).map((t, i) => ({ ...t, id: t.id || makeTaskId(dateStr, t, i) }))
+                  return { ...log, date: dateStr, tasks: logTasks }
+                })
+                setStudents(normStudents)
+                setAllLogs(normLogs)
+                setSettings(remote.settings ? { ...DEFAULT_SETTINGS, ...remote.settings } : DEFAULT_SETTINGS)
+              }
+              // 採用遠端：提交遠端版本為基準（等持久化完成）再清衝突旗標。
+              await commitSyncVersion(classId, syncConflict.remoteVersion)
+              clearConflict(classId)
+              setSyncConflict(null)
+            } catch (err) {
+              console.error('採用遠端提交版本失敗:', err)
+            } finally {
+              resolvingConflictRef.current = false
+            }
           }}
         />
       )}

@@ -1,0 +1,16 @@
+{
+  "name": "purr-purr-town-server",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "fastify": "^5.3.3",
+    "@fastify/cors": "^11.0.0",
+    "pg": "^8.16.0",
+    "bcrypt": "^6.0.0",
+    "nanoid": "^5.1.5"
+  }
+}

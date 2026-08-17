@@ -257,6 +257,7 @@ function LoginView({ onSelectClass, localClasses, onCreateLocalClass, onRestoreC
           onClose={() => setShowCreateModal(false)}
           onSuccess={handleCreateSuccess}
           onCreateLocalClass={onCreateLocalClass}
+          existingClasses={classes}
         />
       )}
 

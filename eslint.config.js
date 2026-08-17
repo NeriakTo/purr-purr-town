@@ -26,4 +26,19 @@ export default defineConfig([
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
     },
   },
+  // 後端（Node 環境）
+  {
+    files: ['server/**/*.js'],
+    languageOptions: {
+      globals: { ...globals.node },
+      parserOptions: { ecmaVersion: 'latest', sourceType: 'module' },
+    },
+  },
+  // 測試檔（Node ＋ 測試常用全域，如 global）
+  {
+    files: ['**/*.test.{js,jsx}', 'test/**/*.{js,jsx}'],
+    languageOptions: {
+      globals: { ...globals.node },
+    },
+  },
 ])

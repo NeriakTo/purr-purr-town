@@ -81,14 +81,14 @@ export const DEFAULT_BEHAVIOR_RULES = [
   { id: 'rule_attendance', label: '全勤獎勵', amount: 500, type: 'bonus', icon: '🗓️', category: '秩序' },
 ]
 
-// v3.5.0: 預設商店商品
+// v3.5.0: 預設商店商品（initialStock：新班承接時據此回滿庫存，見 classInherit.js）
 export const DEFAULT_SHOP_PRODUCTS = [
-  { id: 'prod_homework_off', name: '減功課卡', icon: '📝', price: 1, priceUnit: 'cookie', stock: 10 },
-  { id: 'prod_nap_free', name: '午休免睡卡', icon: '😴', price: 2, priceUnit: 'cookie', stock: 5 },
-  { id: 'prod_nap_read', name: '午休閱讀卡', icon: '📖', price: 3, priceUnit: 'cookie', stock: 5 },
-  { id: 'prod_nap_game', name: '午休桌遊卡', icon: '🎲', price: 4, priceUnit: 'cookie', stock: 3 },
-  { id: 'prod_nap_camp', name: '午休露營卡', icon: '⛺', price: 5, priceUnit: 'cookie', stock: 1 },
-  { id: 'prod_nap_tablet', name: '午休平板卡', icon: '📱', price: 6, priceUnit: 'cookie', stock: 1 },
+  { id: 'prod_homework_off', name: '減功課卡', icon: '📝', price: 1, priceUnit: 'cookie', stock: 10, initialStock: 10 },
+  { id: 'prod_nap_free', name: '午休免睡卡', icon: '😴', price: 2, priceUnit: 'cookie', stock: 5, initialStock: 5 },
+  { id: 'prod_nap_read', name: '午休閱讀卡', icon: '📖', price: 3, priceUnit: 'cookie', stock: 5, initialStock: 5 },
+  { id: 'prod_nap_game', name: '午休桌遊卡', icon: '🎲', price: 4, priceUnit: 'cookie', stock: 3, initialStock: 3 },
+  { id: 'prod_nap_camp', name: '午休露營卡', icon: '⛺', price: 5, priceUnit: 'cookie', stock: 1, initialStock: 1 },
+  { id: 'prod_nap_tablet', name: '午休平板卡', icon: '📱', price: 6, priceUnit: 'cookie', stock: 1, initialStock: 1 },
 ]
 
 // v3.5.0: 預設商店設定

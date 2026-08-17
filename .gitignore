@@ -45,3 +45,18 @@ CLAUDE.md
 *.cache
 .cache
 .gstack/
+graphify-out/
+
+# 前端環境實值（含正式 API 網域，不進版控；範本見 .env.example）
+.env.production
+
+# 部署連線實值（含 VPS 位址與帳號；範本見 server/.env.deploy.example）
+server/.env.deploy
+
+# 內部稽核與資安審查文件（揭露帳號、防禦缺口，禁止進公開 repo）
+docs/ai-workflow/03-meowclaw-security-review.md
+docs/ai-workflow/04-deployment-audit-20260817.md
+docs/ai-workflow/05-tricat-meeting-decision-20260817.md
+docs/ai-workflow/06-qa-e2e-plan-20260817.md
+docs/ai-workflow/feon-gas-token-rotation-steps.md
+docs/ai-workflow/review-artifacts/

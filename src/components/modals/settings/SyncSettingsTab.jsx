@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef } from 'react'
 import { Cloud, CloudOff, LogIn, UserPlus, LogOut, RefreshCw, Check, AlertTriangle } from 'lucide-react'
-import { isSyncEnabled, login, register, logout, restoreSession, pullSnapshot, pushSnapshotImmediate, syncClassToServer } from '../../../utils/syncService'
+import { login, register, logout, validateSession, pullSnapshot, pushSnapshotImmediate, syncClassToServer } from '../../../utils/syncService'
+import { subscribeSyncStatus } from '../../../utils/syncStatus'
 import { getMeta } from '../../../utils/storage'
 import { saveClassCache, loadClassCache, loadLocalClasses } from '../../../utils/helpers'
 
 export default function SyncSettingsTab({ classId }) {
-  const [synced, setSynced] = useState(false)
+  // 連線與否以全域同步狀態為準，不再只看本機有沒有存 token（避免顯示假的「已連線」）
+  const [status, setStatus] = useState('disconnected')
   const [teacherName, setTeacherName] = useState('')
   const [mode, setMode] = useState('idle')
   const [formName, setFormName] = useState('')
@@ -14,20 +16,20 @@ export default function SyncSettingsTab({ classId }) {
   const [message, setMessage] = useState(null)
   const mountedRef = useRef(true)
 
+  const synced = status === 'connected' || status === 'offline'
+  const expired = status === 'expired'
+
   useEffect(() => {
     mountedRef.current = true
+    const unsub = subscribeSyncStatus(s => { if (mountedRef.current) setStatus(s.status) })
     async function checkSyncStatus() {
-      const restored = await restoreSession()
+      await validateSession()
+      const name = await getMeta('teacher_name')
       if (!mountedRef.current) return
-      if (restored) {
-        setSynced(true)
-        const name = await getMeta('teacher_name')
-        if (!mountedRef.current) return
-        setTeacherName(name || '')
-      }
+      setTeacherName(name || '')
     }
     checkSyncStatus()
-    return () => { mountedRef.current = false }
+    return () => { mountedRef.current = false; unsub() }
   }, [])
 
   async function handleLogin() {
@@ -41,7 +43,6 @@ export default function SyncSettingsTab({ classId }) {
       const res = await login(formName.trim(), formPasscode.trim())
       if (!mountedRef.current) return
       if (res?.success) {
-        setSynced(true)
         setTeacherName(formName.trim())
         setMode('idle')
         setMessage({ type: 'success', text: '登入成功！資料將自動同步。' })
@@ -69,7 +70,6 @@ export default function SyncSettingsTab({ classId }) {
       const res = await register(formName.trim(), formPasscode.trim())
       if (!mountedRef.current) return
       if (res?.success) {
-        setSynced(true)
         setTeacherName(formName.trim())
         setMode('idle')
         setMessage({ type: 'success', text: '註冊成功！資料將自動同步。' })
@@ -85,7 +85,6 @@ export default function SyncSettingsTab({ classId }) {
   async function handleLogout() {
     await logout()
     if (!mountedRef.current) return
-    setSynced(false)
     setTeacherName('')
     setMessage({ type: 'success', text: '已登出，資料將只保存在本機。' })
   }
@@ -175,15 +174,25 @@ export default function SyncSettingsTab({ classId }) {
         </div>
       )}
 
+      {expired && !message && (
+        <div className="p-3 rounded-xl text-sm flex items-center gap-2 bg-red-50 text-red-700">
+          <AlertTriangle size={14} className="shrink-0" />
+          雲端登入已過期，這段期間的資料只存在本機。請重新登入後按「上傳到伺服器」。
+        </div>
+      )}
+
       {synced ? (
         <div className="space-y-4">
-          <div className="p-4 bg-[#F0F9F4] rounded-xl border border-[#A8D8B9]/30">
+          <div className={`p-4 rounded-xl border ${status === 'offline' ? 'bg-[#FFF7E6] border-[#F0A020]/30' : 'bg-[#F0F9F4] border-[#A8D8B9]/30'}`}>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-bold text-[#5D5D5D]">已連線</p>
-                <p className="text-xs text-[#8B8B8B]">老師：{teacherName}</p>
+                <p className="text-sm font-bold text-[#5D5D5D]">{status === 'offline' ? '暫時離線' : '已連線'}</p>
+                <p className="text-xs text-[#8B8B8B]">
+                  老師：{teacherName}
+                  {status === 'offline' && '（資料已存本機，待恢復後上傳）'}
+                </p>
               </div>
-              <Cloud size={20} className="text-[#7BC496]" />
+              <Cloud size={20} className={status === 'offline' ? 'text-[#F0A020]' : 'text-[#7BC496]'} />
             </div>
           </div>
 
