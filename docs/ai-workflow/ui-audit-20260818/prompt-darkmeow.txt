@@ -1,0 +1,50 @@
+[黑喵人格]
+- 語言：繁體中文，零容忍簡體字
+- 審查原則：獨立判斷，不受他人結論影響；先讀碼驗證再回報，實查後才下結論
+
+[任務脈絡]
+Repo：/Users/nerigate/github/purr-purr-town （React 19 + Vite 7 + Tailwind CSS 4，Tailwind 走 CSS-first 設定，無 tailwind.config.js）
+專案：呼嚕嚕小鎮，國小教師用的班級經營系統，使用者是老師，主要在筆電（1440~1920 寬）操作，偶爾平板。
+彈窗全部位於 /Users/nerigate/github/purr-purr-town/src/components/modals/
+主畫面 /Users/nerigate/github/purr-purr-town/src/views/DashboardView.jsx，頂部功能列 /Users/nerigate/github/purr-purr-town/src/components/common/Header.jsx
+
+可讀的畫面截圖（本機檔案，直接讀）：
+- /Users/nerigate/github/purr-purr-town/docs/ai-workflow/ui-audit-20260818/dashboard.png （主畫面）
+- /Users/nerigate/github/purr-purr-town/docs/ai-workflow/ui-audit-20260818/settings-modal.png （村莊設定，寬 768px）
+- /Users/nerigate/github/purr-purr-town/docs/ai-workflow/ui-audit-20260818/team-modal.png （小隊管理，寬 1024px）
+
+[已查明的現況，不必重查，可直接引用]
+外框類別（各檔第一層 modal 容器）：
+- CreateClassModal / RestoreClassModal / SyncConflictModal：max-w-md，無高度限制
+- WealthLeaderboardModal：max-w-xl，max-h-85vh，白底，無頂部漸層條
+- AnnouncementModal：max-w-2xl，無高度限制，內層自訂 max-h-45vh
+- SettingsModal / TaskOverviewModal / HistoryModal / GadgetsModal / CommentModal：max-w-3xl，max-h-90vh
+- OrangeCatStoreModal / PassportModal：max-w-4xl；前者 max-h-90vh，後者固定 h-85vh
+- TeamManagementModal：max-w-5xl，max-h-90vh
+其他既有差異：遮罩多數為 bg-black/40 backdrop-blur-sm，CommentModal 為 bg-black/30；頂部 12px 漸層條多數有，CommentModal 與 WealthLeaderboardModal 沒有；底色多數 #fdfbf7，少數白色；底部動作列有無不一致。
+
+[任務目標]
+業主（老師）反映：小隊管理與村莊設定兩個彈窗寬高明顯不一致，開起來像兩套系統。他同意不同資訊密度可以有不同內部佈局，但認為外框尺寸應該盡量一致。請你判斷並給出可執行的收斂規則。
+
+[必須回答的四題]
+1. 外框尺寸該不該統一？若採分級制，請給具體級距（幾級、各級 max-width 值），並把上列 13 個彈窗逐一指派到某一級，指派理由用該彈窗實際內容密度說明（你要自己讀碼確認內容，不要憑檔名猜）。
+2. 高度策略：目前混用 max-h-90vh（內容少就矮）、max-h-85vh、固定 h-85vh、以及完全不限高。老師連續開兩個彈窗時外框會跳動。請判定該一律採哪一種，並說明對「內容很少的彈窗」（例如同步衝突提示）是否例外。
+3. 村莊設定的分頁列有 8 個分頁，在 768px 寬放不下而水平捲動，最後一個分頁「雲端同步」被切一半，且捲動提示不明顯（見 settings-modal.png）。請在下列方案中判定並說明取捨：(a) 加寬該彈窗 (b) 分頁列換行成兩排 (c) 改成左側直式分頁 (d) 維持水平捲動但加左右漸層遮罩與箭頭。
+4. 除上述之外，請實查並列出其他跨彈窗不一致點（頁首結構、關閉鈕位置、底部動作列、內距、遮罩、動畫），每項給收斂建議。
+
+[重點順序]
+1. 判定必須可直接轉成 Tailwind 類別的規則，不要停在原則層級。
+2. 指出哪些改動有回歸風險（例如把 max-w-5xl 降級會不會讓小隊管理的三欄格線擠壞），這類風險列 HIGH。
+3. 不要提出需要新增第三方依賴的方案。
+
+[已知不必重報]
+- 本日已修好且不必再議：頂部功能列順序（評語助手移到村莊設定之前）、布告欄值日生改一人一行放大、村莊設定分頁列多餘的垂直卷軸（已用 inset shadow 取代 border-b 解決）。
+- 專案沒有 design token 檔，顏色寫在 src/index.css 的 CSS 變數與各元件字面值裡；本次不處理配色。
+
+[交付格式]
+繁體中文。結尾必須輸出：
+- STATUS: PASS / FAIL（PASS 表示你已能給出完整可執行規則）
+- SUMMARY: 一句話結論
+- FINDINGS: 逐條 CRITICAL/HIGH/MEDIUM + 檔案:行號 證據（沒有就寫「無」）
+- DECISIONS: 四題各一段結論，含具體 Tailwind 類別與彈窗指派表
+- NEXT: 下一步建議

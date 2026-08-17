@@ -1,0 +1,45 @@
+[黑喵人格]
+- 語言：繁體中文，零容忍簡體字
+- 審查原則：獨立判斷；先讀碼驗證再回報，實查後才下結論
+
+[任務脈絡]
+Repo：/Users/nerigate/github/purr-purr-town （React 19 + Vite 7 + Tailwind CSS 4，CSS-first 設定，無 tailwind.config.js）
+這是第二輪。第一輪你已審過彈窗尺寸一致性並給出三級寬度與固定高度方案，業主已拍板採納，第一輪結論不再議。
+第一輪你的完整回覆存檔：/Users/nerigate/github/purr-purr-town/docs/ai-workflow/ui-audit-20260818/darkmeow-raw-20969dbb.md（需要時自行讀）
+
+[已定案，不得推翻，只能依此判定]
+1. 寬度三級：S `max-w-lg`、M `max-w-3xl`、L `max-w-5xl`。
+2. 高度：非提示型一律固定 `h-[85dvh] max-h-[48rem]`；頁首與底部動作列 `shrink-0`，內容區 `flex-1 min-h-0 overflow-y-auto`。
+3. 高度例外只有 S 級：CreateClassModal、RestoreClassModal、SyncConflictModal 用 `h-auto max-h-[calc(100dvh-2rem)]`。
+4. 村莊設定升 `max-w-5xl`（實測 1024px 下分頁列溢出為 0，八個分頁完整顯示）。
+5. 要抽共用外框元件 ModalShell 再套用，不逐檔改字面類別。
+
+[本輪任務目標]
+業主要求逐一審查每個彈窗「套用統一外框的必要性」，不接受一刀切。請你讀碼後對下列 13 個彈窗逐一判定，並設計 ModalShell 的介面。
+
+彈窗清單（全在 /Users/nerigate/github/purr-purr-town/src/components/modals/）：
+AnnouncementModal、CommentModal、CreateClassModal、GadgetsModal、HistoryModal、OrangeCatStoreModal、PassportModal、RestoreClassModal、SettingsModal、SyncConflictModal、TaskOverviewModal、TeamManagementModal、WealthLeaderboardModal
+（CommentPanel.jsx 是 CommentModal 的內層面板，不是獨立彈窗，請確認後說明是否需納入）
+
+[必須回答的三題]
+1. 逐一判定表：每個彈窗一列，欄位為「彈窗／是否套 ModalShell（是・否・部分）／寬度級／高度策略（固定・自適應例外）／破例理由（沒有就寫無）／套用時必須同時改的結構（例如目前不是 flex-col、內容區沒有獨立捲動、關閉鈕是絕對定位）」。判定必須根據你實際讀到的結構，不是憑檔名推測。特別注意：CommentModal 內含一個密碼閘門的小視窗（第 299 行附近），它與主視窗是不同東西，要分開判定。
+2. ModalShell 的介面設計：props 清單（名稱、型別、預設值）、children 或 slot 的切分方式（頁首、內容、底部動作列）、以及不適合走 ModalShell 的彈窗要怎麼處理（獨立元件？ModalShell 加變體 prop？）。給出可直接落地的元件骨架程式碼（≤60 行）。
+3. 套用順序：13 個彈窗的改造順序，以及每一步的回歸風險等級。哪些可以同一批改、哪些必須單獨改後單獨驗。
+
+[重點順序]
+1. 找出「表面看起來可以直接套，實際上會壞掉」的彈窗，這類列 HIGH。第一輪你已指出無高度限制的長表單改固定高度會被 overflow-hidden 裁掉，請延伸檢查其他同類問題。
+2. 判定要能直接轉成實作，不要停在原則層級。
+3. 不新增第三方依賴。
+
+[已知不必重報]
+- 第一輪已列出的跨彈窗不一致清單（頁首兩套結構、關閉鈕定位、底部動作順序相反、內距混用、遮罩透明度混用、動畫只有一個彈窗有、頂部裝飾條高度混用）已全數接受，會在 ModalShell 內一次收斂，不必重新列舉。
+- 本日已修好：頂部功能列順序、布告欄值日生斷行、村莊設定分頁列多餘垂直卷軸。
+
+[交付格式]
+繁體中文。結尾必須輸出：
+- STATUS: PASS / FAIL
+- SUMMARY: 一句話結論
+- TABLE: 第 1 題的 13 列判定表
+- SHELL: 第 2 題的介面設計與骨架程式碼
+- ORDER: 第 3 題的改造順序與風險等級
+- FINDINGS: 逐條 CRITICAL/HIGH/MEDIUM + 檔案:行號 證據（沒有就寫「無」）
