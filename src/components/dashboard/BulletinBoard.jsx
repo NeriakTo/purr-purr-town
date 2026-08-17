@@ -111,11 +111,12 @@ function DutyStudentSection({ activeStudents, dailyDuty, dutyJob, onDutyChange, 
               }
             </button>
           </div>
-          <div className="text-base leading-relaxed">
-            {selectedStudents.map((s, i) => (
-              <span key={s.id}>
-                {i > 0 && '、'}<span className="font-bold">{s.number}</span>號 {s.name}
-              </span>
+          {/* 一人一行：姓名不會被欄寬切斷，字級放大以凸顯值日生 */}
+          <div className="text-xl leading-snug space-y-0.5">
+            {selectedStudents.map(s => (
+              <div key={s.id} className="whitespace-nowrap">
+                <span className="font-bold">{s.number}</span>號 <span className="font-semibold">{s.name}</span>
+              </div>
             ))}
           </div>
           {paid && (

@@ -12,10 +12,10 @@ function Header({ todayStr, completionRate, className, classAlias, onLogout, onO
     { onClick: onOpenHistory, icon: ScrollText, label: '村莊歷史' },
     { onClick: onOpenStore, icon: ShoppingCart, label: '橘貓商店' },
     { onClick: onOpenWealthLeaderboard, icon: Trophy, label: '財富榜' },
-    { onClick: onOpenComment, icon: MessageSquareText, label: '評語助手' },
     { onClick: onOpenGadgets, icon: Sparkles, label: '課堂法寶' },
     { onClick: onOpenSeating, icon: LayoutGrid, label: '座位表' },
     { onClick: onOpenTeamManagement, icon: Flag, label: '小隊管理' },
+    { onClick: onOpenComment, icon: MessageSquareText, label: '評語助手' },
     { onClick: onOpenSettings, icon: Settings, label: '村莊設定' },
   ]
 
