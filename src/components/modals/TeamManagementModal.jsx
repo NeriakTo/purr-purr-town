@@ -1,15 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { X, Users, Save, UserPlus, Search, Plus, ChevronRight, ChevronLeft, Loader2, Flag, Trash2 } from 'lucide-react'
 import AvatarEmoji from '../common/AvatarEmoji'
+import ModalShell from '../common/ModalShell'
 
 function TeamManagementModal({ students, settings, onClose, onSave, onSettingsUpdate }) {
   const defaultGroups = ['A', 'B', 'C', 'D', 'E', 'F']
-
-  // 鎖定背景捲軸
-  useEffect(() => {
-    document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = '' }
-  }, [])
 
   // 小隊分配狀態
   const [assignments, setAssignments] = useState(() => {
@@ -171,44 +166,56 @@ function TeamManagementModal({ students, settings, onClose, onSave, onSettingsUp
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-      <div className="relative bg-[#fdfbf7] rounded-3xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="h-3 bg-gradient-to-r from-[#FFD6A5] to-[#FF8A8A]" />
-
-        {/* Header */}
-        <div className="p-6 border-b border-[#E8E8E8] flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#FFD6A5] to-[#FF8A8A] flex items-center justify-center">
-              <Flag size={24} className="text-white" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-[#5D5D5D]">小隊管理</h2>
-              <p className="text-sm text-[#8B8B8B]">
-                {editingGroup
-                  ? `正在編輯：${getGroupDisplayName(editingGroup)}`
-                  : '點選小隊卡片進行編輯'}
-              </p>
-            </div>
+    <ModalShell
+      size="L"
+      scroll="caller"
+      accentClass="from-[#FFD6A5] to-[#FF8A8A]"
+      icon={
+        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#FFD6A5] to-[#FF8A8A] flex items-center justify-center">
+          <Flag size={24} className="text-white" />
+        </div>
+      }
+      title="小隊管理"
+      subtitle={editingGroup ? `正在編輯：${getGroupDisplayName(editingGroup)}` : '點選小隊卡片進行編輯'}
+      onClose={onClose}
+      headerActions={editingGroup && (
+        <button
+          onClick={() => { setEditingGroup(null); setSearchTerm(''); setSelectedAvailable(new Set()) }}
+          className="px-4 py-2 rounded-xl bg-[#E8E8E8] text-[#5D5D5D] font-medium hover:bg-[#D8D8D8] transition-colors flex items-center gap-2"
+        >
+          <ChevronLeft size={18} />
+          返回列表
+        </button>
+      )}
+      footer={
+        <>
+          <div className="flex-1 text-sm text-[#8B8B8B]">
+            {editingGroup
+              ? '修改完成後請點擊「儲存變更」'
+              : '選擇要編輯的小隊，或直接儲存當前設定'}
           </div>
-          <div className="flex items-center gap-2">
-            {editingGroup && (
-              <button
-                onClick={() => { setEditingGroup(null); setSearchTerm(''); setSelectedAvailable(new Set()) }}
-                className="px-4 py-2 rounded-xl bg-[#E8E8E8] text-[#5D5D5D] font-medium hover:bg-[#D8D8D8] transition-colors flex items-center gap-2"
-              >
-                <ChevronLeft size={18} />
-                返回列表
-              </button>
-            )}
-            <button onClick={onClose} className="p-2 rounded-full hover:bg-[#E8E8E8] transition-colors">
-              <X size={24} className="text-[#5D5D5D]" />
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              disabled={saving}
+              className="px-6 py-2.5 rounded-xl bg-[#E8E8E8] text-[#5D5D5D] font-medium hover:bg-[#D8D8D8] transition-colors"
+            >
+              取消
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#FFD6A5] to-[#FF8A8A] text-white font-medium shadow-md hover:shadow-lg transition-all flex items-center gap-2"
+            >
+              {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+              儲存變更
             </button>
           </div>
-        </div>
-
+        </>
+      }
+    >
         {/* Content */}
-        <div className="flex-1 min-h-0 flex flex-col">
+        <div className="h-full flex flex-col">
           {!editingGroup ? (
             /* 小隊列表視圖 */
             <div className="p-6 overflow-y-auto flex-1">
@@ -444,34 +451,7 @@ function TeamManagementModal({ students, settings, onClose, onSave, onSettingsUp
             </div>
           )}
         </div>
-
-        {/* Footer */}
-        <div className="p-4 border-t border-[#E8E8E8] flex justify-between items-center">
-          <div className="text-sm text-[#8B8B8B]">
-            {editingGroup
-              ? '修改完成後請點擊「儲存變更」'
-              : '選擇要編輯的小隊，或直接儲存當前設定'}
-          </div>
-          <div className="flex gap-3">
-            <button
-              onClick={onClose}
-              disabled={saving}
-              className="px-6 py-2.5 rounded-xl bg-[#E8E8E8] text-[#5D5D5D] font-medium hover:bg-[#D8D8D8] transition-colors"
-            >
-              取消
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#FFD6A5] to-[#FF8A8A] text-white font-medium shadow-md hover:shadow-lg transition-all flex items-center gap-2"
-            >
-              {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
-              儲存變更
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+    </ModalShell>
   )
 }
 

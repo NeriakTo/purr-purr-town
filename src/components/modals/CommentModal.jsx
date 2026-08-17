@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { X, Download, Lock, Unlock, Play, Square, ChevronDown, Check, Loader2, AlertCircle, Eye, EyeOff } from 'lucide-react'
+import { Download, Lock, Unlock, Play, Square, ChevronDown, Check, Loader2, AlertCircle, Eye, EyeOff, MessageSquareText } from 'lucide-react'
+import ModalShell from '../common/ModalShell'
+import CompactDialog from '../common/CompactDialog'
 import { COMMENT_STATUS } from '../../utils/constants'
 import { getCurrentSemester, ensureStudentComments, initializeSemesterComment, isActiveStudent } from '../../utils/helpers'
 import { generateComment, generateCommentsBatch } from '../../utils/commentService'
@@ -295,14 +297,12 @@ function CommentModal({ students, settings, className, onClose, onUpdateStudents
   // --- 密碼閘門畫面 ---
   if (!authenticated) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
-        <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-6">
+      <CompactDialog role="dialog" title="評語助手" onClose={onClose}>
           <div className="text-center mb-4">
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#A8D8B9] to-[#7BC496] flex items-center justify-center mx-auto mb-3 shadow-md">
               <Lock size={32} className="text-white" />
             </div>
-            <h2 className="text-xl font-bold text-[#5D5D5D]">評語助手</h2>
-            <p className="text-sm text-[#8B8B8B] mt-1">請輸入老師密碼</p>
+            <p className="text-sm text-[#8B8B8B]">請輸入老師密碼</p>
             <p className="text-xs text-[#B8B8B8] mt-0.5">此密碼僅防誤觸，不防 DevTools</p>
           </div>
           <form onSubmit={handlePasswordSubmit}>
@@ -330,8 +330,7 @@ function CommentModal({ students, settings, className, onClose, onUpdateStudents
           >
             取消
           </button>
-        </div>
-      </div>
+      </CompactDialog>
     )
   }
 
@@ -339,41 +338,45 @@ function CommentModal({ students, settings, className, onClose, onUpdateStudents
   const semesterDisplay = semester.replace('-', '學年 第') + '學期'
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
-      <div className="bg-[#fdfbf7] rounded-3xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="sticky top-0 bg-white/90 backdrop-blur-md px-6 py-4 border-b border-[#E8E8E8] shrink-0">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <h2 className="text-xl font-bold text-[#5D5D5D]">📝 評語助手</h2>
-              <select
-                value={semester}
-                onChange={(e) => setSemester(e.target.value)}
-                className="text-sm text-[#5D5D5D] bg-[#F0F0F0] px-3 py-1.5 rounded-full border-none outline-none cursor-pointer hover:bg-[#E8E8E8] transition-colors"
-              >
-                {availableSemesters.map(sem => (
-                  <option key={sem} value={sem}>
-                    {sem.replace('-', '學年 第')}學期
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleExport}
-                className="p-2 rounded-xl bg-[#fdfbf7] hover:bg-[#A8D8B9]/20 transition-colors"
-                title="匯出 Excel"
-              >
-                <Download size={20} className="text-[#5D5D5D]" />
-              </button>
-              <button onClick={onClose} className="p-2 rounded-xl hover:bg-[#F0F0F0] transition-colors">
-                <X size={20} className="text-[#5D5D5D]" />
-              </button>
-            </div>
-          </div>
-
-          {/* 統計列 + API 設定 */}
-          <div className="flex items-center justify-between mt-3 flex-wrap gap-2">
+    <ModalShell
+      size="M"
+      scroll="caller"
+      accentClass="from-[#A8D8B9] to-[#7BC496]"
+      icon={
+        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#A8D8B9] to-[#7BC496] flex items-center justify-center">
+          <MessageSquareText size={24} className="text-white" />
+        </div>
+      }
+      title="評語助手"
+      subtitle={semesterDisplay}
+      onClose={onClose}
+      headerActions={
+        <>
+          <select
+            value={semester}
+            onChange={(e) => setSemester(e.target.value)}
+            className="text-sm text-[#5D5D5D] bg-[#F0F0F0] px-3 py-1.5 rounded-full border-none outline-none cursor-pointer hover:bg-[#E8E8E8] transition-colors"
+          >
+            {availableSemesters.map(sem => (
+              <option key={sem} value={sem}>
+                {sem.replace('-', '學年 第')}學期
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={handleExport}
+            className="p-2 rounded-xl bg-[#fdfbf7] hover:bg-[#A8D8B9]/20 transition-colors"
+            title="匯出 Excel"
+          >
+            <Download size={20} className="text-[#5D5D5D]" />
+          </button>
+        </>
+      }
+    >
+      <div className="flex flex-col h-full">
+        {/* 工具列：統計、API 設定、批次操作 */}
+        <div className="shrink-0 px-6 pb-4 border-b border-[#E8E8E8]">
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-3 text-sm text-[#8B8B8B]">
               <span>已完成 <strong className="text-[#7BC496]">{stats.done}</strong>/{stats.total}</span>
               <span>已填紀錄 <strong className="text-[#5D5D5D]">{stats.hasRaw}</strong></span>
@@ -473,7 +476,7 @@ function CommentModal({ students, settings, className, onClose, onUpdateStudents
         </div>
 
         {/* 學生列表 */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-2">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-2">
           {activeStudents.length === 0 && (
             <div className="text-center py-12 text-[#B8B8B8]">
               <p className="text-lg mb-1">尚無學生資料</p>
@@ -536,7 +539,7 @@ function CommentModal({ students, settings, className, onClose, onUpdateStudents
           })}
         </div>
       </div>
-    </div>
+    </ModalShell>
   )
 }
 

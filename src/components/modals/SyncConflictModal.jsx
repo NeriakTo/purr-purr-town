@@ -1,23 +1,26 @@
 import { Monitor, Smartphone, AlertTriangle } from 'lucide-react'
+import ModalShell from '../common/ModalShell'
 
 export default function SyncConflictModal({ localDate, remoteDate, localStudentCount, remoteStudentCount, localLogCount, remoteLogCount, onUseLocal, onUseRemote }) {
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-      <div className="relative bg-[#fdfbf7] rounded-3xl shadow-2xl max-w-md w-full overflow-hidden">
-        <div className="h-2 bg-gradient-to-r from-[#FFADAD] to-[#FFD6A5]" />
-
-        <div className="p-6 space-y-5">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#FFF3E0] flex items-center justify-center">
-              <AlertTriangle size={20} className="text-[#FF9800]" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-[#5D5D5D]">資料版本不同</h2>
-              <p className="text-xs text-[#8B8B8B]">本機與伺服器的資料不一致</p>
-            </div>
-          </div>
-
+    // 阻斷式視窗：必須二選一，所以沒有關閉鈕、Esc 也不關（WAI-ARIA alertdialog）
+    <ModalShell
+      size="S"
+      height="auto"
+      role="alertdialog"
+      layer="blocking"
+      accentClass="from-[#FFADAD] to-[#FFD6A5]"
+      icon={
+        <div className="w-12 h-12 rounded-2xl bg-[#FFF3E0] flex items-center justify-center">
+          <AlertTriangle size={24} className="text-[#FF9800]" />
+        </div>
+      }
+      title="資料版本不同"
+      subtitle="本機與伺服器的資料不一致"
+      showClose={false}
+      closeOnEsc={false}
+    >
+      <div className="px-6 pb-6 space-y-5">
           <div className="grid grid-cols-2 gap-3">
             <div className="p-4 rounded-xl border border-[#E8E8E8] space-y-2">
               <div className="flex items-center gap-2 text-sm font-bold text-[#5D5D5D]">
@@ -62,9 +65,8 @@ export default function SyncConflictModal({ localDate, remoteDate, localStudentC
           <p className="text-[10px] text-[#ABABAB] text-center">
             選擇後，未被選取的版本將被覆蓋。載入後尚未儲存的修改也會受影響。
           </p>
-        </div>
       </div>
-    </div>
+    </ModalShell>
   )
 }
 

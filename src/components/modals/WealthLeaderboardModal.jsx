@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { Trophy, Download, X } from 'lucide-react'
+import { Trophy, Download } from 'lucide-react'
+import ModalShell from '../common/ModalShell'
 import { resolveCurrency, formatCurrency, ensureStudentBank, calcEarnedFromTransactions } from '../../utils/helpers'
 import { exportWealthLeaderboardToExcel } from '../../utils/exportUtils'
 import AvatarEmoji from '../common/AvatarEmoji'
@@ -68,33 +69,32 @@ function WealthLeaderboardModal({ students, settings, className, semesterPeriods
   const rankLabel = rankMode === 'midterm' ? '期中' : rankMode === 'final' ? '期末' : '累計'
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-xl max-h-[85vh] bg-white rounded-3xl shadow-2xl border border-white/50 flex flex-col overflow-hidden animate-slide-up">
-
-        {/* Header */}
-        <div className="shrink-0 bg-gradient-to-r from-[#7BC496] to-[#A8D8B9] px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center">
-                <Trophy size={22} className="text-white" />
-              </div>
-              <div>
-                <h2 className="text-lg font-bold text-white">呼嚕嚕財富榜</h2>
-                <p className="text-xs text-white/80">
-                  {students.length} 位村民 · {rankLabel}總財富 {formatCurrency(totalVillageWealth, currency).display}
-                </p>
-              </div>
-            </div>
-            <button onClick={onClose} className="p-2 rounded-xl bg-white/20 hover:bg-white/30 transition-colors">
-              <X size={18} className="text-white" />
-            </button>
-          </div>
+    <ModalShell
+      size="S"
+      scroll="caller"
+      accentClass="from-[#7BC496] to-[#A8D8B9]"
+      icon={
+        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#7BC496] to-[#A8D8B9] flex items-center justify-center">
+          <Trophy size={24} className="text-white" />
         </div>
-
+      }
+      title="呼嚕嚕財富榜"
+      subtitle={`${students.length} 位村民 · ${rankLabel}總財富 ${formatCurrency(totalVillageWealth, currency).display}`}
+      onClose={onClose}
+      footer={
+        <button
+          onClick={handleExport}
+          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-[#7BC496] to-[#A8D8B9] text-white font-bold text-sm hover:opacity-90 transition-opacity shadow-md"
+        >
+          <Download size={16} />
+          匯出 Excel
+        </button>
+      }
+    >
+      <div className="flex flex-col h-full">
         {/* Period Toggle */}
         {hasAnyPeriod && (
-          <div className="shrink-0 px-4 pt-3 flex gap-1.5">
+          <div className="shrink-0 px-4 pb-3 flex gap-1.5">
             {['all', 'midterm', 'final'].map(key => {
               const label = key === 'all' ? '累計' : key === 'midterm' ? '期中' : '期末'
               const enabled = key === 'all' || (key === 'midterm' && hasMidterm) || (key === 'final' && hasFinal)
@@ -113,7 +113,7 @@ function WealthLeaderboardModal({ students, settings, className, semesterPeriods
         )}
 
         {/* Leaderboard List */}
-        <div className="flex-1 overflow-y-auto px-4 py-3" style={{ scrollbarWidth: 'thin' }}>
+        <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-3" style={{ scrollbarWidth: 'thin' }}>
           {leaderboard.length === 0 ? (
             <div className="text-center py-12 text-[#8B8B8B]">目前沒有村民資料</div>
           ) : (
@@ -183,18 +183,8 @@ function WealthLeaderboardModal({ students, settings, className, semesterPeriods
           )}
         </div>
 
-        {/* Footer: Export */}
-        <div className="shrink-0 px-4 py-3 border-t border-[#F0F0F0] bg-[#fdfbf7]/80">
-          <button
-            onClick={handleExport}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-[#7BC496] to-[#A8D8B9] text-white font-bold text-sm hover:opacity-90 transition-opacity shadow-md"
-          >
-            <Download size={16} />
-            匯出 Excel
-          </button>
-        </div>
       </div>
-    </div>
+    </ModalShell>
   )
 }
 

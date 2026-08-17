@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { ListTodo, Filter, Trash2, ChevronDown, X, AlertCircle, CheckCircle, Check, Clock, XCircle, Coffee, Eye, RotateCcw, Calendar as CalendarIcon, Download } from 'lucide-react'
 import AvatarEmoji from '../common/AvatarEmoji'
+import ModalShell from '../common/ModalShell'
 import { STATUS_VALUES, BATCH_STATUS_CONFIG } from '../../utils/constants'
 import { formatDateDisplay, getTaskDueDate, getTaskIcon, isDoneStatus, normalizeStatus, isCountedInDenominator, parseDate, shouldAutoExempt, getStatusLabel, BATCH_STATUS_ICONS } from '../../utils/helpers'
 import { exportTaskStatusToExcel } from '../../utils/exportUtils'
@@ -69,29 +70,22 @@ function TaskOverviewModal({ allLogs, students, onClose, onNavigateToDate, onTog
   }, [allTasks])
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-      <div className="relative bg-[#fdfbf7] rounded-3xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="h-3 bg-gradient-to-r from-[#A8D8B9] to-[#7BC496]" />
-        
-        {/* Header */}
-        <div className="p-6 border-b border-[#E8E8E8] flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#A8D8B9] to-[#7BC496] flex items-center justify-center">
-              <ListTodo size={24} className="text-white" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-[#5D5D5D]">任務總覽</h2>
-              <p className="text-sm text-[#8B8B8B]">檢視所有任務的完成狀況</p>
-            </div>
-          </div>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-[#E8E8E8] transition-colors">
-            <X size={24} className="text-[#5D5D5D]" />
-          </button>
+    <ModalShell
+      size="M"
+      scroll="caller"
+      accentClass="from-[#A8D8B9] to-[#7BC496]"
+      icon={
+        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#A8D8B9] to-[#7BC496] flex items-center justify-center">
+          <ListTodo size={24} className="text-white" />
         </div>
-
+      }
+      title="任務總覽"
+      subtitle="檢視所有任務的完成狀況"
+      onClose={onClose}
+    >
+      <div className="flex flex-col h-full">
         {/* Filter */}
-        <div className="px-6 py-4 border-b border-[#E8E8E8] flex items-center gap-3 overflow-x-auto">
+        <div className="shrink-0 px-6 pb-4 border-b border-[#E8E8E8] flex items-center gap-3 overflow-x-auto overflow-y-hidden">
           <Filter size={18} className="text-[#8B8B8B] shrink-0" />
           <button
             onClick={() => setFilterType('all')}
@@ -131,7 +125,7 @@ function TaskOverviewModal({ allLogs, students, onClose, onNavigateToDate, onTog
         </div>
 
         {/* Task List */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-3">
+        <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-3">
           {filteredTasks.length === 0 ? (
             <div className="text-center py-12">
               <div className="text-5xl mb-4">📭</div>
@@ -519,7 +513,7 @@ function TaskOverviewModal({ allLogs, students, onClose, onNavigateToDate, onTog
           )}
         </div>
       </div>
-    </div>
+    </ModalShell>
   )
 }
 

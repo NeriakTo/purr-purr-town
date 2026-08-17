@@ -1,5 +1,6 @@
-import { useEffect, useState, useMemo } from 'react'
-import { X, Home, Calendar as CalendarIcon, School, User, Sparkles, Users, Loader2, Plus, Copy } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { Home, Calendar as CalendarIcon, School, User, Sparkles, Users, Loader2, Plus, Copy } from 'lucide-react'
+import ModalShell from '../common/ModalShell'
 import { loadClassCache } from '../../utils/helpers'
 import { summarizeInheritance } from '../../utils/classInherit'
 
@@ -22,11 +23,6 @@ function CreateClassModal({ onClose, onSuccess, onCreateLocalClass, existingClas
     const cache = loadClassCache(sourceClassId)
     return cache?.settings ? summarizeInheritance(cache.settings) : []
   }, [sourceClassId])
-
-  useEffect(() => {
-    document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = '' }
-  }, [])
 
   const validateForm = () => {
     const newErrors = {}
@@ -75,30 +71,35 @@ function CreateClassModal({ onClose, onSuccess, onCreateLocalClass, existingClas
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-      <div
-        className="relative bg-[#fdfbf7] rounded-3xl shadow-2xl max-w-md w-full overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="h-3" style={{ background: 'repeating-linear-gradient(90deg, #A8D8B9, #A8D8B9 20px, #FFD6A5 20px, #FFD6A5 40px)' }} />
-        <button onClick={onClose} disabled={submitting} className="absolute top-6 right-4 p-2 rounded-full bg-white/80 hover:bg-white shadow-md transition-all z-10">
-          <X size={20} className="text-[#5D5D5D]" />
+    <ModalShell
+      size="S"
+      height="auto"
+      accentClass="from-[#A8D8B9] to-[#FFD6A5]"
+      icon={
+        <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #FFD6A5 0%, #FFBF69 100%)' }}>
+          <Home size={24} className="text-white" />
+        </div>
+      }
+      title="建立新村莊"
+      subtitle="填好基本資料就能開村"
+      onClose={onClose}
+      footer={
+        <button
+          type="submit"
+          form="create-class-form"
+          disabled={submitting}
+          className="w-full py-3 rounded-2xl bg-gradient-to-r from-[#A8D8B9] to-[#7BC496] text-white font-bold shadow-lg hover:shadow-xl active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+        >
+          {submitting ? <><Loader2 size={22} className="animate-spin" />建立中...</> : <><Plus size={22} />建立村莊</>}
         </button>
-
-        <div className="p-6">
-          <div className="text-center mb-6">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4" style={{ background: 'linear-gradient(135deg, #FFD6A5 0%, #FFBF69 100%)' }}>
-              <Home size={32} className="text-white" />
-            </div>
-            <h2 className="text-2xl font-bold text-[#5D5D5D]">建立新村莊</h2>
-          </div>
-
+      }
+    >
+        <div className="px-6 pb-6">
           {submitError && (
             <div className="mb-4 p-3 rounded-xl bg-[#FFADAD]/20 text-[#D64545] text-sm text-center">{submitError}</div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form id="create-class-form" onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="flex items-center gap-2 text-sm font-medium text-[#5D5D5D] mb-2">
                 <CalendarIcon size={16} className="text-[#A8D8B9]" />學年度
@@ -201,18 +202,9 @@ function CreateClassModal({ onClose, onSuccess, onCreateLocalClass, existingClas
               </div>
             )}
 
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full mt-6 py-4 rounded-2xl bg-gradient-to-r from-[#A8D8B9] to-[#7BC496] text-white font-bold text-lg shadow-lg hover:shadow-xl active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {submitting ? <><Loader2 size={22} className="animate-spin" />建立中...</> : <><Plus size={22} />建立村莊</>}
-            </button>
           </form>
         </div>
-        <div className="h-3" style={{ background: 'repeating-linear-gradient(90deg, #FFD6A5, #FFD6A5 20px, #A8D8B9 20px, #A8D8B9 40px)' }} />
-      </div>
-    </div>
+    </ModalShell>
   )
 }
 

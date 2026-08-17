@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react'
 import { X, Clock, XCircle, AlertTriangle, Check, Coffee, CircleMinus, RotateCcw, Wallet, Undo2, Pencil, ChevronDown } from 'lucide-react'
 import AvatarEmoji from '../common/AvatarEmoji'
 import { RenderIcon } from '../common/IconPicker'
+import ModalShell from '../common/ModalShell'
+import CompactDialog from '../common/CompactDialog'
 import { STATUS_VALUES } from '../../utils/constants'
 import { formatDate, formatDateDisplay, getTaskDueDate, getTodayStr, isDoneStatus, normalizeStatus, parseDate, getTaskIcon, getStatusVisual, formatCurrency, resolveCurrency, migrateExemptRules, calcEarnedFromTransactions } from '../../utils/helpers'
 
@@ -162,16 +164,21 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
   ]
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-[#fdfbf7] rounded-3xl shadow-2xl max-w-4xl w-full h-[85vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
-        <div className="h-3 shrink-0" style={{ background: 'repeating-linear-gradient(90deg, #A8D8B9, #A8D8B9 20px, #FFD6A5 20px, #FFD6A5 40px)' }} />
-        <button onClick={onClose} className="absolute top-6 right-4 p-2 rounded-full bg-white/80 hover:bg-white shadow-md z-10">
-          <X size={20} className="text-[#5D5D5D]" />
-        </button>
-
+    <ModalShell
+      size="L"
+      scroll="caller"
+      accentClass="from-[#A8D8B9] to-[#FFD6A5]"
+      icon={
+        <div className="w-12 h-12 rounded-2xl overflow-hidden shadow-md shrink-0">
+          <AvatarEmoji seed={student.uuid || student.id} className="w-full h-full rounded-2xl text-2xl" />
+        </div>
+      }
+      title={`${student.number}號 ${student.name}`}
+      subtitle="村民護照"
+      onClose={onClose}
+    >
         {/* Main 12-col grid */}
-        <div className="flex-1 min-h-0 grid grid-cols-12">
+        <div className="h-full grid grid-cols-12 border-t border-[#E8E8E8]">
           {/* ===== Left Column (span-4): Avatar + Asset + Inventory ===== */}
           <div className="col-span-4 border-r border-[#E8E8E8] p-5 flex flex-col overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
             {/* Large Avatar */}
@@ -784,14 +791,12 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
             </div>
           </div>
         </div>
-        {/* Correct Transaction Modal */}
-        {correctingTx && (
-          <div className="absolute inset-0 bg-black/30 flex items-center justify-center z-20 animate-fade-in">
-            <div className="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl">
-              <h3 className="text-lg font-bold text-center text-[#5D5D5D] mb-1">
-                <Pencil size={18} className="inline mr-1.5 -mt-0.5 text-[#FFD6A5]" />
-                修正交易紀錄
-              </h3>
+      {/* 修正交易：次級對話框 */}
+      {correctingTx && (
+        <CompactDialog
+          title="修正交易紀錄"
+          onClose={() => { setCorrectingTx(null); setCorrectAmount(''); setCorrectReason('') }}
+        >
               <div className="mt-3 p-3 bg-[#F9F9F9] rounded-xl border border-[#E8E8E8] text-sm space-y-1">
                 <div className="flex justify-between">
                   <span className="text-[#8B8B8B]">原始摘要</span>
@@ -850,16 +855,13 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
                   確認修正
                 </button>
               </div>
-            </div>
-          </div>
-        )}
+        </CompactDialog>
+      )}
 
-        {/* Consume Item Confirmation */}
-        {consumeConfirm && (
-          <div className="absolute inset-0 bg-black/30 flex items-center justify-center z-20 animate-fade-in">
-            <div className="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl">
+      {/* 道具核銷：次級對話框 */}
+      {consumeConfirm && (
+        <CompactDialog title="確認核銷" onClose={() => setConsumeConfirm(null)}>
               <div className="text-5xl text-center mb-3">{consumeConfirm.item.icon || '🎁'}</div>
-              <h3 className="text-lg font-bold text-center text-[#5D5D5D] mb-1">確認核銷</h3>
               <p className="text-center text-[#8B8B8B] text-sm mb-4">
                 確定要核銷「{consumeConfirm.item.name}」嗎？核銷後道具將從背包中移除。
               </p>
@@ -880,11 +882,9 @@ function PassportModal({ student, tasks, studentStatus, onClose, onToggleStatus,
                   確認核銷
                 </button>
               </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+        </CompactDialog>
+      )}
+    </ModalShell>
   )
 }
 

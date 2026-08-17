@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import { X, ShoppingCart } from 'lucide-react'
+import { ShoppingCart } from 'lucide-react'
+import ModalShell from '../common/ModalShell'
+import CompactDialog from '../common/CompactDialog'
 import AvatarEmoji from '../common/AvatarEmoji'
 import { formatCurrency, toPoints, resolveCurrency, getCurrencyUnitMeta } from '../../utils/helpers'
 
@@ -37,31 +39,23 @@ function OrangeCatStoreModal({ students, settings, onClose, onPurchase }) {
   const currentStudent = selectedStudent ? students.find(s => s.id === selectedStudent.id) || selectedStudent : null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-      <div className="relative bg-[#fdfbf7] rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
-        {/* Orange theme top bar */}
-        <div className="h-3 bg-gradient-to-r from-[#FFD6A5] to-[#FF8A8A] shrink-0" />
-
-        {/* Header */}
-        <div className="p-6 border-b border-[#E8E8E8] flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#FFD6A5] to-[#FF8A8A] flex items-center justify-center text-2xl">
-              {shop.icon || '🐱'}
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-[#5D5D5D]">{shop.name || '橘喵商店'}</h2>
-              <p className="text-sm text-[#8B8B8B]">選擇村民後購買商品</p>
-            </div>
-          </div>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-[#E8E8E8] transition-colors">
-            <X size={24} className="text-[#5D5D5D]" />
-          </button>
+    <ModalShell
+      size="L"
+      scroll="caller"
+      accentClass="from-[#FFD6A5] to-[#FF8A8A]"
+      icon={
+        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#FFD6A5] to-[#FF8A8A] flex items-center justify-center text-2xl">
+          {shop.icon || '🐱'}
         </div>
-
+      }
+      title={shop.name || '橘喵商店'}
+      subtitle="選擇村民後購買商品"
+      onClose={onClose}
+    >
+      <div className="flex flex-col h-full">
         {/* Success/Error message */}
         {purchaseMsg && (
-          <div className={`mx-6 mt-4 px-4 py-2.5 rounded-xl text-sm font-medium text-center animate-fade-in ${purchaseMsg.includes('不足')
+          <div className={`shrink-0 mx-6 mb-4 px-4 py-2.5 rounded-xl text-sm font-medium text-center animate-fade-in ${purchaseMsg.includes('不足')
             ? 'bg-[#FFADAD]/20 border border-[#FFADAD] text-[#D64545]'
             : 'bg-[#E8F5E9] border border-[#A8D8B9] text-[#4A7C59]'
             }`}>
@@ -70,7 +64,7 @@ function OrangeCatStoreModal({ students, settings, onClose, onPurchase }) {
         )}
 
         {/* Shop View */}
-        <div className="flex flex-1 min-h-0">
+        <div className="flex flex-1 min-h-0 border-t border-[#E8E8E8]">
           {/* Left: Student selector */}
           <div className="w-48 border-r border-[#E8E8E8] p-4 overflow-y-auto shrink-0" style={{ scrollbarWidth: 'thin' }}>
             <h3 className="text-sm font-bold text-[#5D5D5D] mb-3">選擇村民</h3>
@@ -161,12 +155,12 @@ function OrangeCatStoreModal({ students, settings, onClose, onPurchase }) {
           </div>
         </div>
 
-        {/* Purchase confirmation overlay */}
-        {confirmItem && currentStudent && (
-          <div className="absolute inset-0 bg-black/30 flex items-center justify-center z-10 animate-fade-in">
-            <div className="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl">
+      </div>
+
+      {/* 購買確認：次級對話框，高度隨內容 */}
+      {confirmItem && currentStudent && (
+        <CompactDialog title="確認購買" onClose={() => setConfirmItem(null)} panelClassName="text-center">
               <div className="text-5xl text-center mb-3">{confirmItem.icon || '🎁'}</div>
-              <h3 className="text-lg font-bold text-center text-[#5D5D5D] mb-1">確認購買</h3>
               <p className="text-center text-[#8B8B8B] text-sm mb-3">
                 {currentStudent.name} 購買「{confirmItem.name}」
               </p>
@@ -198,11 +192,9 @@ function OrangeCatStoreModal({ students, settings, onClose, onPurchase }) {
                   <ShoppingCart size={16} /> 確認購買
                 </button>
               </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+        </CompactDialog>
+      )}
+    </ModalShell>
   )
 }
 

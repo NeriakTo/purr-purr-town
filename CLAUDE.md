@@ -54,6 +54,9 @@ src/
 │   └── SeatingView.jsx   # v3.7.0: Drag-and-drop seating chart
 ├── components/
 │   ├── common/           # Header, AvatarEmoji, IconPicker, LoadingScreen
+│   │   ├── ModalShell.jsx      # v4.1.0: 全彈窗共用外框（尺寸/頁首/footer/無障礙）
+│   │   ├── CompactDialog.jsx   # v4.1.0: 次級確認框（高度隨內容）
+│   │   └── useDialogChrome.js  # v4.1.0: body lock + 焦點 + Esc 層級堆疊
 │   ├── calendar/         # CalendarNav (react-calendar)
 │   ├── dashboard/        # TaskBoard, SquadGrid, VillagerCard, BulletinBoard
 │   └── seating/          # v3.7.0: SeatingGrid, SeatingCell, SeatingToolbar, SeatingWaitingList
@@ -74,6 +77,18 @@ src/
     ├── helpers.js        # Core logic: banking, currency, dates, avatars
     ├── seatingUtils.js   # v3.7.0: Grid manipulation pure functions
     └── exportUtils.js    # v3.7.0: Excel export + print utilities
+```
+
+### Modal Frame (v4.1.0)
+```javascript
+// 所有彈窗一律用 ModalShell，禁止在個別檔案覆寫寬高
+// 寬度三級：S max-w-lg / M max-w-3xl / L max-w-5xl
+// 高度：非提示型固定 h-[85dvh] max-h-[48rem]；S 級表單與阻斷提示用 height="auto"
+// scroll="shell" 單一內容捲動；scroll="caller" 交給彈窗自管（分頁、雙欄工作區）
+// 巢狀確認框用 CompactDialog（高度隨內容），不要用 ModalShell
+// overlay prop 放狀態覆蓋層（如課堂法寶「時間到」），它是面板直接子層不隨內容捲動
+// body 捲動鎖定、Esc 關閉、焦點移入與歸還統一由 useDialogChrome 處理，個別彈窗不要再寫
+// 定案來源：~/TriclawKM/system/三喵會議/呼嚕嚕小鎮-彈窗尺寸與版面一致性-三喵會議-20260818.md
 ```
 
 ## Key Patterns

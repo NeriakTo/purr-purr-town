@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { X, Calendar as CalendarIcon, Search, ScrollText, Filter, ChevronDown, Check, Clock, XCircle, Coffee, CircleMinus, RotateCcw, CheckCircle, Download } from 'lucide-react'
 import AvatarEmoji from '../common/AvatarEmoji'
+import ModalShell from '../common/ModalShell'
 import { STATUS_VALUES, BATCH_STATUS_CONFIG } from '../../utils/constants'
 import { formatDate, formatDateDisplay, getTodayStr, getTaskDueDate, getTaskCreatedAt, normalizeStatus, getStatusVisual, isDoneStatus, isCountedInDenominator, getTaskIcon, shouldAutoExempt, getStatusLabel, BATCH_STATUS_ICONS } from '../../utils/helpers'
 import { exportTaskStatusToExcel } from '../../utils/exportUtils'
@@ -13,11 +14,6 @@ function HistoryModal({ allLogs, students, onClose, onToggleStatus, className })
   const [expandedTask, setExpandedTask] = useState(null)
   const [batchTaskKey, setBatchTaskKey] = useState(null)
   const [batchSelected, setBatchSelected] = useState({})
-
-  useEffect(() => {
-    document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = '' }
-  }, [])
 
   // v3.0.1: 僅顯示已過期任務 (dueDate < 今天)
   const todayStr = getTodayStr()
@@ -79,29 +75,22 @@ function HistoryModal({ allLogs, students, onClose, onToggleStatus, className })
   }, [allLogs])
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40" aria-hidden="true" />
-      <div className="relative bg-[#fdfbf7] rounded-3xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
-        <div className="h-3 bg-gradient-to-r from-[#FFD6A5] to-[#A8D8B9]" />
-
-        {/* Header */}
-        <div className="px-4 py-3 border-b border-[#E8E8E8] flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#FFD6A5] to-[#A8D8B9] flex items-center justify-center">
-              <ScrollText size={20} className="text-white" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-[#5D5D5D]">村莊歷史</h2>
-              <p className="text-xs text-[#8B8B8B]">已過期任務補登</p>
-            </div>
-          </div>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-[#E8E8E8] transition-colors">
-            <X size={20} className="text-[#5D5D5D]" />
-          </button>
+    <ModalShell
+      size="M"
+      scroll="caller"
+      accentClass="from-[#FFD6A5] to-[#A8D8B9]"
+      icon={
+        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#FFD6A5] to-[#A8D8B9] flex items-center justify-center">
+          <ScrollText size={24} className="text-white" />
         </div>
-
+      }
+      title="村莊歷史"
+      subtitle="已過期任務補登"
+      onClose={onClose}
+    >
+      <div className="flex flex-col h-full">
         {/* Filters */}
-        <div className="px-4 py-2 border-b border-[#E8E8E8] space-y-2 shrink-0">
+        <div className="px-6 pb-3 border-b border-[#E8E8E8] space-y-2 shrink-0">
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-2 flex-1">
               <Search size={16} className="text-[#8B8B8B]" />
@@ -137,8 +126,8 @@ function HistoryModal({ allLogs, students, onClose, onToggleStatus, className })
           </div>
         </div>
 
-      {/* Task list */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-2 min-h-0">
+        {/* Task list */}
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-2">
         {filteredHistoryTasks.length === 0 ? (
           <div className="text-center py-12">
             <div className="text-4xl mb-3">📜</div>
@@ -348,9 +337,9 @@ function HistoryModal({ allLogs, students, onClose, onToggleStatus, className })
             )
           })
         )}
+        </div>
       </div>
-      </div>
-    </div>
+    </ModalShell>
   )
 }
 

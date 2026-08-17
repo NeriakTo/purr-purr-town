@@ -5,6 +5,7 @@ import { saveClassCache, snapshotClassCache, generateId, resolveCurrency, format
 import IconPicker, { RenderIcon } from '../common/IconPicker'
 import JobSettingsTab from './settings/JobSettingsTab'
 import SyncSettingsTab from './settings/SyncSettingsTab'
+import ModalShell from '../common/ModalShell'
 
 function SettingsModal({ classId, className, classEntry, settings, students, allLogs, onClose, onSave, onUpdateClassInfo, onRestoreFromBackup, onClearLocalClass, onProcessPayroll }) {
   const [activeTab, setActiveTab] = useState('general')
@@ -497,30 +498,33 @@ function SettingsModal({ classId, className, classEntry, settings, students, all
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-      <div className="relative bg-[#fdfbf7] rounded-3xl shadow-2xl max-w-3xl w-full overflow-hidden flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
-        <div className="h-3 bg-gradient-to-r from-[#A8D8B9] to-[#FFD6A5] shrink-0" />
-
-        {/* Header */}
-        <div className="p-6 pb-0 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#A8D8B9] to-[#FFD6A5] flex items-center justify-center">
-              <Settings size={24} className="text-white" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-[#5D5D5D]">村莊設定</h2>
-              <p className="text-sm text-[#8B8B8B]">管理村莊的各項設定與備份</p>
-            </div>
-          </div>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-[#E8E8E8] transition-colors">
-            <X size={24} className="text-[#5D5D5D]" />
-          </button>
+    <ModalShell
+      size="L"
+      scroll="caller"
+      accentClass="from-[#A8D8B9] to-[#FFD6A5]"
+      icon={
+        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#A8D8B9] to-[#FFD6A5] flex items-center justify-center">
+          <Settings size={24} className="text-white" />
         </div>
-
+      }
+      title="村莊設定"
+      subtitle="管理村莊的各項設定與備份"
+      onClose={onClose}
+      footer={
+        <>
+          <button onClick={onClose} className="px-6 py-3 rounded-xl bg-[#E8E8E8] text-[#5D5D5D] font-medium hover:bg-[#D8D8D8] transition-colors">
+            取消
+          </button>
+          <button onClick={handleSave} className="px-8 py-3 rounded-xl bg-gradient-to-r from-[#A8D8B9] to-[#7BC496] text-white font-bold shadow-md hover:shadow-lg transition-all">
+            儲存設定
+          </button>
+        </>
+      }
+    >
+      <div className="flex flex-col h-full">
         {/* Tab Navigation */}
         {/* 底線改用 inset shadow：不佔版面高度，分頁列才不會因 -mb-px 溢出而長出垂直卷軸 */}
-        <div className="px-6 pt-4 flex gap-1 overflow-x-auto overflow-y-hidden shrink-0 shadow-[inset_0_-1px_0_#E8E8E8]" style={{ scrollbarWidth: 'thin' }}>
+        <div className="px-6 flex gap-1 overflow-x-auto overflow-y-hidden shrink-0 shadow-[inset_0_-1px_0_#E8E8E8]" style={{ scrollbarWidth: 'thin' }}>
           {tabs.map(tab => (
             <button
               key={tab.key}
@@ -1403,19 +1407,8 @@ function SettingsModal({ classId, className, classEntry, settings, students, all
             </div>
           )}
         </div>
-
-        {/* Footer - always visible */}
-        <div className="p-4 border-t border-[#E8E8E8] flex gap-3 shrink-0">
-          <button onClick={handleSave} className="flex-1 py-3 rounded-xl bg-gradient-to-r from-[#A8D8B9] to-[#7BC496] text-white font-bold shadow-md hover:shadow-lg transition-all">
-            儲存設定
-          </button>
-          <button onClick={onClose} className="px-6 py-3 rounded-xl bg-[#E8E8E8] text-[#5D5D5D] font-medium hover:bg-[#D8D8D8] transition-colors">
-            取消
-          </button>
-        </div>
-
       </div>
-    </div>
+    </ModalShell>
   )
 }
 

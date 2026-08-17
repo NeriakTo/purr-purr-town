@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { X, Plus, Trash2, Save, Pin } from 'lucide-react'
+import { Plus, Trash2, Save, Pin } from 'lucide-react'
+import ModalShell from '../common/ModalShell'
 
 const NOTE_COLORS = ['#FFF4B8', '#FFE0E0', '#DFF5E1', '#E0ECFF', '#F5E1FF', '#FFECC7']
 
@@ -47,26 +48,32 @@ function AnnouncementModal({ announcements = [], onClose, onSave }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-      <div className="relative bg-[#fdfbf7] rounded-3xl shadow-2xl max-w-2xl w-full overflow-hidden">
-        <div className="h-3 bg-gradient-to-r from-[#A8D8B9] to-[#FFD6A5]" />
-        <button onClick={onClose} className="absolute top-5 right-5 p-2 rounded-full bg-white/80 hover:bg-white shadow-md">
-          <X size={20} className="text-[#5D5D5D]" />
-        </button>
-
-        <div className="p-6 md:p-8">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-12 h-12 rounded-2xl bg-[#FFD6A5] flex items-center justify-center text-white shadow-md">
-              <Pin size={22} />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-[#5D5D5D]">公佈欄管理</h2>
-              <p className="text-sm text-[#8B8B8B]">新增、編輯或刪除公告</p>
-            </div>
-          </div>
-
-          <div className="mb-4 space-y-3">
+    <ModalShell
+      size="M"
+      scroll="caller"
+      accentClass="from-[#A8D8B9] to-[#FFD6A5]"
+      icon={
+        <div className="w-12 h-12 rounded-2xl bg-[#FFD6A5] flex items-center justify-center text-white shadow-md">
+          <Pin size={22} />
+        </div>
+      }
+      title="公佈欄管理"
+      subtitle="新增、編輯或刪除公告"
+      onClose={onClose}
+      footer={
+        <>
+          <button onClick={onClose} className="px-5 py-2.5 rounded-xl bg-[#E8E8E8] text-[#5D5D5D] font-medium">
+            取消
+          </button>
+          <button onClick={handleSave} className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#A8D8B9] to-[#7BC496] text-white font-medium flex items-center gap-2">
+            <Save size={16} />
+            儲存
+          </button>
+        </>
+      }
+    >
+        <div className="h-full flex flex-col px-6 pb-6">
+          <div className="mb-4 space-y-3 shrink-0">
             <label className="text-sm font-medium text-[#5D5D5D]">新增公告</label>
             <div className="flex gap-2">
               <input
@@ -86,7 +93,7 @@ function AnnouncementModal({ announcements = [], onClose, onSave }) {
             </div>
           </div>
 
-          <div className="space-y-3 max-h-[45vh] overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}>
+          <div className="flex-1 min-h-0 space-y-3 overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}>
             {items.length === 0 ? (
               <div className="text-center py-10 text-sm text-[#8B8B8B]">目前沒有公告</div>
             ) : (
@@ -112,19 +119,8 @@ function AnnouncementModal({ announcements = [], onClose, onSave }) {
               ))
             )}
           </div>
-
-          <div className="mt-6 flex justify-end gap-3">
-            <button onClick={onClose} className="px-5 py-2.5 rounded-xl bg-[#E8E8E8] text-[#5D5D5D] font-medium">
-              取消
-            </button>
-            <button onClick={handleSave} className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#A8D8B9] to-[#7BC496] text-white font-medium flex items-center gap-2">
-              <Save size={16} />
-              儲存
-            </button>
-          </div>
         </div>
-      </div>
-    </div>
+    </ModalShell>
   )
 }
 

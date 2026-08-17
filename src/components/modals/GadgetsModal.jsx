@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { Sparkles, X } from 'lucide-react'
+import { Sparkles } from 'lucide-react'
 import AvatarEmoji from '../common/AvatarEmoji'
+import ModalShell from '../common/ModalShell'
 
 // 使用 Web Audio API 合成輕柔鐘聲（三音和弦 + 自然衰減）
 function playChime() {
@@ -67,11 +68,6 @@ function GadgetsModal({ students, onClose }) {
   const [drawIndex, setDrawIndex] = useState(0)
   const [winners, setWinners] = useState([])
   const [drawCount, setDrawCount] = useState(1)
-
-  useEffect(() => {
-    document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = '' }
-  }, [])
 
   const timeUpTriggeredRef = useRef(false)
 
@@ -164,25 +160,31 @@ function GadgetsModal({ students, onClose }) {
   const currentStudent = students[drawIndex]
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-      <div className="relative bg-[#fdfbf7] rounded-3xl shadow-2xl max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden">
-        <div className="h-3 shrink-0 bg-gradient-to-r from-[#A8D8B9] to-[#FFD6A5]" />
-        <button onClick={onClose} className="absolute top-5 right-5 z-10 p-2 rounded-full bg-white/80 hover:bg-white shadow-md">
-          <X size={20} className="text-[#5D5D5D]" />
-        </button>
-
-        <div className="flex-1 min-h-0 p-6 md:p-8 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-12 h-12 rounded-2xl bg-[#A8D8B9] flex items-center justify-center text-white shadow-md">
-              <Sparkles size={24} />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-[#5D5D5D]">課堂法寶</h2>
-              <p className="text-sm text-[#8B8B8B]">上課小工具，讓課堂更順暢</p>
-            </div>
+    <ModalShell
+      size="M"
+      accentClass="from-[#A8D8B9] to-[#FFD6A5]"
+      icon={
+        <div className="w-12 h-12 rounded-2xl bg-[#A8D8B9] flex items-center justify-center text-white shadow-md">
+          <Sparkles size={24} />
+        </div>
+      }
+      title="課堂法寶"
+      subtitle="上課小工具，讓課堂更順暢"
+      onClose={onClose}
+      contentClassName="px-6 pb-6"
+      overlay={timeUp && (
+        <div className="gadget-alert">
+          <div className="gadget-alert-card">
+            <div className="text-4xl mb-3">⏰</div>
+            <div className="text-2xl font-bold text-[#5D5D5D]">時間到！</div>
+            <button onClick={() => setTimeUp(false)} className="mt-4 px-4 py-2 rounded-xl bg-[#A8D8B9] text-white font-bold">
+              好的
+            </button>
           </div>
-
+        </div>
+      )}
+    >
+      <div>
           <div className="flex gap-3 mb-6">
             <button
               onClick={() => setActiveTab('timer')}
@@ -362,21 +364,8 @@ function GadgetsModal({ students, onClose }) {
               )}
             </div>
           )}
-        </div>
-
-        {timeUp && (
-          <div className="gadget-alert">
-            <div className="gadget-alert-card">
-              <div className="text-4xl mb-3">⏰</div>
-              <div className="text-2xl font-bold text-[#5D5D5D]">時間到！</div>
-              <button onClick={() => setTimeUp(false)} className="mt-4 px-4 py-2 rounded-xl bg-[#A8D8B9] text-white font-bold">
-                好的
-              </button>
-            </div>
-          </div>
-        )}
       </div>
-    </div>
+    </ModalShell>
   )
 }
 

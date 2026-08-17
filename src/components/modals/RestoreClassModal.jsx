@@ -1,6 +1,7 @@
 // v3.7.2: 跨裝置還原 Modal（雲端 + 檔案匯入）
-import { useEffect, useRef, useState } from 'react'
-import { X, Cloud, FileUp, Download, Loader2, AlertTriangle, CheckCircle, Key, Link, Hash } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { Cloud, FileUp, Download, Loader2, AlertTriangle, CheckCircle, Key, Link, Hash } from 'lucide-react'
+import ModalShell from '../common/ModalShell'
 
 function RestoreClassModal({ onClose, onRestoreClass, existingClassIds }) {
   const [activeTab, setActiveTab] = useState('cloud')
@@ -16,11 +17,6 @@ function RestoreClassModal({ onClose, onRestoreClass, existingClassIds }) {
   const [fileSummary, setFileSummary] = useState(null)
   const [filePayload, setFilePayload] = useState(null)
   const fileInputRef = useRef(null)
-
-  useEffect(() => {
-    document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = '' }
-  }, [])
 
   const handleCloudRestore = async () => {
     if (!backupUrl.trim()) { setMsg('請輸入 GAS 部署網址'); return }
@@ -123,23 +119,20 @@ function RestoreClassModal({ onClose, onRestoreClass, existingClassIds }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-      <div className="relative bg-[#fdfbf7] rounded-3xl shadow-2xl max-w-md w-full overflow-hidden">
-        <div className="h-3" style={{ background: 'repeating-linear-gradient(90deg, #A0C4FF, #A0C4FF 20px, #FFD6A5 20px, #FFD6A5 40px)' }} />
-        <button onClick={onClose} disabled={busy} className="absolute top-6 right-4 p-2 rounded-full bg-white/80 hover:bg-white shadow-md transition-all z-10">
-          <X size={20} className="text-[#5D5D5D]" />
-        </button>
-
-        <div className="p-6">
-          <div className="text-center mb-6">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4" style={{ background: 'linear-gradient(135deg, #A0C4FF 0%, #7EB0FF 100%)' }}>
-              <Download size={32} className="text-white" />
-            </div>
-            <h2 className="text-2xl font-bold text-[#5D5D5D]">還原村莊</h2>
-            <p className="text-sm text-[#8B8B8B] mt-1">從其他裝置的備份還原班級資料</p>
-          </div>
-
+    <ModalShell
+      size="S"
+      height="auto"
+      accentClass="from-[#A0C4FF] to-[#FFD6A5]"
+      icon={
+        <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #A0C4FF 0%, #7EB0FF 100%)' }}>
+          <Download size={24} className="text-white" />
+        </div>
+      }
+      title="還原村莊"
+      subtitle="從其他裝置的備份還原班級資料"
+      onClose={onClose}
+    >
+        <div className="px-6 pb-6">
           {/* 分頁 */}
           <div className="flex gap-2 mb-5">
             <button
@@ -270,9 +263,7 @@ function RestoreClassModal({ onClose, onRestoreClass, existingClassIds }) {
             </div>
           )}
         </div>
-        <div className="h-3" style={{ background: 'repeating-linear-gradient(90deg, #FFD6A5, #FFD6A5 20px, #A0C4FF 20px, #A0C4FF 40px)' }} />
-      </div>
-    </div>
+    </ModalShell>
   )
 }
 
