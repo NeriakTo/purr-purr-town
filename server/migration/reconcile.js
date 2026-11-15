@@ -108,7 +108,7 @@ export function reconcile(source, converted) {
     txs.forEach((t, j) => {
       const targetIndex = correctionEdges.get(j)
       const targetRow = targetIndex === null ? null : one("transactions", `${p}/bank/transactions/${targetIndex}`)
-      expectRow('transactions', `${p}/bank/transactions/${j}`, t, { student_id: sr?.id, legacy_id: t.id ?? null, amount: numeric(t.amount) ? t.amount : null, reason: t.reason ?? null, occurred_at: t.date ?? null, balance_after: t.balance ?? null, voided: Boolean(t.voided), transaction_type: t.type ?? 'legacy', corrected_transaction_id: t.correctedTxId === undefined || cycleMembers.has(j) ? null : targetRow?.id ?? null, semester: null, legacy_semantics: true, exclude_from_total: Boolean(t.excludeFromTotal) })
+      expectRow('transactions', `${p}/bank/transactions/${j}`, t, { student_id: sr?.id, legacy_id: t.id ?? null, amount: numeric(t.amount) ? t.amount : null, reason: t.reason ?? null, occurred_at: t.date ?? null, balance_after: t.balance ?? null, voided: Boolean(t.voided), transaction_type: t.type ?? 'legacy', corrected_transaction_id: t.correctedTxId === undefined || cycleMembers.has(j) ? null : targetRow?.id ?? null, semester: semesterAt(t.date), legacy_semantics: true, exclude_from_total: Boolean(t.excludeFromTotal) })
     })
     expectOpeningAdjustment()
     function expectOpeningAdjustment() {
@@ -145,7 +145,7 @@ export function reconcile(source, converted) {
   })
   recordList(data.logs).forEach((log, i) => {
     const p = `/data/logs/${i}`, lr = expectRow('logs', p, log)
-    recordList(log.tasks).forEach((t, j) => expectRow('tasks', `${p}/tasks/${j}`, t, { legacy_id: t.id ?? null, log_id: lr?.id, title: t.title ?? null, task_type: t.type ?? null, published_on: t.createdAt ?? log.date ?? null, due_on: t.dueDate ?? log.date ?? null, semester: null, correction_state: t.type === '訂正' ? 'legacy_unlinked' : null, original_task_id: null, teacher_confirmed: null, assignees_known: false }))
+    recordList(log.tasks).forEach((t, j) => expectRow('tasks', `${p}/tasks/${j}`, t, { legacy_id: t.id ?? null, log_id: lr?.id, title: t.title ?? null, task_type: t.type ?? null, published_on: t.createdAt ?? log.date ?? null, due_on: t.dueDate ?? log.date ?? null, semester: semesterAt(t.createdAt ?? log.date), correction_state: t.type === '訂正' ? 'legacy_unlinked' : null, original_task_id: null, teacher_confirmed: null, assignees_known: false }))
     entries(log.status).forEach(([sid, values]) => {
       const vals = Object.fromEntries(entries(values))
       const keys = [...new Set([...recordList(log.tasks).filter(t => t.id != null).map(t => String(t.id)), ...entries(vals).map(([key]) => key)])]

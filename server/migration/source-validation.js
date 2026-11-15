@@ -116,7 +116,7 @@ export function validateSource(source, earnedFromLegacy, { notices = [], adjustm
       if (t.reason !== undefined && typeof t.reason !== 'string') error('INVALID_REASON', `${p}/reason`, t.reason)
       if (t.type !== undefined && t.type !== 'correction') error('UNKNOWN_TRANSACTION_TYPE', `${p}/type`, t.type)
       if (t.voided !== undefined && typeof t.voided !== 'boolean') error('UNKNOWN_VOIDED', `${p}/voided`, t.voided)
-      error('UNKNOWN_TRANSACTION_SEMESTER', p)
+      if (!semesterAt(t.date)) error('UNKNOWN_TRANSACTION_SEMESTER', p)
     })
     index(txs, `${path}/bank/transactions`)
     const edges = correctionTargets(txs)
@@ -178,7 +178,7 @@ export function validateSource(source, earnedFromLegacy, { notices = [], adjustm
       const tp = `${p}/tasks/${j}`
       fields(t, tp, 'id title type createdAt dueDate')
       enumeration(t.type, [...array(settings.taskTypes, '/data/settings/taskTypes'), '作業', '訂正', '攜帶物品', '考試', '通知單', '回條'], 'UNKNOWN_TASK_TYPE', `${tp}/type`)
-      error('UNKNOWN_TASK_SEMESTER', tp)
+      if (!semesterAt(t.createdAt ?? log.date)) error('UNKNOWN_TASK_SEMESTER', tp)
       error('UNKNOWN_ASSIGNMENT_LIST', tp)
     })
     const tm = index(tasks, `${p}/tasks`)

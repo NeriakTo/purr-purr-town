@@ -18,10 +18,25 @@ const numeric = v => typeof v === 'number' && Number.isFinite(v)
 const store = r => typeof r === 'string' && (r.startsWith('購買') || r.startsWith('使用道具'))
 export const statusOf = v => v === true ? 'on_time' : v === false || v === undefined ? 'pending' : ['on_time', 'late', 'missing', 'leave', 'exempt', 'makeup'].includes(v) ? v : 'unknown'
 export function semesterAt(date) {
-  if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}(T.*)?$/.test(date) || !Number.isFinite(Date.parse(date))) return null
-  const local = new Date(Date.parse(date.length === 10 ? `${date}T00:00:00+08:00` : date) + 8 * 3600000).toISOString()
+  const timestamp = taipeiTimestamp(date)
+  if (timestamp === null) return null
+  const local = new Date(timestamp + 8 * 3600000).toISOString()
   const y = Number(local.slice(0, 4)), m = Number(local.slice(5, 7))
   return `${y - 1911 - (m < 8 ? 1 : 0)}-${m === 1 || m >= 8 ? 1 : 2}`
+}
+
+function taipeiTimestamp(date) {
+  if (typeof date !== 'string') return null
+  if (!/^\d{4}-\d{2}-\d{2}(T.*)?$/.test(date)) return null
+  const day = date.slice(0, 10)
+  const calendarDate = new Date(`${day}T00:00:00Z`)
+  if (!Number.isFinite(calendarDate.getTime())) return null
+  if (calendarDate.toISOString().slice(0, 10) !== day) return null
+  let zoned = date
+  if (date.length === 10) zoned = `${date}T00:00:00+08:00`
+  else if (!/(Z|[+-]\d{2}:?\d{2})$/i.test(date)) zoned = `${date}+08:00`
+  const timestamp = Date.parse(zoned)
+  return Number.isFinite(timestamp) ? timestamp : null
 }
 
 export function convert(input) {
@@ -101,8 +116,8 @@ export function convert(input) {
       if (t.reason !== undefined && typeof t.reason !== 'string') error('INVALID_REASON', `${path}/reason`, t.reason)
       if (t.type !== undefined && t.type !== 'correction') error('UNKNOWN_TRANSACTION_TYPE', `${path}/type`, t.type)
       if (t.voided !== undefined && typeof t.voided !== 'boolean') error('UNKNOWN_VOIDED', `${path}/voided`, t.voided)
-      error('UNKNOWN_TRANSACTION_SEMESTER', path)
-      return add('transactions', path, t, { student_id: sid, amount: numeric(t.amount) ? t.amount : null, reason: t.reason ?? null, occurred_at: t.date ?? null, balance_after: t.balance ?? null, voided: Boolean(t.voided), transaction_type: t.type ?? 'legacy', corrected_transaction_id: null, semester: null, legacy_semantics: true, exclude_from_total: Boolean(t.excludeFromTotal) }, t.id ?? null)
+      if (!semesterAt(t.date)) error('UNKNOWN_TRANSACTION_SEMESTER', path)
+      return add('transactions', path, t, { student_id: sid, amount: numeric(t.amount) ? t.amount : null, reason: t.reason ?? null, occurred_at: t.date ?? null, balance_after: t.balance ?? null, voided: Boolean(t.voided), transaction_type: t.type ?? 'legacy', corrected_transaction_id: null, semester: semesterAt(t.date), legacy_semantics: true, exclude_from_total: Boolean(t.excludeFromTotal) }, t.id ?? null)
     })
     index(tr, `${p}/bank/transactions`)
     const edges = correctionTargets(txs)
@@ -174,9 +189,9 @@ export function convert(input) {
     const tasks = arr(log.tasks, `${p}/tasks`).map((t, j) => {
       check(t, `${p}/tasks/${j}`, 'id title type createdAt dueDate')
       enumeration(t.type, [...arr(settings.taskTypes, '/data/settings/taskTypes'), '作業', '訂正', '攜帶物品', '考試', '通知單', '回條'], 'UNKNOWN_TASK_TYPE', `${p}/tasks/${j}/type`)
-      error('UNKNOWN_TASK_SEMESTER', `${p}/tasks/${j}`)
+      if (!semesterAt(t.createdAt ?? log.date)) error('UNKNOWN_TASK_SEMESTER', `${p}/tasks/${j}`)
       error('UNKNOWN_ASSIGNMENT_LIST', `${p}/tasks/${j}`)
-      return add('tasks', `${p}/tasks/${j}`, t, { log_id: lr.id, title: t.title ?? null, task_type: t.type ?? null, published_on: t.createdAt ?? log.date ?? null, due_on: t.dueDate ?? log.date ?? null, semester: null, correction_state: t.type === '訂正' ? 'legacy_unlinked' : null, original_task_id: null, teacher_confirmed: null, assignees_known: false }, t.id ?? null)
+      return add('tasks', `${p}/tasks/${j}`, t, { log_id: lr.id, title: t.title ?? null, task_type: t.type ?? null, published_on: t.createdAt ?? log.date ?? null, due_on: t.dueDate ?? log.date ?? null, semester: semesterAt(t.createdAt ?? log.date), correction_state: t.type === '訂正' ? 'legacy_unlinked' : null, original_task_id: null, teacher_confirmed: null, assignees_known: false }, t.id ?? null)
     })
     const tm = index(tasks, `${p}/tasks`)
     Object.entries(obj(log.status, `${p}/status`)).forEach(([legacySid, values]) => {

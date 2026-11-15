@@ -10,7 +10,7 @@ describe('1A 假資料轉換契約', () => {
       ['on_time', true], ['on_time', true], ['late', true], ['missing', true], ['leave', true], ['exempt', true], ['makeup', true], ['pending', true], ['pending', false], ['unknown', true],
     ])
     expect(rows.transactions).toHaveLength(6)
-    expect(rows.tasks[6]).toMatchObject({ correction_state: 'legacy_unlinked', original_task_id: null, teacher_confirmed: null, assignees_known: false, semester: null })
+    expect(rows.tasks[6]).toMatchObject({ correction_state: 'legacy_unlinked', original_task_id: null, teacher_confirmed: null, assignees_known: false, semester: '115-1' })
   })
   for (const source of [classA, classB]) {
     it(`${source.classId} 重跑完全一致，不修改輸入，資料列 ID 無重複`, () => {

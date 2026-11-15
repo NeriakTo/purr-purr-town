@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { convert, canonicalJson, digest } from './convert.js'
+import { convert, canonicalJson, digest, semesterAt } from './convert.js'
 import { reconcile, legacyEarned } from './reconcile.js'
 import { validateSource, orderedErrors } from './source-validation.js'
-import { calcEarnedFromTransactions } from '../../src/utils/helpers.js'
+import { calcEarnedFromTransactions, getCurrentSemester } from '../../src/utils/helpers.js'
 
 function sourceWith(students = []) {
   return { classId: 'round2', data: { classId: 'round2', updatedAt: '2026-11-15', students, logs: [], settings: {} } }
@@ -18,6 +18,32 @@ function assertAligned(source) {
   expect(result.ready_for_import).toBe(false)
 }
 describe('第二輪正式轉換', () => {
+  it.each(Array.from({ length: 12 }, (_, i) => i + 1))('B6 第 %i 月與舊 helper 一致，交易與作業各用本身日期', month => {
+    const date = `2026-${String(month).padStart(2, '0')}-15`
+    const semester = getCurrentSemester(new Date(2026, month - 1, 15, 12))
+    const source = sourceWith([student([{ id: 't', amount: 0, date }])])
+    source.data.logs = [{ date, tasks: [{ id: 'fallback' }, { id: 'own', createdAt: '2025-08-15' }] }]
+    const converted = convert(source)
+    expect(semesterAt(date)).toBe(semester)
+    expect(converted.rows.transactions[0].semester).toBe(semester)
+    expect(converted.rows.tasks.map(t => t.semester)).toEqual([semester, '114-1'])
+    expect(converted.errors.map(e => e.code)).toEqual(['UNKNOWN_ASSIGNMENT_LIST', 'UNKNOWN_ASSIGNMENT_LIST'])
+    expect(reconcile(source, converted).differences).toEqual([])
+  })
+  it.each([undefined, '', 'bad', '2026-02-30'])('B6 缺漏或非法日期 %s 仍擋匯入', date => {
+    expect(semesterAt(date)).toBeNull()
+    const source = sourceWith([student([{ id: 't', amount: 0, date }])])
+    source.data.logs = [{ date, tasks: [{ id: 'task' }] }]
+    const converted = convert(source)
+    expect(converted.rows.transactions[0].semester).toBeNull()
+    expect(converted.rows.tasks[0].semester).toBeNull()
+    expect(converted.errors.map(e => e.code)).toEqual(expect.arrayContaining(['UNKNOWN_TRANSACTION_SEMESTER', 'UNKNOWN_TASK_SEMESTER', 'UNKNOWN_ASSIGNMENT_LIST']))
+    assertAligned(source)
+  })
+  it('B6 臺灣跨日邊界與無時區時間有固定結果', () => {
+    expect(semesterAt('2026-07-31T16:00:00Z')).toBe('115-1')
+    expect(semesterAt('2026-08-01T00:00:00')).toBe('115-1')
+  })
   it('B5 保存點數並產生確定性的期初調整，提示不擋匯入', () => {
     const source = sourceWith([student([{ id: 't', amount: 5, balance: 8 }])])
     source.data.students[0].bank.balance = 20
