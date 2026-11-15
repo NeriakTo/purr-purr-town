@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { convert } from './convert.js'
-import { reconcile } from './reconcile.js'
+import { reconcile, legacyEarned } from './reconcile.js'
 import { classA } from "./__fixtures__/classes.js"
 import { calcEarnedFromTransactions } from '../../src/utils/helpers.js'
 
@@ -177,4 +177,16 @@ it("R10 原測試宣稱的隔離行為逐筆斷言", () => {
   expect(txs[1].corrected_transaction_id).toBeNull()
   expect(txs[2].corrected_transaction_id).toBeNull()
   expect(txs.at(-1)).toMatchObject({ corrected_transaction_id: null, amount: null, raw: { amount: "NaN" } })
+})
+
+it("R11 保留字串金額舊語意但由 INVALID_AMOUNT 擋匯入", () => {
+  const txs = [{ id: "a", amount: "100" }, { id: "b", amount: "25" }]
+  expect(legacyEarned(txs)).toBe("010025")
+  expect(legacyEarned(txs)).toBe(calcEarnedFromTransactions(txs))
+  const source = snapshot(txs)
+  const out = convert(source)
+  expect(out.errors.filter(e => e.code === "INVALID_AMOUNT")).toHaveLength(2)
+  expect(out.rows.accounts[0].earned_recomputed).toBeNull()
+  expect(reconcile(source, out).ready_for_import).toBe(false)
+  expect(readme().includes("字串金額會串接")).toBe(true)
 })
