@@ -48,3 +48,13 @@ it("R3 循環每筆外鍵清空，含自循環與通往循環的尾鏈", () => {
   expect(out.rows.transactions[3].corrected_transaction_id).toBe(out.rows.transactions[0].id)
   expect(reconcile(source, out).differences).toEqual([])
 })
+
+it("R4 重複交易隔離外鍵但重算沿用最後一筆", () => {
+  const txs = [{ id: "dup", amount: 100, reason: "獎勵", voided: true }, { id: "dup", amount: -30, reason: "購買 貼紙", voided: true }, { id: "fix", amount: -20, type: "correction", correctedTxId: "dup" }]
+  const out = convert(snapshot(txs))
+  expect(out.errors.map(e => e.code)).toEqual(expect.arrayContaining(["DUPLICATE_LEGACY_ID", "AMBIGUOUS_REFERENCE"]))
+  expect(out.rows.transactions[2].corrected_transaction_id).toBeNull()
+  expect(out.rows.accounts[0].earned_recomputed).toBe(calcEarnedFromTransactions(txs))
+  expect(out.rows.accounts[0].earned_recomputed).toBe(0)
+  expect(readme().includes("重複交易編號的累計重算仍取最後一筆")).toBe(true)
+})

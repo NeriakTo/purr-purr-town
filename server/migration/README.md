@@ -167,3 +167,5 @@ SQL 草稿以 ID 主鍵與批次／來源路徑唯一約束擋重複，legacy_id
 實讀：`src/App.jsx`、`src/views/DashboardView.jsx`、`src/views/SeatingView.jsx`、`src/utils/constants.js`、`src/utils/helpers.js`、`src/utils/classInherit.js`、`src/utils/storage.js` 的寫入包裝，以及 `src/components/dashboard/TaskBoard.jsx`、`src/components/modals/SettingsModal.jsx`、`settings/JobSettingsTab.jsx`、`settings/SyncSettingsTab.jsx`、`PassportModal.jsx`、`CommentModal.jsx`、`CommentPanel.jsx`、`AnnouncementModal.jsx`、`TeamManagementModal.jsx`、`src/components/seating/SeatingWaitingList.jsx`。
 
 結果：新增 `shop.products[].description` 與相容 `storeItems[].description`（SettingsModal.jsx:433–444、1163）；完整保存在 products.raw。學生、bank/交易、背包、免交規則、評語、log/task/status、職務與指派、值日生、公告、貨幣、自動化、座位及自訂物件的其餘寫入欄位均已在上方清冊，未發現其他漏列。班級索引 alias/year/status/studentCount 與獨立 localStorage 的密碼、API key、同步設定不屬班級 JSON 匯出，不納入允許欄位；僅閱讀程式碼，未讀取任何設定值或憑證。還原與同步保留任意來源欄位，不代表它們是 UI 定義的已知欄位，仍逐筆報 UNKNOWN_FIELD。
+
+R4：重複交易編號的累計重算仍取最後一筆，與舊 helper 的 Object.fromEntries 相同；AMBIGUOUS_REFERENCE 會列錯誤且更正外鍵為 null，阻擋匯入。重算數字用於比對舊版，不能把外鍵隔離解讀成修正歷史統計。
