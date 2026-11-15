@@ -136,3 +136,20 @@ it.each([[], "bad", null, 7, false])("R7 非物件 log 狀態容器一致隔離 
   expect(out.rows.submissions).toEqual([])
   expect(reconcile(source, out).differences).toEqual([])
 })
+
+function reverseKeys(value) {
+  if (Array.isArray(value)) return value.map(reverseKeys)
+  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).reverse().map(([key, item]) => [key, reverseKeys(item)]))
+  return value
+}
+it("R8 深層物件鍵順序不改雜湊，陣列順序會改", () => {
+  const source = snapshot([{ id: "a", amount: 1 }, { id: "b", amount: 2 }])
+  const original = convert(source)
+  const reordered = reverseKeys(source)
+  expect(convert(reordered).rows.migration_batches).toEqual(original.rows.migration_batches)
+  expect(convert(reordered).report.source_hash).toBe(original.report.source_hash)
+  expect(reconcile(reordered, original).differences).toEqual([])
+  reordered.data.students[0].bank.transactions.reverse()
+  expect(convert(reordered).rows.migration_batches[0].id).not.toBe(original.rows.migration_batches[0].id)
+  expect(convert(reordered).report.source_hash).not.toBe(original.report.source_hash)
+})

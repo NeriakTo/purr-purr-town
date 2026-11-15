@@ -3,7 +3,16 @@ import { createHash } from 'node:crypto'
 
 export const TABLES = ['migration_batches', 'migration_sources', 'legacy_ids', 'classes', 'students', 'accounts', 'transactions', 'inventory_items', 'comments', 'exempt_rules', 'logs', 'tasks', 'submissions', 'settings_entries', 'products', 'jobs', 'job_assignments', 'daily_duties', 'seats', 'announcements', 'rules', 'groups', 'semesters']
 export const pointer = v => String(v).replaceAll('~', '~0').replaceAll('/', '~1')
-export const digest = v => createHash('sha256').update(JSON.stringify(v)).digest('hex')
+export function canonicalJson(value) {
+  return JSON.stringify(value, function sortedKeys(key, item) {
+    if (item === null || typeof item !== 'object' || Array.isArray(item)) return item
+    return Object.fromEntries(Object.keys(item).sort().map(name => [name, item[name]]))
+  })
+}
+
+export function digest(value) {
+  return createHash('sha256').update(canonicalJson(value)).digest('hex')
+}
 const isObject = v => v !== null && typeof v === 'object' && !Array.isArray(v)
 const numeric = v => typeof v === 'number' && Number.isFinite(v)
 const store = r => typeof r === 'string' && (r.startsWith('購買') || r.startsWith('使用道具'))

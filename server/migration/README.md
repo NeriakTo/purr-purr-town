@@ -125,7 +125,7 @@ const audit = reconcile(classA, result)
 
 `inactive=true` 只轉 `home_study`（在家自學）；false／缺欄位為 enrolled。另保留 transferred、archived 兩種新狀態於 DDL，但舊匯出沒有可驗證資料時不產生。依據 `src/utils/helpers.js:187`、`src/utils/constants.js:164`。不把缺席、自學、刪除學生混為轉出或封存。
 
-班級 ID 是 SHA-256(['class',來源班級編號])；其餘 ID 是 SHA-256([來源班級編號,表名,來源 path,舊編號])。無舊編號的 log、背包等用來源 path 作穩定定位，並報告需要舊 ID 的實體缺漏。批次 ID 由版本＋班級編號＋完整來源內容雜湊推導，不使用時間或亂數。**同一份來源**重跑列與 ID 完全一致；重新排序／內容變更是另一份來源，不能用此工具自行合併或裁決裝置快照。
+班級 ID 是 SHA-256(['class',來源班級編號])；其餘 ID 是 SHA-256([來源班級編號,表名,來源 path,舊編號])。無舊編號的 log、背包等用來源 path 作穩定定位，並報告需要舊 ID 的實體缺漏。批次 ID 由版本＋班級編號＋完整來源內容雜湊推導，不使用時間或亂數。**同一份來源**重跑列與 ID 完全一致；陣列重新排序／內容變更是另一份來源，不能用此工具自行合併或裁決裝置快照。
 
 SQL 草稿以 ID 主鍵與批次／來源路徑唯一約束擋重複，legacy_ids 的 path 唯一約束另含表名。1B 必須將同 ID 同內容視為已處理，同 ID 異內容視為衝突，不能無條件 UPDATE。本次沒有實作資料庫寫入，不宣稱已驗證資料庫的重送、並行或權限。
 
@@ -175,3 +175,5 @@ R5：reconcile 以獨立的 source-validation.js 走訪來源，重新檢查所�
 R6：更正外鍵統一由 corrections.js 解析，只在同一學生交易中以嚴格相等 `tx.id === correctedTxId` 比對，排除 null/undefined；數字 101 與字串 101 不合併，避免建立舊版 DashboardView.jsx:496 不會選中的關係。0 與空字串仍是可比對的原編號；缺值與重複目標不猜填。一般學生／商品／職務的物件 key 參照仍沿用字串鍵規則。期中／期末投影使用轉換列 id 與 corrected_transaction_id，外鍵清空或指錯會同時檢出欄位差異及受影響的區間數字。來源累計與來源區間仍照舊 helper 的規則（含 truthy correctedTxId），不更改舊版統計。
 
 R7：log.status 與各學生狀態容器均限非陣列物件；陣列、字串、數字、布林與 null 保留來源並報 INVALID_OBJECT，解析時視為空物件。已有學生容器時任務仍展開 pending/present=false，不從陣列或字串索引讀狀態。
+
+R8：所有 SHA-256 輸入先以 canonicalJson 固定序列化，遞迴排序物件鍵，保留陣列順序與 JSON 型別；只改物件鍵排列時 batch_id/source_hash 與資料列 ID 不變。陣列換位仍代表內容變更。此修正會變更先前未匯入草稿的批次雜湊，正式切換須固定使用本版。

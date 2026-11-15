@@ -1,4 +1,4 @@
-import { pointer, semesterAt } from './convert.js'
+import { pointer, semesterAt, canonicalJson } from './convert.js'
 import { correctionCycleMembers, correctionTargets, correctionMatches } from './corrections.js'
 
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -219,5 +219,5 @@ export function validateSource(source, earnedFromLegacy) {
 
 export function orderedErrors(errors) {
   if (!Array.isArray(errors)) return errors
-  return [...errors].sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
+  return [...errors].sort((a, b) => canonicalJson(a).localeCompare(canonicalJson(b)))
 }
