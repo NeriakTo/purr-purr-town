@@ -61,7 +61,7 @@ const audit = reconcile(classA, result)
 | `settings.ruleCategories[].id,name,icon` | `settings_entries(key=ruleCategories).raw` 每個分類完整保留；驗證未知欄位 |
 | `settings.automation.dailyQuestBonus,latePenalty,missingPenalty` | `settings_entries(key=automation).raw` 三原值，不觸發自動獎懲 |
 | `settings.shop.name,icon,products` | `settings_entries(key=shop).raw` 商店中繼資料與原陣列；商品另拆 products |
-| `shop.products[].id,name,icon,price,priceUnit,stock,initialStock` | `products.legacy_id,raw` 七原值，保留剩餘／初始庫存及商品價格幣別，不重設庫存，不依背包回推原量 |
+| `shop.products[].id,name,icon,price,priceUnit,stock,initialStock,description` | `products.legacy_id,raw` 八原值，保留剩餘／初始庫存及商品價格幣別，不重設庫存，不依背包回推原量 |
 | 舊 `settings.storeItems[]` | 同樣逐筆進 products，source_path 區分來源；與 shop 同時存在不靜默擇一。相同 id 報重複並隔離關聯 |
 | `settings.currency.base.{name,icon}`，`tier1/tier2.{name,icon,rate}` | `settings_entries(key=currency).raw` 全部保存；不重新換算任何歷史點數 |
 | 舊 `settings.currencyRates.{fish,cookie}` | `settings_entries(key=currencyRates).raw` 保存；不覆蓋 currency；舊讀取後備見 `src/utils/helpers.js:336` |
@@ -159,3 +159,11 @@ SQL 草稿以 ID 主鍵與批次／來源路徑唯一約束擋重複，legacy_id
 | HIGH 可重跑 | 同來源兩次深度相等、列 ID 唯一、舊編號對照、DDL 主鍵／來源唯一鍵草稿 |
 
 測試資料 `__fixtures__/classes.js` 僅含「測試甲／乙／丙」與假班、假老師；沒有讀任何真實學生資料。全程未連網路，未讀 `.env*`、憑證或正式資料。
+
+## R2 寫入欄位掃描（2026-11-15）
+
+方法：對整個 `src/` 執行 `rg -n` 搜尋 `setStudents|setLogs|setAllLogs|setSettings|setLocalSettings|onUpdateStudent|onUpdateSettings|updateSettings|updateProduct|saveClassCache|createTransaction`，再追蹤各 callback 的建立物件、動態 `[field]` 與彈窗 onChange；以預設常數及初始化 helper 交叉核對。
+
+實讀：`src/App.jsx`、`src/views/DashboardView.jsx`、`src/views/SeatingView.jsx`、`src/utils/constants.js`、`src/utils/helpers.js`、`src/utils/classInherit.js`、`src/utils/storage.js` 的寫入包裝，以及 `src/components/dashboard/TaskBoard.jsx`、`src/components/modals/SettingsModal.jsx`、`settings/JobSettingsTab.jsx`、`settings/SyncSettingsTab.jsx`、`PassportModal.jsx`、`CommentModal.jsx`、`CommentPanel.jsx`、`AnnouncementModal.jsx`、`TeamManagementModal.jsx`、`src/components/seating/SeatingWaitingList.jsx`。
+
+結果：新增 `shop.products[].description` 與相容 `storeItems[].description`（SettingsModal.jsx:433–444、1163）；完整保存在 products.raw。學生、bank/交易、背包、免交規則、評語、log/task/status、職務與指派、值日生、公告、貨幣、自動化、座位及自訂物件的其餘寫入欄位均已在上方清冊，未發現其他漏列。班級索引 alias/year/status/studentCount 與獨立 localStorage 的密碼、API key、同步設定不屬班級 JSON 匯出，不納入允許欄位；僅閱讀程式碼，未讀取任何設定值或憑證。還原與同步保留任意來源欄位，不代表它們是 UI 定義的已知欄位，仍逐筆報 UNKNOWN_FIELD。

@@ -29,3 +29,13 @@ describe('退修回歸', () => {
     expect(readme()).toContain('第二次更正差額會加入累計')
   })
 })
+
+it.each(["shop", "storeItems"])("R2 商品說明保全且不誤報 %s", location => {
+  const source = snapshot()
+  const product = { id: "p", description: "說明" }
+  if (location === "shop") source.data.settings.shop = { products: [product] }
+  else source.data.settings.storeItems = [product]
+  const out = convert(source)
+  expect(out.errors.filter(e => e.code === "UNKNOWN_FIELD")).toEqual([])
+  expect(out.rows.products[0].raw.description).toBe("說明")
+})

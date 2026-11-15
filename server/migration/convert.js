@@ -73,7 +73,7 @@ export function convert(input) {
   const sm = index(studentRows, '/data/students')
   const products = []
   for (const [list, path] of [[settings.shop?.products, '/data/settings/shop/products'], [settings.storeItems, '/data/settings/storeItems']]) arr(list, path).forEach((p, i) => {
-    check(p, `${path}/${i}`, 'id name icon price priceUnit stock initialStock')
+    check(p, `${path}/${i}`, 'id name icon price priceUnit stock initialStock description')
     enumeration(p.priceUnit, ['point', 'fish', 'cookie'], 'UNKNOWN_PRICE_UNIT', `${path}/${i}/priceUnit`)
     products.push(add('products', `${path}/${i}`, p, {}, p.id ?? null))
   })
