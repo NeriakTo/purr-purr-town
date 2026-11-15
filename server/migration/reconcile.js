@@ -7,6 +7,15 @@ const list = v => Array.isArray(v) ? v : []
 const entries = v => v && typeof v === 'object' && !Array.isArray(v) ? Object.entries(v) : []
 const numeric = v => typeof v === 'number' && Number.isFinite(v)
 
+function recordList(value) {
+  return list(value).map(normalizeRecord)
+}
+
+function normalizeRecord(value) {
+  if (value !== null && typeof value === "object" && !Array.isArray(value)) return value
+  return {}
+}
+
 function projectTransactions(transactions) {
   const byId = new Map(transactions.map(transaction => [transaction.id, transaction]))
   return transactions.map(transaction => {
@@ -70,10 +79,10 @@ export function reconcile(source, converted) {
     const found = list(rows[table]).filter(r => r.legacy_id !== null && String(r.legacy_id) === String(legacy))
     return found.length === 1 ? found[0].id : null
   }
-  list(data.students).forEach((s, i) => {
+  recordList(data.students).forEach((s, i) => {
     const p = `/data/students/${i}`
     const sr = expectRow('students', p, s, { legacy_id: s.id || s.uuid || null, name: s.name ?? null, seat_number: s.number ?? null, group_key: s.group == null ? null : String(s.group), avatar: s.avatar ?? null, enrollment_status: typeof s.inactive === 'boolean' || s.inactive === undefined ? (s.inactive ? 'home_study' : 'enrolled') : 'unknown' })
-    const bank = s.bank || {}, txs = list(bank.transactions), valid = txs.every(t => numeric(t.amount))
+    const bank = s.bank || {}, txs = recordList(bank.transactions), valid = txs.every(t => numeric(t.amount))
     const earned = valid ? legacyEarned(txs) : null
     const ledger = valid ? txs.reduce((n, t) => n + t.amount, 0) : null
     const balance = bank.balance === undefined ? 0 : bank.balance
@@ -89,9 +98,9 @@ export function reconcile(source, converted) {
       expectRow('transactions', `${p}/bank/transactions/${j}`, t, { student_id: sr?.id, legacy_id: t.id ?? null, amount: numeric(t.amount) ? t.amount : null, reason: t.reason ?? null, occurred_at: t.date ?? null, balance_after: t.balance ?? null, voided: Boolean(t.voided), transaction_type: t.type ?? 'legacy', corrected_transaction_id: t.correctedTxId === undefined || cycleMembers.has(j) ? null : targetRow?.id ?? null, semester: null, legacy_semantics: true })
     })
     diff(`${p}/converted_ledger_sum`, ledger, actualTxs.every(t => numeric(t.amount)) ? actualTxs.reduce((n, t) => n + t.amount, 0) : null)
-    list(s.inventory).forEach((item, j) => expectRow('inventory_items', `${p}/inventory/${j}`, item, { student_id: sr?.id, product_id: lookup('products', item.itemId), legacy_index: j, purchase_transaction_id: null, consumed: false }))
+    recordList(s.inventory).forEach((item, j) => expectRow('inventory_items', `${p}/inventory/${j}`, item, { student_id: sr?.id, product_id: lookup('products', item.itemId), legacy_index: j, purchase_transaction_id: null, consumed: false }))
     const inv = list(rows.inventory_items).filter(r => r.student_id === sr?.id)
-    diff(`${p}/inventory_count`, list(s.inventory).length, inv.length)
+    diff(`${p}/inventory_count`, recordList(s.inventory).length, inv.length)
     const usages = actualTxs.filter(t => typeof t.reason === 'string' && t.reason.startsWith('使用道具')).length
     diff(`${p}/usage_count`, txs.filter(t => typeof t.reason === 'string' && t.reason.startsWith('使用道具')).length, usages)
     entries(s.comments).forEach(([sem, c]) => expectRow('comments', `${p}/comments/${pointer(sem)}`, c, { student_id: sr?.id, semester: sem, locked_comment: c?.lockedComment ?? c?.locked ?? false, locked_motto: c?.lockedMotto ?? c?.locked ?? false }))
@@ -106,14 +115,14 @@ export function reconcile(source, converted) {
       periods[period] = valid ? legacyEarned(txs, options) : null
       diff(`${p}/period/${period}`, periods[period], valid ? legacyEarned(projected, options) : null)
     }
-    students.push({ legacy_id: s.id || s.uuid || null, balance, total_earned: total, transaction_count: txs.length, correction_edges: txs.filter(t => t.correctedTxId !== undefined).map(t => [t.id, t.correctedTxId]), inventory_count: list(s.inventory).length, usage_count: usages, comment_semesters: entries(s.comments).map(([sem]) => sem), periods })
+    students.push({ legacy_id: s.id || s.uuid || null, balance, total_earned: total, transaction_count: txs.length, correction_edges: txs.filter(t => t.correctedTxId !== undefined).map(t => [t.id, t.correctedTxId]), inventory_count: recordList(s.inventory).length, usage_count: usages, comment_semesters: entries(s.comments).map(([sem]) => sem), periods })
   })
-  list(data.logs).forEach((log, i) => {
+  recordList(data.logs).forEach((log, i) => {
     const p = `/data/logs/${i}`, lr = expectRow('logs', p, log)
-    list(log.tasks).forEach((t, j) => expectRow('tasks', `${p}/tasks/${j}`, t, { legacy_id: t.id ?? null, log_id: lr?.id, title: t.title ?? null, task_type: t.type ?? null, published_on: t.createdAt ?? log.date ?? null, due_on: t.dueDate ?? log.date ?? null, semester: null, correction_state: t.type === '訂正' ? 'legacy_unlinked' : null, original_task_id: null, teacher_confirmed: null, assignees_known: false }))
+    recordList(log.tasks).forEach((t, j) => expectRow('tasks', `${p}/tasks/${j}`, t, { legacy_id: t.id ?? null, log_id: lr?.id, title: t.title ?? null, task_type: t.type ?? null, published_on: t.createdAt ?? log.date ?? null, due_on: t.dueDate ?? log.date ?? null, semester: null, correction_state: t.type === '訂正' ? 'legacy_unlinked' : null, original_task_id: null, teacher_confirmed: null, assignees_known: false }))
     entries(log.status).forEach(([sid, values]) => {
       const vals = Object.fromEntries(entries(values))
-      const keys = [...new Set([...list(log.tasks).filter(t => t.id != null).map(t => String(t.id)), ...entries(vals).map(([key]) => key)])]
+      const keys = [...new Set([...recordList(log.tasks).filter(t => t.id != null).map(t => String(t.id)), ...entries(vals).map(([key]) => key)])]
       for (const key of keys) {
         const value = vals?.[key], present = Object.hasOwn(vals || {}, key)
         const status = value === true ? 'on_time' : value === false || !present ? 'pending' : ['on_time', 'late', 'missing', 'leave', 'exempt', 'makeup'].includes(value) ? value : 'unknown'
@@ -123,7 +132,7 @@ export function reconcile(source, converted) {
     })
   })
   entries(settings).forEach(([key, val]) => expectRow('settings_entries', `/data/settings/${pointer(key)}`, val, { key }))
-  for (const [table, values, path] of [['products', settings.shop?.products, '/data/settings/shop/products'], ['products', settings.storeItems, '/data/settings/storeItems'], ['jobs', settings.jobs, '/data/settings/jobs'], ['announcements', settings.announcements, '/data/settings/announcements'], ['rules', settings.behaviorRules, '/data/settings/behaviorRules']]) list(values).forEach((v, i) => expectRow(table, `${path}/${i}`, v, { legacy_id: v.id ?? null }))
+  for (const [table, values, path] of [['products', settings.shop?.products, '/data/settings/shop/products'], ['products', settings.storeItems, '/data/settings/storeItems'], ['jobs', settings.jobs, '/data/settings/jobs'], ['announcements', settings.announcements, '/data/settings/announcements'], ['rules', settings.behaviorRules, '/data/settings/behaviorRules']]) recordList(values).forEach((v, i) => expectRow(table, `${path}/${i}`, v, { legacy_id: v.id ?? null }))
   entries(settings.jobAssignments).forEach(([job, ids]) => list(ids).forEach((sid, i) => expectRow('job_assignments', `/data/settings/jobAssignments/${pointer(job)}/${i}`, sid, { job_id: lookup('jobs', job), student_id: lookup('students', sid) })))
   if (settings.dailyDuty !== undefined) expectRow('daily_duties', '/data/settings/dailyDuty', settings.dailyDuty)
   entries(settings.seatingChart?.grid).forEach(([coord, sid]) => expectRow('seats', `/data/settings/seatingChart/grid/${pointer(coord)}`, sid, { coordinate: coord, student_id: lookup('students', sid) }))
