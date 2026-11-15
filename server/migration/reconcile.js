@@ -7,6 +7,24 @@ const list = v => Array.isArray(v) ? v : []
 const entries = v => v && typeof v === 'object' && !Array.isArray(v) ? Object.entries(v) : []
 const numeric = v => typeof v === 'number' && Number.isFinite(v)
 
+function projectTransactions(transactions) {
+  const byId = new Map(transactions.map(transaction => [transaction.id, transaction]))
+  return transactions.map(transaction => {
+    const target = byId.get(transaction.corrected_transaction_id)
+    // 舊 helper 對 0／空字串不進入商店更正判斷；依已解析的目標列保留此語意。
+    const correction = target?.legacy_id ? transaction.corrected_transaction_id : null
+    return {
+      id: transaction.id,
+      date: transaction.occurred_at,
+      reason: transaction.reason,
+      amount: transaction.amount,
+      voided: transaction.voided,
+      type: transaction.transaction_type,
+      correctedTxId: correction,
+    }
+  })
+}
+
 // 獨立照 helpers.js:435 的舊統計計算，不能用新版帳本函式重算舊來源。
 export function legacyEarned(transactions, { startDate, endDate } = {}) {
   const dated = list(transactions).filter(t => {
@@ -84,7 +102,7 @@ export function reconcile(source, converted) {
     const periods = {}
     for (const [period, bounds] of entries(settings.semesterPeriods)) {
       const options = { startDate: bounds?.start || undefined, endDate: bounds?.end || undefined }
-      const projected = actualTxs.map(t => ({ id: t.id, date: t.occurred_at, reason: t.reason, amount: t.amount, voided: t.voided, type: t.transaction_type, correctedTxId: t.corrected_transaction_id }))
+      const projected = projectTransactions(actualTxs)
       periods[period] = valid ? legacyEarned(txs, options) : null
       diff(`${p}/period/${period}`, periods[period], valid ? legacyEarned(projected, options) : null)
     }

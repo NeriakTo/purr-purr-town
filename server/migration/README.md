@@ -183,3 +183,5 @@ R9：students.group_key 與 groups.group_key 統一為 text／JS 字串，缺值
 R10：新增 ddl-contract.test.js 對兩份假班逐列做 DDL 雙向檢查：每個輸出欄位須在 DDL，每個 DDL 欄位須由每列提供或明寫 DEFAULT；目前沒有省略由資料庫預設提供的欄位。另驗證型別與現有 CHECK 的布林／列舉限制，破壞測試包含 SQL 多欄、輸出缺欄／多欄、型別與 CHECK 錯誤。這是 SQL 草稿格式的靜態檢查，未替代 PostgreSQL 執行。原既有測試不改，另補歧義、自循環、孤立與非法金額的逐筆隔離斷言。
 
 R11：legacyEarned 保留舊 helper 的 `(tx.amount || 0)` 行為，字串金額會串接，例如 100 與 25 的字串回傳字串 010025；此函式不是金額清洗器。convert 與 reconcile 的帳戶重算先驗有限數字，字串會報 INVALID_AMOUNT、typed amount 與重算為 null 並阻擋匯入；不擅自轉成數值。
+
+R6 邊界補驗：外鍵目標編號為 0／空字串時仍建立有效關聯，但舊 helper 的商店更正篩選以 truthy 編號為條件。區間投影從已解析的目標列 legacy_id 保留此條件，不讀 raw.correctedTxId，避免換成雜湊 ID 後改變舊統計。

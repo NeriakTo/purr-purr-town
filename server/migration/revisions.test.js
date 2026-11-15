@@ -190,3 +190,12 @@ it("R11 保留字串金額舊語意但由 INVALID_AMOUNT 擋匯入", () => {
   expect(reconcile(source, out).ready_for_import).toBe(false)
   expect(readme().includes("字串金額會串接")).toBe(true)
 })
+
+it.each([0, ""])("R6 零值編號外鍵有效但區間保留舊 helper 的 truthy 判斷 %s", id => {
+  const source = snapshot([{ id, amount: -30, reason: "購買 假卡", date: "2026-09-01" }, { id: "fix", amount: 10, type: "correction", correctedTxId: id, date: "2026-09-02" }])
+  source.data.settings.semesterPeriods = { midterm: { start: "2026-09-01" } }
+  const out = convert(source)
+  expect(out.rows.transactions[1].corrected_transaction_id).toBe(out.rows.transactions[0].id)
+  expect(reconcile(source, out).differences).toEqual([])
+  expect(reconcile(source, out).students[0].periods.midterm).toBe(10)
+})
