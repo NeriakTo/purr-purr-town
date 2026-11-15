@@ -93,7 +93,8 @@ export function reconcile(source, converted) {
   list(data.logs).forEach((log, i) => {
     const p = `/data/logs/${i}`, lr = expectRow('logs', p, log)
     list(log.tasks).forEach((t, j) => expectRow('tasks', `${p}/tasks/${j}`, t, { legacy_id: t.id ?? null, log_id: lr?.id, title: t.title ?? null, task_type: t.type ?? null, published_on: t.createdAt ?? log.date ?? null, due_on: t.dueDate ?? log.date ?? null, semester: null, correction_state: t.type === '訂正' ? 'legacy_unlinked' : null, original_task_id: null, teacher_confirmed: null, assignees_known: false }))
-    entries(log.status).forEach(([sid, vals]) => {
+    entries(log.status).forEach(([sid, values]) => {
+      const vals = Object.fromEntries(entries(values))
       const keys = [...new Set([...list(log.tasks).filter(t => t.id != null).map(t => String(t.id)), ...entries(vals).map(([key]) => key)])]
       for (const key of keys) {
         const value = vals?.[key], present = Object.hasOwn(vals || {}, key)

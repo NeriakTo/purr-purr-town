@@ -173,3 +173,5 @@ R4：重複交易編號的累計重算仍取最後一筆，與舊 helper 的 Obj
 R5：reconcile 以獨立的 source-validation.js 走訪來源，重新檢查所有目前轉換器支援的來源錯誤；不呼叫 convert、不讀輸出列來判定來源有效性。錯誤以 code/path/value 的多重集合比較（忽略排列，保留重複次數），少報、多報、改值均在 errors 與批次 validation_errors 列差異；ready_for_import 使用獨立來源檢查結果與列差異。
 
 R6：更正外鍵統一由 corrections.js 解析，只在同一學生交易中以嚴格相等 `tx.id === correctedTxId` 比對，排除 null/undefined；數字 101 與字串 101 不合併，避免建立舊版 DashboardView.jsx:496 不會選中的關係。0 與空字串仍是可比對的原編號；缺值與重複目標不猜填。一般學生／商品／職務的物件 key 參照仍沿用字串鍵規則。期中／期末投影使用轉換列 id 與 corrected_transaction_id，外鍵清空或指錯會同時檢出欄位差異及受影響的區間數字。來源累計與來源區間仍照舊 helper 的規則（含 truthy correctedTxId），不更改舊版統計。
+
+R7：log.status 與各學生狀態容器均限非陣列物件；陣列、字串、數字、布林與 null 保留來源並報 INVALID_OBJECT，解析時視為空物件。已有學生容器時任務仍展開 pending/present=false，不從陣列或字串索引讀狀態。

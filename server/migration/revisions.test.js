@@ -120,3 +120,19 @@ it("R6 區間統計讀轉換外鍵並驗證指錯及清空", () => {
     expect(paths).toContain("/data/students/0/period/midterm")
   }
 })
+
+it.each([["on_time"], "on_time", null, 7, false])("R7 非物件學生狀態容器一致隔離 %s", values => {
+  const source = snapshot()
+  source.data.logs = [{ tasks: [{ id: "0" }], status: { s: values } }]
+  const out = convert(source)
+  expect(out.errors).toContainEqual({ code: "INVALID_OBJECT", path: "/data/logs/0/status/s", value: values })
+  expect(out.rows.submissions[0]).toMatchObject({ status: "pending", present: false, raw: null })
+  expect(reconcile(source, out).differences).toEqual([])
+})
+it.each([[], "bad", null, 7, false])("R7 非物件 log 狀態容器一致隔離 %s", status => {
+  const source = snapshot()
+  source.data.logs = [{ tasks: [{ id: "0" }], status }]
+  const out = convert(source)
+  expect(out.rows.submissions).toEqual([])
+  expect(reconcile(source, out).differences).toEqual([])
+})
