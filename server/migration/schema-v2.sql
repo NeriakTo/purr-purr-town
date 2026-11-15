@@ -101,7 +101,8 @@ CREATE TABLE migration_v2.transactions (
   transaction_type text,
   corrected_transaction_id text REFERENCES migration_v2.transactions(id) DEFERRABLE INITIALLY DEFERRED,
   semester text,
-  legacy_semantics boolean NOT NULL CHECK (legacy_semantics = true),
+  exclude_from_total boolean NOT NULL,
+  legacy_semantics boolean NOT NULL,
   UNIQUE (batch_id, source_path)
 );
 

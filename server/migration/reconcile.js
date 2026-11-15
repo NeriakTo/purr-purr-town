@@ -44,6 +44,7 @@ function projectTransactions(transactions) {
 // 獨立照 helpers.js:435 的舊統計計算，不能用新版帳本函式重算舊來源。
 export function legacyEarned(transactions, { startDate, endDate } = {}) {
   const dated = list(transactions).filter(t => {
+    if (t.type === 'migration_opening_adjustment') return false
     if (!startDate && !endDate) return true
     const ms = Date.parse(t.date)
     if (!Number.isFinite(ms)) return false
@@ -57,7 +58,7 @@ export function legacyEarned(transactions, { startDate, endDate } = {}) {
 
 export function reconcile(source, converted) {
   source = source ?? null
-  const periodSkipped = []
+  const periodSkipped = [], notices = [], adjustments = []
   const differences = [], students = [], rows = converted?.rows || {}, expected = new Map()
   const diff = (path, expected, actual) => { if (!isDeepStrictEqual(expected, actual)) differences.push({ path, expected, actual }) }
   const one = (table, path) => list(rows[table]).find(r => r.source_path === path)
@@ -77,7 +78,9 @@ export function reconcile(source, converted) {
   }
   const data = source?.data || {}, settings = data.settings || {}, classKey = source?.classId ?? data.classId ?? null
   const classId = digest(['class', classKey]), batchId = digest(['v2-1A', classKey, source])
-  const sourceErrors = validateSource(source, legacyEarned)
+  const sourceErrors = validateSource(source, legacyEarned, { notices, adjustments })
+  diff("report/notices", orderedErrors(notices), orderedErrors(converted?.report?.notices))
+  diff("report/adjustments", adjustments, converted?.report?.adjustments)
   diff("errors", orderedErrors(sourceErrors), orderedErrors(converted?.errors))
   expectRow('migration_batches', '', null, { id: batchId, source_hash: digest(source), import_rules_enabled: false, converter_version: 'v2-1A', validation_errors: sourceErrors })
   expectRow('migration_sources', '', source)
@@ -98,15 +101,26 @@ export function reconcile(source, converted) {
     const total = bank.totalEarned === undefined ? earned : bank.totalEarned
     expectRow('accounts', `${p}/bank`, s.bank, { student_id: sr?.id, balance: numeric(balance) ? balance : null, total_earned: numeric(total) ? total : null, ledger_sum: ledger, earned_recomputed: earned, total_earned_source: bank.totalEarned === undefined ? 'legacy_recomputed' : 'legacy_stored' })
     const actualTxs = list(rows.transactions).filter(t => t.student_id === sr?.id)
-    diff(`${p}/transaction_count`, txs.length, actualTxs.length)
+    const adjustment = adjustments.find(item => item.path === `${p}/bank/migration_opening_adjustment`)
+    diff(`${p}/transaction_count`, txs.length + (adjustment ? 1 : 0), actualTxs.length)
     const correctionEdges = correctionTargets(txs)
     const cycleMembers = correctionCycleMembers(correctionEdges)
     txs.forEach((t, j) => {
       const targetIndex = correctionEdges.get(j)
       const targetRow = targetIndex === null ? null : one("transactions", `${p}/bank/transactions/${targetIndex}`)
-      expectRow('transactions', `${p}/bank/transactions/${j}`, t, { student_id: sr?.id, legacy_id: t.id ?? null, amount: numeric(t.amount) ? t.amount : null, reason: t.reason ?? null, occurred_at: t.date ?? null, balance_after: t.balance ?? null, voided: Boolean(t.voided), transaction_type: t.type ?? 'legacy', corrected_transaction_id: t.correctedTxId === undefined || cycleMembers.has(j) ? null : targetRow?.id ?? null, semester: null, legacy_semantics: true })
+      expectRow('transactions', `${p}/bank/transactions/${j}`, t, { student_id: sr?.id, legacy_id: t.id ?? null, amount: numeric(t.amount) ? t.amount : null, reason: t.reason ?? null, occurred_at: t.date ?? null, balance_after: t.balance ?? null, voided: Boolean(t.voided), transaction_type: t.type ?? 'legacy', corrected_transaction_id: t.correctedTxId === undefined || cycleMembers.has(j) ? null : targetRow?.id ?? null, semester: null, legacy_semantics: true, exclude_from_total: Boolean(t.excludeFromTotal) })
     })
-    diff(`${p}/converted_ledger_sum`, ledger, actualTxs.every(t => numeric(t.amount)) ? actualTxs.reduce((n, t) => n + t.amount, 0) : null)
+    expectOpeningAdjustment()
+    function expectOpeningAdjustment() {
+      if (!adjustment) return
+      expectRow('transactions', adjustment.path, null, {
+        student_id: sr?.id, amount: adjustment.amount, reason: adjustment.reason,
+        occurred_at: adjustment.date, balance_after: balance, voided: false,
+        transaction_type: 'migration_opening_adjustment', corrected_transaction_id: null,
+        semester: semesterAt(adjustment.date), legacy_semantics: false, exclude_from_total: true,
+      })
+    }
+    diff(`${p}/converted_ledger_sum`, adjustment ? balance : ledger, actualTxs.every(t => numeric(t.amount)) ? actualTxs.reduce((n, t) => n + t.amount, 0) : null)
     recordList(s.inventory).forEach((item, j) => expectRow('inventory_items', `${p}/inventory/${j}`, item, { student_id: sr?.id, product_id: lookup('products', item.itemId), legacy_index: j, purchase_transaction_id: null, consumed: false }))
     const inv = list(rows.inventory_items).filter(r => r.student_id === sr?.id)
     diff(`${p}/inventory_count`, recordList(s.inventory).length, inv.length)
@@ -168,5 +182,5 @@ export function reconcile(source, converted) {
     diff(`legacy_ids/${r.id}/count`, 1, mappings.length)
     if (mappings.length === 1) diff(`legacy_ids/${r.id}`, { id: digest(['map', r.id]), batch_id: batchId, class_id: classId, legacy_id: r.legacy_id, source_path: r.source_path, raw: null, table_name: table, target_id: r.id }, mappings[0])
   }
-  return { matches: differences.length === 0, differences, students, period_skipped: periodSkipped, source_errors: sourceErrors, ready_for_import: differences.length === 0 && sourceErrors.length === 0 }
+  return { matches: differences.length === 0, differences, students, notices, adjustments, period_skipped: periodSkipped, source_errors: sourceErrors, ready_for_import: differences.length === 0 && sourceErrors.length === 0 }
 }

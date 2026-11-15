@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { convert, canonicalJson, digest } from './convert.js'
 import { reconcile, legacyEarned } from './reconcile.js'
 import { validateSource, orderedErrors } from './source-validation.js'
+import { calcEarnedFromTransactions } from '../../src/utils/helpers.js'
 
 function sourceWith(students = []) {
   return { classId: 'round2', data: { classId: 'round2', updatedAt: '2026-11-15', students, logs: [], settings: {} } }
@@ -17,6 +18,38 @@ function assertAligned(source) {
   expect(result.ready_for_import).toBe(false)
 }
 describe('第二輪正式轉換', () => {
+  it('B5 保存點數並產生確定性的期初調整，提示不擋匯入', () => {
+    const source = sourceWith([student([{ id: 't', amount: 5, balance: 8 }])])
+    source.data.students[0].bank.balance = 20
+    source.data.students[0].bank.totalEarned = 50
+    const converted = convert(source)
+    expect(converted.errors.map(e => e.code)).not.toContain('BALANCE_DRIFT')
+    expect(converted.report.notices.map(e => e.code)).toEqual(expect.arrayContaining(['BALANCE_DRIFT', 'TOTAL_EARNED_DRIFT', 'TRANSACTION_BALANCE_DRIFT']))
+    expect(converted.rows.accounts[0]).toMatchObject({ balance: 20, total_earned: 50, ledger_sum: 5, earned_recomputed: 5 })
+    const adjustment = converted.rows.transactions.find(t => t.transaction_type === 'migration_opening_adjustment')
+    expect(adjustment).toMatchObject({ amount: 15, reason: '轉換期初調整', occurred_at: '2026-11-15', exclude_from_total: true, legacy_semantics: false })
+    expect(legacyEarned(converted.rows.transactions.map(t => ({ id: t.id, type: t.transaction_type, amount: t.amount })))).toBe(calcEarnedFromTransactions(source.data.students[0].bank.transactions))
+    expect(reconcile(source, converted).differences).toEqual([])
+    expect(convert(source)).toEqual(converted)
+  })
+  it.each(['missing', 'extra', 'amount'])('B5 獨立驗證抓出期初調整 %s', mutation => {
+    const source = sourceWith([student()])
+    source.data.students[0].bank.balance = -7
+    const converted = convert(source)
+    const adjustment = converted.rows.transactions.find(t => t.transaction_type === 'migration_opening_adjustment')
+    expect(adjustment?.amount).toBe(-7)
+    if (mutation === 'missing') converted.rows.transactions.pop()
+    if (mutation === 'extra') converted.rows.transactions.push(structuredClone(adjustment))
+    if (mutation === 'amount') adjustment.amount = 1
+    expect(reconcile(source, converted).matches).toBe(false)
+  })
+  it.each(['balance', 'totalEarned', 'amount'])('B5 非法金額 %s 仍擋匯入', field => {
+    const source = sourceWith([student([{ id: 't', amount: 1 }])])
+    if (field === 'amount') source.data.students[0].bank.transactions[0].amount = '1'
+    else source.data.students[0].bank[field] = '1'
+    assertAligned(source)
+    expect(convert(source).errors.some(e => e.code.startsWith('INVALID_'))).toBe(true)
+  })
   it.each([
     [
       { id: 'dup', amount: -30, reason: '購買：貼紙', voided: true },

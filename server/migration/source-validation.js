@@ -5,11 +5,14 @@ const object = value => value !== null && typeof value === 'object' && !Array.is
 const numeric = value => typeof value === 'number' && Number.isFinite(value)
 
 // 直接走訪來源，不呼叫 convert，也不讀取轉換結果的列或錯誤。
-export function validateSource(source, earnedFromLegacy) {
+export function validateSource(source, earnedFromLegacy, { notices = [], adjustments = [] } = {}) {
   source = source ?? null
   const errors = []
   function error(code, path, value = null) {
     errors.push({ code, path, value: structuredClone(value) })
+  }
+  function notice(code, path, value) {
+    notices.push({ code, path, value: structuredClone(value) })
   }
   function record(value, path) {
     if (value === undefined) return {}
@@ -132,15 +135,25 @@ export function validateSource(source, earnedFromLegacy) {
     if (valid) {
       txs.forEach((t, j) => {
         running += t.amount
-        if (t.balance !== undefined && t.balance !== running) error('TRANSACTION_BALANCE_DRIFT', `${path}/bank/transactions/${j}/balance`, { stored: t.balance, computed_from_zero: running })
+        if (t.balance !== undefined && t.balance !== running) notice('TRANSACTION_BALANCE_DRIFT', `${path}/bank/transactions/${j}/balance`, { stored: t.balance, computed_from_zero: running })
       })
     }
     const balance = bank.balance === undefined ? 0 : bank.balance
     const total = bank.totalEarned === undefined ? earned : bank.totalEarned
     if (!numeric(balance)) error('INVALID_BALANCE', `${path}/bank/balance`, balance)
     if (!numeric(total)) error('INVALID_TOTAL_EARNED', `${path}/bank/totalEarned`, total)
-    if (balance !== ledger) error('BALANCE_DRIFT', `${path}/bank`, { stored: balance, computed: ledger })
-    if (total !== earned) error('TOTAL_EARNED_DRIFT', `${path}/bank`, { stored: total, computed: earned })
+    if (balance !== ledger) notice('BALANCE_DRIFT', `${path}/bank`, { stored: balance, computed: ledger })
+    if (total !== earned) notice('TOTAL_EARNED_DRIFT', `${path}/bank`, { stored: total, computed: earned })
+    calculateOpeningAdjustment()
+    function calculateOpeningAdjustment() {
+      if (!numeric(balance) || !numeric(ledger) || balance === ledger) return
+      adjustments.push({
+        path: `${path}/bank/migration_opening_adjustment`,
+        amount: balance - ledger,
+        date: data.updatedAt ?? null,
+        reason: '轉換期初調整',
+      })
+    }
     array(s.inventory, `${path}/inventory`, true).forEach((item, j) => {
       fields(item, `${path}/inventory/${j}`, 'itemId name icon purchasedAt')
       reference(pm, item.itemId, 'ORPHAN_PRODUCT', `${path}/inventory/${j}/itemId`)

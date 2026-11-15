@@ -70,14 +70,14 @@ describe('舊版規則的獨立對照與失敗隔離', () => {
     expect(out.errors.map(e => e.code)).toEqual(expect.arrayContaining(['INVALID_RECORD', 'INVALID_OBJECT', 'UNKNOWN_COMMENT_SEMESTER']))
     expect(() => convert(undefined)).not.toThrow()
   })
-  it('餘額與交易前綴不一致只報差異，不發調整交易', () => {
+  it('餘額與交易前綴不一致列提示並發期初調整交易', () => {
     const source = structuredClone(classA)
     source.data.students[0].bank.balance = 999
     source.data.students[0].bank.transactions[0].balance = 101
     const out = convert(source)
-    expect(out.errors.map(e => e.code)).toEqual(expect.arrayContaining(['BALANCE_DRIFT', 'TRANSACTION_BALANCE_DRIFT']))
+    expect(out.report.notices.map(e => e.code)).toEqual(expect.arrayContaining(['BALANCE_DRIFT', 'TRANSACTION_BALANCE_DRIFT']))
     expect(out.rows.accounts[0].balance).toBe(999)
-    expect(out.rows.transactions).toHaveLength(6)
+    expect(out.rows.transactions).toHaveLength(7)
     expect(reconcile(source, out).ready_for_import).toBe(false)
   })
   it('DDL 欄位與輸出吻合，含實際會重複 source_path 的舊編號對照', () => {

@@ -71,7 +71,7 @@ it('R10 能抓出輸出少欄、多欄、型別錯誤及 CHECK 違反', () => {
     [rows => { rows.students[0].extra = true }, 'students.extra:missing_ddl'],
     [rows => { rows.students[0].group_key = 1 }, 'students.group_key:type'],
     [rows => { rows.students[0].enrollment_status = 'bad' }, 'students.enrollment_status:check'],
-    [rows => { rows.transactions[0].legacy_semantics = false }, 'transactions.legacy_semantics:check'],
+    [rows => { rows.migration_batches[0].import_rules_enabled = true }, 'migration_batches.import_rules_enabled:check'],
   ]) {
     const copy = structuredClone(outputs)
     mutate(copy[0].rows)

@@ -29,7 +29,7 @@ describe('1A 假資料轉換契約', () => {
     expect(out.rows.accounts[0]).toMatchObject({ balance: 55, total_earned: 85, ledger_sum: 55, earned_recomputed: 5 })
     expect(out.rows.transactions[2].corrected_transaction_id).toBe(out.rows.transactions[1].id)
     expect(out.rows.transactions[1].corrected_transaction_id).toBe(out.rows.transactions[0].id)
-    expect(out.errors.some(e => e.code === 'TOTAL_EARNED_DRIFT')).toBe(true)
+    expect(out.report.notices.some(e => e.code === 'TOTAL_EARNED_DRIFT')).toBe(true)
   })
   it('背包同商品每件分開、無交易猜配；核銷僅保留使用交易', () => {
     const out = convert(classA)

@@ -26,8 +26,9 @@ export function semesterAt(date) {
 
 export function convert(input) {
   const source = structuredClone(input ?? null)
-  const rows = Object.fromEntries(TABLES.map(t => [t, []])), errors = []
+  const rows = Object.fromEntries(TABLES.map(t => [t, []])), errors = [], notices = [], adjustments = []
   const error = (code, path, value = null) => errors.push({ code, path, value: structuredClone(value) })
+  const notice = (code, path, value) => notices.push({ code, path, value: structuredClone(value) })
   const arr = (v, p) => {
     if (v === undefined) return []
     if (!Array.isArray(v)) { error('INVALID_ARRAY', p, v); return [] }
@@ -101,7 +102,7 @@ export function convert(input) {
       if (t.type !== undefined && t.type !== 'correction') error('UNKNOWN_TRANSACTION_TYPE', `${path}/type`, t.type)
       if (t.voided !== undefined && typeof t.voided !== 'boolean') error('UNKNOWN_VOIDED', `${path}/voided`, t.voided)
       error('UNKNOWN_TRANSACTION_SEMESTER', path)
-      return add('transactions', path, t, { student_id: sid, amount: numeric(t.amount) ? t.amount : null, reason: t.reason ?? null, occurred_at: t.date ?? null, balance_after: t.balance ?? null, voided: Boolean(t.voided), transaction_type: t.type ?? 'legacy', corrected_transaction_id: null, semester: null, legacy_semantics: true }, t.id ?? null)
+      return add('transactions', path, t, { student_id: sid, amount: numeric(t.amount) ? t.amount : null, reason: t.reason ?? null, occurred_at: t.date ?? null, balance_after: t.balance ?? null, voided: Boolean(t.voided), transaction_type: t.type ?? 'legacy', corrected_transaction_id: null, semester: null, legacy_semantics: true, exclude_from_total: Boolean(t.excludeFromTotal) }, t.id ?? null)
     })
     index(tr, `${p}/bank/transactions`)
     const edges = correctionTargets(txs)
@@ -121,7 +122,11 @@ export function convert(input) {
     const ledger = valid ? txs.reduce((sum, t) => sum + t.amount, 0) : null
     if (valid) {
       let running = 0
-      txs.forEach((t, j) => { running += t.amount; if (t.balance !== undefined && t.balance !== running) error('TRANSACTION_BALANCE_DRIFT', `${p}/bank/transactions/${j}/balance`, { stored: t.balance, computed_from_zero: running }) })
+      txs.forEach(function checkRunningBalance(t, j) {
+        running += t.amount
+        if (t.balance === undefined || t.balance === running) return
+        notice('TRANSACTION_BALANCE_DRIFT', `${p}/bank/transactions/${j}/balance`, { stored: t.balance, computed_from_zero: running })
+      })
     }
     const txMap = Object.fromEntries(txs.map(t => [t.id, t]))
     const earned = valid ? txs.filter(t => !t.voided && !store(t.reason) && !(t.type === 'correction' && t.correctedTxId && store(txMap[t.correctedTxId]?.reason))).reduce((sum, t) => sum + t.amount, 0) : null
@@ -129,8 +134,23 @@ export function convert(input) {
     if (!numeric(balance)) error('INVALID_BALANCE', `${p}/bank/balance`, balance)
     if (!numeric(total)) error('INVALID_TOTAL_EARNED', `${p}/bank/totalEarned`, total)
     add('accounts', `${p}/bank`, s.bank, { student_id: sid, balance: numeric(balance) ? balance : null, total_earned: numeric(total) ? total : null, total_earned_source: bank.totalEarned === undefined ? 'legacy_recomputed' : 'legacy_stored', ledger_sum: ledger, earned_recomputed: earned })
-    if (balance !== ledger) error('BALANCE_DRIFT', `${p}/bank`, { stored: balance, computed: ledger })
-    if (total !== earned) error('TOTAL_EARNED_DRIFT', `${p}/bank`, { stored: total, computed: earned })
+    if (balance !== ledger) notice('BALANCE_DRIFT', `${p}/bank`, { stored: balance, computed: ledger })
+    if (total !== earned) notice('TOTAL_EARNED_DRIFT', `${p}/bank`, { stored: total, computed: earned })
+    addOpeningAdjustment()
+    function addOpeningAdjustment() {
+      if (!numeric(balance) || !numeric(ledger) || balance === ledger) return
+      const path = `${p}/bank/migration_opening_adjustment`
+      const amount = balance - ledger
+      const date = data.updatedAt ?? null
+      const adjustment = { path, amount, date, reason: '轉換期初調整' }
+      adjustments.push(adjustment)
+      add('transactions', path, null, {
+        student_id: sid, amount, reason: adjustment.reason, occurred_at: date,
+        balance_after: balance, voided: false, transaction_type: 'migration_opening_adjustment',
+        corrected_transaction_id: null, semester: semesterAt(date), legacy_semantics: false,
+        exclude_from_total: true,
+      })
+    }
     arr(s.inventory, `${p}/inventory`).forEach((item, j) => {
       check(item, `${p}/inventory/${j}`, 'itemId name icon purchasedAt')
       add('inventory_items', `${p}/inventory/${j}`, item, { student_id: sid, product_id: ref(pm, item.itemId, 'ORPHAN_PRODUCT', `${p}/inventory/${j}/itemId`), legacy_index: j, purchase_transaction_id: null, consumed: false }, item.itemId ?? null)
@@ -203,5 +223,5 @@ export function convert(input) {
   for (const key of ['base', 'tier1', 'tier2']) if (settings.currency?.[key] !== undefined) check(settings.currency[key], `/data/settings/currency/${key}`, 'name icon rate')
   arr(settings.ruleCategories, '/data/settings/ruleCategories').forEach((v, i) => check(v, `/data/settings/ruleCategories/${i}`, 'id name icon'))
   rows.migration_batches[0].validation_errors = structuredClone(errors)
-  return { rows, errors, report: { converter_version: 'v2-1A', source_hash: digest(source), row_counts: Object.fromEntries(Object.entries(rows).map(([t, list]) => [t, list.length])), error_count: errors.length, ready_for_import: errors.length === 0, rules_triggered: 0 } }
+  return { rows, errors, report: { converter_version: 'v2-1A', source_hash: digest(source), notices, adjustments, row_counts: Object.fromEntries(Object.entries(rows).map(([t, list]) => [t, list.length])), error_count: errors.length, ready_for_import: errors.length === 0, rules_triggered: 0 } }
 }
