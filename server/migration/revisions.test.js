@@ -165,3 +165,16 @@ it.each([1, "1", "unassigned", null])("R9 組別關聯型別一致且 raw 保留
   const sql = readFileSync(new URL("./schema-v2.sql", import.meta.url), "utf8")
   expect(sql.includes("group_key jsonb")).toBe(false)
 })
+
+it("R10 原測試宣稱的隔離行為逐筆斷言", () => {
+  const source = structuredClone(classA)
+  source.data.students[0].bank.transactions.push({ id: "t1", amount: "NaN", type: "correction", correctedTxId: "absent" })
+  source.data.students[0].bank.transactions[0].correctedTxId = "t3"
+  source.data.students[0].bank.transactions[2].correctedTxId = "t3"
+  const out = convert(source)
+  const txs = out.rows.transactions.filter(t => t.student_id === out.rows.students[0].id)
+  expect(out.errors.map(e => e.code)).toEqual(expect.arrayContaining(["DUPLICATE_LEGACY_ID", "AMBIGUOUS_REFERENCE", "INVALID_AMOUNT", "ORPHAN_CORRECTION", "CORRECTION_CYCLE"]))
+  expect(txs[1].corrected_transaction_id).toBeNull()
+  expect(txs[2].corrected_transaction_id).toBeNull()
+  expect(txs.at(-1)).toMatchObject({ corrected_transaction_id: null, amount: null, raw: { amount: "NaN" } })
+})
