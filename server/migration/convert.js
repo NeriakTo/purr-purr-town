@@ -78,7 +78,7 @@ export function convert(input) {
     const path = `/data/students/${i}`
     check(s, path, 'id uuid name number seatNumber group gender avatar inactive bank inventory comments taskExemptRules')
     if (s.inactive !== undefined && typeof s.inactive !== 'boolean') error('UNKNOWN_ENROLLMENT', `${path}/inactive`, s.inactive)
-    return add('students', path, s, { name: s.name ?? null, seat_number: s.number ?? null, group_key: s.group ?? null, avatar: s.avatar ?? null, enrollment_status: typeof s.inactive === 'boolean' || s.inactive === undefined ? (s.inactive ? 'home_study' : 'enrolled') : 'unknown' }, s.id || s.uuid || null)
+    return add('students', path, s, { name: s.name ?? null, seat_number: s.number ?? null, group_key: s.group == null ? null : String(s.group), avatar: s.avatar ?? null, enrollment_status: typeof s.inactive === 'boolean' || s.inactive === undefined ? (s.inactive ? 'home_study' : 'enrolled') : 'unknown' }, s.id || s.uuid || null)
   })
   const sm = index(studentRows, '/data/students')
   const products = []

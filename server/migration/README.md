@@ -177,3 +177,5 @@ R6：更正外鍵統一由 corrections.js 解析，只在同一學生交易中�
 R7：log.status 與各學生狀態容器均限非陣列物件；陣列、字串、數字、布林與 null 保留來源並報 INVALID_OBJECT，解析時視為空物件。已有學生容器時任務仍展開 pending/present=false，不從陣列或字串索引讀狀態。
 
 R8：所有 SHA-256 輸入先以 canonicalJson 固定序列化，遞迴排序物件鍵，保留陣列順序與 JSON 型別；只改物件鍵排列時 batch_id/source_hash 與資料列 ID 不變。陣列換位仍代表內容變更。此修正會變更先前未匯入草稿的批次雜湊，正式切換須固定使用本版。
+
+R9：students.group_key 與 groups.group_key 統一為 text／JS 字串，缺值仍為 null；students.raw.group 保留數字、字串等原值，unassigned 仍原樣保留。不補造缺少 groupAliases 的小組。

@@ -54,7 +54,7 @@ export function reconcile(source, converted) {
   }
   list(data.students).forEach((s, i) => {
     const p = `/data/students/${i}`
-    const sr = expectRow('students', p, s, { legacy_id: s.id || s.uuid || null, name: s.name ?? null, seat_number: s.number ?? null, group_key: s.group ?? null, avatar: s.avatar ?? null, enrollment_status: typeof s.inactive === 'boolean' || s.inactive === undefined ? (s.inactive ? 'home_study' : 'enrolled') : 'unknown' })
+    const sr = expectRow('students', p, s, { legacy_id: s.id || s.uuid || null, name: s.name ?? null, seat_number: s.number ?? null, group_key: s.group == null ? null : String(s.group), avatar: s.avatar ?? null, enrollment_status: typeof s.inactive === 'boolean' || s.inactive === undefined ? (s.inactive ? 'home_study' : 'enrolled') : 'unknown' })
     const bank = s.bank || {}, txs = list(bank.transactions), valid = txs.every(t => numeric(t.amount))
     const earned = valid ? legacyEarned(txs) : null
     const ledger = valid ? txs.reduce((n, t) => n + t.amount, 0) : null

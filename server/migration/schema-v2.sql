@@ -63,7 +63,7 @@ CREATE TABLE migration_v2.students (
   raw jsonb NOT NULL,
   name text,
   seat_number jsonb,
-  group_key jsonb,
+  group_key text,
   avatar jsonb,
   enrollment_status text NOT NULL CHECK (enrollment_status IN ('enrolled', 'home_study', 'transferred', 'archived', 'unknown')),
   UNIQUE (batch_id, source_path)

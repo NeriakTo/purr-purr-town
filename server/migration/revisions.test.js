@@ -153,3 +153,15 @@ it("R8 深層物件鍵順序不改雜湊，陣列順序會改", () => {
   expect(convert(reordered).rows.migration_batches[0].id).not.toBe(original.rows.migration_batches[0].id)
   expect(convert(reordered).report.source_hash).not.toBe(original.report.source_hash)
 })
+
+it.each([1, "1", "unassigned", null])("R9 組別關聯型別一致且 raw 保留 %s", group => {
+  const source = snapshot()
+  source.data.students[0].group = group
+  const out = convert(source)
+  expect(out.rows.students[0].group_key).toBe(group == null ? null : String(group))
+  expect(out.rows.students[0].raw.group).toBe(group)
+  if (group === 1 || group === "1") expect(out.rows.students[0].group_key).toBe(out.rows.groups[0].group_key)
+  expect(reconcile(source, out).differences).toEqual([])
+  const sql = readFileSync(new URL("./schema-v2.sql", import.meta.url), "utf8")
+  expect(sql.includes("group_key jsonb")).toBe(false)
+})
