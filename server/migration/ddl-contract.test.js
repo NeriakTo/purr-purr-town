@@ -18,7 +18,7 @@ function ddlIssues(definition, results) {
   for (const [, table, body] of tables) {
     const records = results.flatMap(result => result.rows[table] || [])
     if (!records.length) issues.push(`${table}:untested`)
-    const columns = [...body.matchAll(/^  (\w+) (text|jsonb|numeric|integer|boolean)\b(.*)$/gm)]
+    const columns = [...body.matchAll(/^ {2}(\w+) (text|jsonb|numeric|integer|boolean)\b(.*)$/gm)]
     const columnNames = columns.map(match => match[1])
     for (const row of records) {
       for (const key of Object.keys(row)) {
