@@ -1,5 +1,5 @@
 import { validateSource, orderedErrors } from "./source-validation.js"
-import { correctionCycleMembers } from "./corrections.js"
+import { correctionCycleMembers, correctionTargets } from "./corrections.js"
 import { isDeepStrictEqual } from 'node:util'
 import { digest, pointer, semesterAt, TABLES } from './convert.js'
 
@@ -63,14 +63,11 @@ export function reconcile(source, converted) {
     expectRow('accounts', `${p}/bank`, s.bank, { student_id: sr?.id, balance: numeric(balance) ? balance : null, total_earned: numeric(total) ? total : null, ledger_sum: ledger, earned_recomputed: earned, total_earned_source: bank.totalEarned === undefined ? 'legacy_recomputed' : 'legacy_stored' })
     const actualTxs = list(rows.transactions).filter(t => t.student_id === sr?.id)
     diff(`${p}/transaction_count`, txs.length, actualTxs.length)
-    const correctionEdges = new Map(txs.map((t, j) => {
-      const targets = txs.map((x, k) => ({ x, k })).filter(({ x }) => x.id != null && String(x.id) === String(t.correctedTxId))
-      return [j, targets.length === 1 ? targets[0].k : null]
-    }))
+    const correctionEdges = correctionTargets(txs)
     const cycleMembers = correctionCycleMembers(correctionEdges)
     txs.forEach((t, j) => {
-      const target = txs.map((x, k) => ({ x, k })).filter(({ x }) => x.id === t.correctedTxId)
-      const targetRow = target.length === 1 ? one('transactions', `${p}/bank/transactions/${target[0].k}`) : null
+      const targetIndex = correctionEdges.get(j)
+      const targetRow = targetIndex === null ? null : one("transactions", `${p}/bank/transactions/${targetIndex}`)
       expectRow('transactions', `${p}/bank/transactions/${j}`, t, { student_id: sr?.id, legacy_id: t.id ?? null, amount: numeric(t.amount) ? t.amount : null, reason: t.reason ?? null, occurred_at: t.date ?? null, balance_after: t.balance ?? null, voided: Boolean(t.voided), transaction_type: t.type ?? 'legacy', corrected_transaction_id: t.correctedTxId === undefined || cycleMembers.has(j) ? null : targetRow?.id ?? null, semester: null, legacy_semantics: true })
     })
     diff(`${p}/converted_ledger_sum`, ledger, actualTxs.every(t => numeric(t.amount)) ? actualTxs.reduce((n, t) => n + t.amount, 0) : null)
@@ -87,7 +84,7 @@ export function reconcile(source, converted) {
     const periods = {}
     for (const [period, bounds] of entries(settings.semesterPeriods)) {
       const options = { startDate: bounds?.start || undefined, endDate: bounds?.end || undefined }
-      const projected = actualTxs.map(t => ({ id: t.legacy_id, date: t.occurred_at, reason: t.reason, amount: t.amount, voided: t.voided, type: t.transaction_type, correctedTxId: t.raw?.correctedTxId }))
+      const projected = actualTxs.map(t => ({ id: t.id, date: t.occurred_at, reason: t.reason, amount: t.amount, voided: t.voided, type: t.transaction_type, correctedTxId: t.corrected_transaction_id }))
       periods[period] = valid ? legacyEarned(txs, options) : null
       diff(`${p}/period/${period}`, periods[period], valid ? legacyEarned(projected, options) : null)
     }

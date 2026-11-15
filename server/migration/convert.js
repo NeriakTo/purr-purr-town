@@ -1,4 +1,4 @@
-import { correctionCycleMembers } from "./corrections.js"
+import { correctionCycleMembers, correctionMatches, correctionTargets } from "./corrections.js"
 import { createHash } from 'node:crypto'
 
 export const TABLES = ['migration_batches', 'migration_sources', 'legacy_ids', 'classes', 'students', 'accounts', 'transactions', 'inventory_items', 'comments', 'exempt_rules', 'logs', 'tasks', 'submissions', 'settings_entries', 'products', 'jobs', 'job_assignments', 'daily_duties', 'seats', 'announcements', 'rules', 'groups', 'semesters']
@@ -94,19 +94,20 @@ export function convert(input) {
       error('UNKNOWN_TRANSACTION_SEMESTER', path)
       return add('transactions', path, t, { student_id: sid, amount: numeric(t.amount) ? t.amount : null, reason: t.reason ?? null, occurred_at: t.date ?? null, balance_after: t.balance ?? null, voided: Boolean(t.voided), transaction_type: t.type ?? 'legacy', corrected_transaction_id: null, semester: null, legacy_semantics: true }, t.id ?? null)
     })
-    const tm = index(tr, `${p}/bank/transactions`)
+    index(tr, `${p}/bank/transactions`)
+    const edges = correctionTargets(txs)
+    const cycles = correctionCycleMembers(edges)
     tr.forEach((r, j) => {
       const target = txs[j].correctedTxId
-      if (target !== undefined) r.corrected_transaction_id = ref(tm, target, 'ORPHAN_CORRECTION', `${r.source_path}/correctedTxId`)
-      if (r.transaction_type === 'correction' && target === undefined) error('ORPHAN_CORRECTION', r.source_path)
-    })
-    const edges = new Map(tr.map(r => [r.id, r.corrected_transaction_id]))
-    for (const r of tr) {
-      if (correctionCycleMembers(edges).has(r.id)) {
-        error("CORRECTION_CYCLE", r.source_path, r.raw.correctedTxId)
-        r.corrected_transaction_id = null
+      const matches = correctionMatches(txs, target)
+      if (target !== undefined && matches.length !== 1) {
+        error(matches.length ? "AMBIGUOUS_REFERENCE" : "ORPHAN_CORRECTION", `${r.source_path}/correctedTxId`, target)
       }
-    }
+      if (r.transaction_type === "correction" && target === undefined) error("ORPHAN_CORRECTION", r.source_path)
+      if (cycles.has(j)) error("CORRECTION_CYCLE", r.source_path, target)
+      const targetIndex = edges.get(j)
+      r.corrected_transaction_id = cycles.has(j) || targetIndex === null ? null : tr[targetIndex].id
+    })
     const valid = txs.every(t => numeric(t.amount))
     const ledger = valid ? txs.reduce((sum, t) => sum + t.amount, 0) : null
     if (valid) {

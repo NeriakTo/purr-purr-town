@@ -15,3 +15,19 @@ export function correctionCycleMembers(edges) {
   }
   return cycles
 }
+export function correctionMatches(transactions, target) {
+  if (target === null || target === undefined) return []
+  const matches = []
+  transactions.forEach((transaction, index) => {
+    if (transaction.id != null && transaction.id === target) matches.push(index)
+  })
+  return matches
+}
+
+export function correctionTargets(transactions) {
+  return new Map(transactions.map((transaction, index) => {
+    const matches = correctionMatches(transactions, transaction.correctedTxId)
+    return [index, matches.length === 1 ? matches[0] : null]
+  }))
+}
+

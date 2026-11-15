@@ -102,3 +102,21 @@ it("R5 每一筆既有來源錯誤少報都獨立識別", () => {
     expect(audit.ready_for_import).toBe(false)
   }
 })
+
+it.each([[101, "101", false], [101, 101, true], [null, null, false], ["null", null, false], [0, 0, true], ["", "", true]])("R6 更正外鍵嚴格比對 %s 與 %s", (id, target, linked) => {
+  const source = snapshot([{ id, amount: 10 }, { id: "fix", amount: 1, type: "correction", correctedTxId: target }])
+  const out = convert(source)
+  expect(out.rows.transactions[1].corrected_transaction_id).toBe(linked ? out.rows.transactions[0].id : null)
+  expect(reconcile(source, out).differences).toEqual([])
+})
+it("R6 區間統計讀轉換外鍵並驗證指錯及清空", () => {
+  const source = snapshot([{ id: "buy", amount: -30, reason: "購買 假卡", date: "2026-09-01" }, { id: "fix", amount: 10, type: "correction", correctedTxId: "buy", date: "2026-09-02" }, { id: "award", amount: 100, date: "2026-09-03" }])
+  source.data.settings.semesterPeriods = { midterm: { start: "2026-09-01", end: "2026-09-30" } }
+  for (const corrupt of [null, "award"]) {
+    const out = convert(source)
+    out.rows.transactions[1].corrected_transaction_id = corrupt === null ? null : out.rows.transactions[2].id
+    const paths = reconcile(source, out).differences.map(d => d.path)
+    expect(paths.some(p => p.endsWith("/corrected_transaction_id"))).toBe(true)
+    expect(paths).toContain("/data/students/0/period/midterm")
+  }
+})

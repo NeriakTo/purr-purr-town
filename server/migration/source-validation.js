@@ -1,5 +1,5 @@
 import { pointer, semesterAt } from './convert.js'
-import { correctionCycleMembers } from './corrections.js'
+import { correctionCycleMembers, correctionTargets, correctionMatches } from './corrections.js'
 
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value)
 const numeric = value => typeof value === 'number' && Number.isFinite(value)
@@ -114,12 +114,13 @@ export function validateSource(source, earnedFromLegacy) {
       if (t.voided !== undefined && typeof t.voided !== 'boolean') error('UNKNOWN_VOIDED', `${p}/voided`, t.voided)
       error('UNKNOWN_TRANSACTION_SEMESTER', p)
     })
-    const tm = index(txs, `${path}/bank/transactions`)
-    const edges = new Map()
+    index(txs, `${path}/bank/transactions`)
+    const edges = correctionTargets(txs)
     txs.forEach((t, j) => {
       const p = `${path}/bank/transactions/${j}`
       const target = t.correctedTxId
-      edges.set(j, target === undefined ? null : reference(tm, target, 'ORPHAN_CORRECTION', `${p}/correctedTxId`))
+      const matches = correctionMatches(txs, target)
+      if (target !== undefined && matches.length !== 1) error(matches.length ? "AMBIGUOUS_REFERENCE" : "ORPHAN_CORRECTION", `${p}/correctedTxId`, target)
       if (t.type === 'correction' && target === undefined) error('ORPHAN_CORRECTION', p)
     })
     for (const j of correctionCycleMembers(edges)) error('CORRECTION_CYCLE', `${path}/bank/transactions/${j}`, txs[j].correctedTxId)
