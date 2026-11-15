@@ -49,6 +49,7 @@ export function legacyEarned(transactions, { startDate, endDate } = {}) {
 }
 
 export function reconcile(source, converted) {
+  source = source ?? null
   const differences = [], students = [], rows = converted?.rows || {}, expected = new Map()
   const diff = (path, expected, actual) => { if (!isDeepStrictEqual(expected, actual)) differences.push({ path, expected, actual }) }
   const one = (table, path) => list(rows[table]).find(r => r.source_path === path)

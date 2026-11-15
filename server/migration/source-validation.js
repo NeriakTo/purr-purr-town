@@ -6,6 +6,7 @@ const numeric = value => typeof value === 'number' && Number.isFinite(value)
 
 // 直接走訪來源，不呼叫 convert，也不讀取轉換結果的列或錯誤。
 export function validateSource(source, earnedFromLegacy) {
+  source = source ?? null
   const errors = []
   function error(code, path, value = null) {
     errors.push({ code, path, value: structuredClone(value) })

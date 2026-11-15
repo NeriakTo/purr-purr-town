@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto'
 export const TABLES = ['migration_batches', 'migration_sources', 'legacy_ids', 'classes', 'students', 'accounts', 'transactions', 'inventory_items', 'comments', 'exempt_rules', 'logs', 'tasks', 'submissions', 'settings_entries', 'products', 'jobs', 'job_assignments', 'daily_duties', 'seats', 'announcements', 'rules', 'groups', 'semesters']
 export const pointer = v => String(v).replaceAll('~', '~0').replaceAll('/', '~1')
 export function canonicalJson(value) {
-  return JSON.stringify(value, function sortedKeys(key, item) {
+  return JSON.stringify(value === undefined ? null : value, function sortedKeys(key, item) {
     if (item === null || typeof item !== 'object' || Array.isArray(item)) return item
     return Object.fromEntries(Object.keys(item).sort().map(name => [name, item[name]]))
   })

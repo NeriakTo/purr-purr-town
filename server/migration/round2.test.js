@@ -17,6 +17,12 @@ function assertAligned(source) {
   expect(result.ready_for_import).toBe(false)
 }
 describe('第二輪正式轉換', () => {
+  it('A3 undefined 來源有固定雜湊與一致錯誤', () => {
+    expect(canonicalJson(undefined)).toBe(canonicalJson(null))
+    expect(digest(undefined)).toBe(digest(null))
+    expect(orderedErrors(validateSource(undefined, legacyEarned))).toEqual(orderedErrors(convert(undefined).errors))
+    assertAligned(undefined)
+  })
   it.each([null, 123])('A2 非物件學生 %s 不使三支工具中止', value => {
     assertAligned(sourceWith([value]))
   })
