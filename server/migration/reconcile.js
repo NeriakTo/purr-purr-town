@@ -67,7 +67,7 @@ export function reconcile(source, converted) {
   const currentSemester = declared === undefined || declared === null || declared === '' ? semesterAt(data.updatedAt) : typeof declared === 'string' && /^\d+-[12]$/.test(declared) ? declared : null
   expectRow('classes', '/data', data, { id: classId, name: data.className ?? source?.className ?? null, teacher: data.teacher ?? null, current_semester: currentSemester })
   const lookup = (table, legacy) => {
-    const found = list(rows[table]).filter(r => String(r.legacy_id) === String(legacy))
+    const found = list(rows[table]).filter(r => r.legacy_id !== null && String(r.legacy_id) === String(legacy))
     return found.length === 1 ? found[0].id : null
   }
   list(data.students).forEach((s, i) => {
@@ -117,7 +117,7 @@ export function reconcile(source, converted) {
       for (const key of keys) {
         const value = vals?.[key], present = Object.hasOwn(vals || {}, key)
         const status = value === true ? 'on_time' : value === false || !present ? 'pending' : ['on_time', 'late', 'missing', 'leave', 'exempt', 'makeup'].includes(value) ? value : 'unknown'
-        const tasks = list(rows.tasks).filter(r => r.log_id === lr?.id && String(r.legacy_id) === key)
+        const tasks = list(rows.tasks).filter(r => r.log_id === lr?.id && r.legacy_id !== null && String(r.legacy_id) === key)
         expectRow('submissions', `${p}/status/${pointer(sid)}/${pointer(key)}`, value, { student_id: lookup('students', sid), legacy_student_id: sid, task_id: tasks.length === 1 ? tasks[0].id : null, status, present, assignment_evidence: 'legacy_status_container', teacher_confirmed: null, submitted_at: null })
       }
     })
