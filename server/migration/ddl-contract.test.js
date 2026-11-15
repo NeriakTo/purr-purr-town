@@ -59,6 +59,16 @@ it('R10 DDL 與每張表輸出雙向吻合，型別及 CHECK 皆相容', () => {
   expect(ddlIssues(sql, outputs)).toEqual([])
 })
 
+it('B7 DDL 支援切換日、指定學期與轉換產生的調整交易', () => {
+  const source = structuredClone(classA)
+  source.data.students[0].bank.balance = 999
+  const options = { cutoverDate: '2027-02-01' }
+  const fallback = convert(source, options)
+  source.data.settings.currentSemester = '114-1'
+  const declared = convert(source, options)
+  expect(ddlIssues(sql, [fallback, declared])).toEqual([])
+})
+
 it('R10 反向檢查能抓出只出現在 DDL 的欄位，明列 DEFAULT 才可省略', () => {
   const extra = sql.replace('source_hash text NOT NULL,', 'source_hash text NOT NULL,\n  unexplained text,')
   expect(ddlIssues(extra, outputs)).toContain('migration_batches.unexplained:missing_output')

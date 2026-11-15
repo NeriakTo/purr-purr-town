@@ -18,6 +18,52 @@ function assertAligned(source) {
   expect(result.ready_for_import).toBe(false)
 }
 describe('第二輪正式轉換', () => {
+  it('B7 已設定學期但調整缺基準日仍擋匯入', () => {
+    const source = sourceWith([student()])
+    source.data.settings.currentSemester = '115-1'
+    source.data.students[0].bank.balance = 3
+    delete source.data.updatedAt
+    const converted = convert(source)
+    expect(converted.errors).toContainEqual({ code: 'UNKNOWN_TRANSACTION_SEMESTER', path: '/data/students/0/bank/migration_opening_adjustment', value: null })
+    assertAligned(source)
+  })
+  it('B7 明傳切換日決定空學期與調整日期並記錄批次', () => {
+    const source = sourceWith([student()])
+    source.data.students[0].bank.balance = 3
+    const options = { cutoverDate: '2027-02-01' }
+    const converted = convert(source, options)
+    expect(converted.rows.classes[0].current_semester).toBe('115-2')
+    expect(converted.rows.migration_batches[0]).toMatchObject({ semester_basis: 'cutover_date', cutover_date: options.cutoverDate })
+    expect(converted.rows.transactions[0]).toMatchObject({ occurred_at: options.cutoverDate, semester: '115-2' })
+    expect(reconcile(source, converted, options).differences).toEqual([])
+    expect(reconcile(source, converted, options).ready_for_import).toBe(true)
+    expect(convert(source, options)).toEqual(converted)
+    expect(convert(source).rows.migration_batches[0]).toMatchObject({ semester_basis: 'updated_at', cutover_date: null })
+    expect(convert(source).rows.migration_batches[0].id).not.toBe(converted.rows.migration_batches[0].id)
+    expect(reconcile(source, converted).matches).toBe(false)
+  })
+  it('B7 已指定學期優先，切換日仍控制調整日期', () => {
+    const source = sourceWith([student()])
+    source.data.settings.currentSemester = '114-1'
+    source.data.students[0].bank.balance = 3
+    const options = { cutoverDate: '2027-02-01' }
+    const converted = convert(source, options)
+    expect(converted.rows.classes[0].current_semester).toBe('114-1')
+    expect(converted.rows.migration_batches[0].semester_basis).toBe('declared')
+    expect(converted.rows.transactions[0].occurred_at).toBe(options.cutoverDate)
+    expect(reconcile(source, converted, options).differences).toEqual([])
+  })
+  it('B7 非法切換日明列錯誤，不退回匯出日', () => {
+    const source = sourceWith([student()])
+    source.data.students[0].bank.balance = 3
+    const options = { cutoverDate: 'bad' }
+    const converted = convert(source, options)
+    expect(converted.rows.classes[0].current_semester).toBeNull()
+    expect(converted.errors.map(e => e.code)).toContain('INVALID_CUTOVER_DATE')
+    const result = reconcile(source, converted, options)
+    expect(result.differences).toEqual([])
+    expect(result.ready_for_import).toBe(false)
+  })
   it.each(Array.from({ length: 12 }, (_, i) => i + 1))('B6 第 %i 月與舊 helper 一致，交易與作業各用本身日期', month => {
     const date = `2026-${String(month).padStart(2, '0')}-15`
     const semester = getCurrentSemester(new Date(2026, month - 1, 15, 12))

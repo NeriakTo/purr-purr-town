@@ -13,6 +13,8 @@ CREATE TABLE migration_v2.migration_batches (
   source_path text NOT NULL,
   raw jsonb NOT NULL,
   source_hash text NOT NULL,
+  semester_basis text NOT NULL CHECK (semester_basis IN ('declared','cutover_date','updated_at')),
+  cutover_date text,
   converter_version text NOT NULL,
   import_rules_enabled boolean NOT NULL CHECK (import_rules_enabled = false),
   validation_errors jsonb NOT NULL,

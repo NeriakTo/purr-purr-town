@@ -39,7 +39,19 @@ function taipeiTimestamp(date) {
   return Number.isFinite(timestamp) ? timestamp : null
 }
 
-export function convert(input) {
+export function semesterBasis(declared, cutoverDate) {
+  if (declared !== undefined && declared !== null && declared !== '') return 'declared'
+  if (cutoverDate !== undefined) return 'cutover_date'
+  return 'updated_at'
+}
+
+export function migrationBatchId(classKey, source, cutoverDate) {
+  const identity = ['v2-1A', classKey, source]
+  if (cutoverDate !== undefined) identity.push({ cutoverDate })
+  return digest(identity)
+}
+
+export function convert(input, { cutoverDate } = {}) {
   const source = structuredClone(input ?? null)
   const rows = Object.fromEntries(TABLES.map(t => [t, []])), errors = [], notices = [], adjustments = []
   const error = (code, path, value = null) => errors.push({ code, path, value: structuredClone(value) })
@@ -57,7 +69,7 @@ export function convert(input) {
   const classKey = source?.classId ?? data.classId ?? null
   if (typeof classKey !== 'string' || !classKey) error('INVALID_CLASS_ID', '/classId', classKey)
   if (source?.classId !== data.classId) error('CLASS_ID_CONFLICT', '/data/classId', data.classId)
-  const classId = digest(['class', classKey]), batchId = digest(['v2-1A', classKey, source])
+  const classId = digest(['class', classKey]), batchId = migrationBatchId(classKey, source, cutoverDate)
   const add = (table, path, raw, fields = {}, legacy = null) => {
     const row = { id: digest([classKey, table, path, legacy]), batch_id: batchId, class_id: classId, legacy_id: legacy, source_path: path, raw: raw === undefined ? null : structuredClone(raw), ...fields }
     rows[table].push(row)
@@ -79,13 +91,19 @@ export function convert(input) {
     if (found.length !== 1) { error(found.length ? 'AMBIGUOUS_REFERENCE' : code, path, legacy); return null }
     return found[0].id
   }
-  add('migration_batches', '', null, { id: batchId, source_hash: digest(source), converter_version: 'v2-1A', import_rules_enabled: false })
+  add('migration_batches', '', null, {
+    id: batchId, source_hash: digest(source), converter_version: 'v2-1A', import_rules_enabled: false,
+    semester_basis: semesterBasis(settings.currentSemester, cutoverDate),
+    cutover_date: typeof cutoverDate === 'string' ? cutoverDate : null,
+  })
   add('migration_sources', '', source)
   check(source, '', 'classId className data')
   check(data, '/data', 'classId className teacher students logs settings updatedAt')
   check(settings, '/data/settings', 'currentSemester taskTypes groupAliases announcements jobs behaviorRules shop currency ruleCategories jobAssignments automation seatingChart semesterPeriods dailyDuty dutyJobId storeItems currencyRates')
   const declared = settings.currentSemester
-  const currentSemester = declared === undefined || declared === null || declared === '' ? semesterAt(data.updatedAt) : typeof declared === 'string' && /^\d+-[12]$/.test(declared) ? declared : null
+  const basisDate = cutoverDate === undefined ? data.updatedAt : cutoverDate
+  if (cutoverDate !== undefined && !semesterAt(cutoverDate)) error('INVALID_CUTOVER_DATE', '/cutoverDate', cutoverDate)
+  const currentSemester = declared === undefined || declared === null || declared === '' ? semesterAt(basisDate) : typeof declared === 'string' && /^\d+-[12]$/.test(declared) ? declared : null
   if (declared && !currentSemester) error('INVALID_CURRENT_SEMESTER', '/data/settings/currentSemester', declared)
   if (!currentSemester) error('UNKNOWN_CURRENT_SEMESTER', '/data/updatedAt', data.updatedAt)
   add('classes', '/data', data, { id: classId, name: data.className ?? source?.className ?? null, teacher: data.teacher ?? null, current_semester: currentSemester }, classKey)
@@ -156,8 +174,9 @@ export function convert(input) {
       if (!numeric(balance) || !numeric(ledger) || balance === ledger) return
       const path = `${p}/bank/migration_opening_adjustment`
       const amount = balance - ledger
-      const date = data.updatedAt ?? null
+      const date = basisDate ?? null
       const adjustment = { path, amount, date, reason: '轉換期初調整' }
+      if (!semesterAt(date)) error('UNKNOWN_TRANSACTION_SEMESTER', path)
       adjustments.push(adjustment)
       add('transactions', path, null, {
         student_id: sid, amount, reason: adjustment.reason, occurred_at: date,

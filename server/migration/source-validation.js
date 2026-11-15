@@ -5,7 +5,7 @@ const object = value => value !== null && typeof value === 'object' && !Array.is
 const numeric = value => typeof value === 'number' && Number.isFinite(value)
 
 // 直接走訪來源，不呼叫 convert，也不讀取轉換結果的列或錯誤。
-export function validateSource(source, earnedFromLegacy, { notices = [], adjustments = [] } = {}) {
+export function validateSource(source, earnedFromLegacy, { notices = [], adjustments = [], cutoverDate } = {}) {
   source = source ?? null
   const errors = []
   function error(code, path, value = null) {
@@ -74,7 +74,9 @@ export function validateSource(source, earnedFromLegacy, { notices = [], adjustm
   fields(data, '/data', 'classId className teacher students logs settings updatedAt')
   fields(settings, '/data/settings', 'currentSemester taskTypes groupAliases announcements jobs behaviorRules shop currency ruleCategories jobAssignments automation seatingChart semesterPeriods dailyDuty dutyJobId storeItems currencyRates')
   const declared = settings.currentSemester
-  const current = declared === undefined || declared === null || declared === '' ? semesterAt(data.updatedAt) : typeof declared === 'string' && /^\d+-[12]$/.test(declared) ? declared : null
+  const basisDate = cutoverDate === undefined ? data.updatedAt : cutoverDate
+  if (cutoverDate !== undefined && !semesterAt(cutoverDate)) error('INVALID_CUTOVER_DATE', '/cutoverDate', cutoverDate)
+  const current = declared === undefined || declared === null || declared === '' ? semesterAt(basisDate) : typeof declared === 'string' && /^\d+-[12]$/.test(declared) ? declared : null
   if (declared && !current) error('INVALID_CURRENT_SEMESTER', '/data/settings/currentSemester', declared)
   if (!current) error('UNKNOWN_CURRENT_SEMESTER', '/data/updatedAt', data.updatedAt)
   const students = array(data.students, '/data/students', true)
@@ -147,10 +149,12 @@ export function validateSource(source, earnedFromLegacy, { notices = [], adjustm
     calculateOpeningAdjustment()
     function calculateOpeningAdjustment() {
       if (!numeric(balance) || !numeric(ledger) || balance === ledger) return
+      const adjustmentPath = `${path}/bank/migration_opening_adjustment`
+      if (!semesterAt(basisDate)) error('UNKNOWN_TRANSACTION_SEMESTER', adjustmentPath)
       adjustments.push({
-        path: `${path}/bank/migration_opening_adjustment`,
+        path: adjustmentPath,
         amount: balance - ledger,
-        date: data.updatedAt ?? null,
+        date: basisDate ?? null,
         reason: '轉換期初調整',
       })
     }

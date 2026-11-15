@@ -1,7 +1,7 @@
 import { validateSource, orderedErrors } from "./source-validation.js"
 import { correctionCycleMembers, correctionTargets } from "./corrections.js"
 import { isDeepStrictEqual } from 'node:util'
-import { digest, pointer, semesterAt, TABLES } from './convert.js'
+import { digest, pointer, semesterAt, semesterBasis, migrationBatchId, TABLES } from './convert.js'
 
 const list = v => Array.isArray(v) ? v : []
 const entries = v => v && typeof v === 'object' && !Array.isArray(v) ? Object.entries(v) : []
@@ -56,7 +56,7 @@ export function legacyEarned(transactions, { startDate, endDate } = {}) {
   return dated.filter(t => !t.voided && !isStore(t) && !(t.type === 'correction' && t.correctedTxId && isStore(map[t.correctedTxId]))).reduce((n, t) => n + (t.amount || 0), 0)
 }
 
-export function reconcile(source, converted) {
+export function reconcile(source, converted, { cutoverDate } = {}) {
   source = source ?? null
   const periodSkipped = [], notices = [], adjustments = []
   const differences = [], students = [], rows = converted?.rows || {}, expected = new Map()
@@ -77,15 +77,21 @@ export function reconcile(source, converted) {
     return row
   }
   const data = source?.data || {}, settings = data.settings || {}, classKey = source?.classId ?? data.classId ?? null
-  const classId = digest(['class', classKey]), batchId = digest(['v2-1A', classKey, source])
-  const sourceErrors = validateSource(source, legacyEarned, { notices, adjustments })
+  const classId = digest(['class', classKey]), batchId = migrationBatchId(classKey, source, cutoverDate)
+  const sourceErrors = validateSource(source, legacyEarned, { notices, adjustments, cutoverDate })
   diff("report/notices", orderedErrors(notices), orderedErrors(converted?.report?.notices))
   diff("report/adjustments", adjustments, converted?.report?.adjustments)
   diff("errors", orderedErrors(sourceErrors), orderedErrors(converted?.errors))
-  expectRow('migration_batches', '', null, { id: batchId, source_hash: digest(source), import_rules_enabled: false, converter_version: 'v2-1A', validation_errors: sourceErrors })
+  expectRow('migration_batches', '', null, {
+    id: batchId, source_hash: digest(source), import_rules_enabled: false,
+    converter_version: 'v2-1A', validation_errors: sourceErrors,
+    semester_basis: semesterBasis(settings.currentSemester, cutoverDate),
+    cutover_date: typeof cutoverDate === 'string' ? cutoverDate : null,
+  })
   expectRow('migration_sources', '', source)
   const declared = settings.currentSemester
-  const currentSemester = declared === undefined || declared === null || declared === '' ? semesterAt(data.updatedAt) : typeof declared === 'string' && /^\d+-[12]$/.test(declared) ? declared : null
+  const basisDate = cutoverDate === undefined ? data.updatedAt : cutoverDate
+  const currentSemester = declared === undefined || declared === null || declared === '' ? semesterAt(basisDate) : typeof declared === 'string' && /^\d+-[12]$/.test(declared) ? declared : null
   expectRow('classes', '/data', data, { id: classId, name: data.className ?? source?.className ?? null, teacher: data.teacher ?? null, current_semester: currentSemester })
   const lookup = (table, legacy) => {
     const found = list(rows[table]).filter(r => r.legacy_id !== null && String(r.legacy_id) === String(legacy))
