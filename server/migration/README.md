@@ -1,4 +1,4 @@
-# 1A：舊快照轉換與點數對帳（T-599）
+# 1A：舊快照轉換與點數對帳（T-599／T-602）
 
 本階段只用虛構班級，在記憶體中轉換與對帳。DDL 僅為草稿，沒有執行，也沒有連線資料庫、正式後端或外部網站。`convert`、`reconcile` 不讀寫檔案、不取執行當下時間、不連網路。權限、操作程序、觸發規則、正式切換與歷史裁決留給 1B／1D。
 
@@ -10,8 +10,9 @@
 import { convert } from './convert.js'
 import { reconcile } from './reconcile.js'
 import { classA } from './__fixtures__/classes.js'
-const result = convert(classA)
-const audit = reconcile(classA, result)
+const options = { cutoverDate: '2026-11-15' }
+const result = convert(classA, options)
+const audit = reconcile(classA, result, options)
 // audit.differences 為 []：來源和轉換結果一致，不表示來源本身沒有問題。
 // 正式匯入需要 differences=[] 且 errors=[]，另完成待確認事項。
 ```
@@ -99,12 +100,12 @@ const audit = reconcile(classA, result)
 
 餘額、已保存累計、交易重算累計是三件事，不能互相覆蓋。
 
-1. `accounts.balance` 保存來源 bank.balance；沒有 bank／balance 時用舊畫面相容的零讀值，原欄位是否存在仍可查 raw。`ledger_sum` 對**所有**交易 amount 加總，包含 voided 的原交易與所有差額交易；它只供驗算。只要不相等列 BALANCE_DRIFT，沒有期初差額交易，不自動歸零。每筆已保存 balance 與從零起算的前綴不一致時列 TRANSACTION_BALANCE_DRIFT，可能代表歷史截斷或既有錯誤，交主控裁決。
+1. `accounts.balance` 保存來源 bank.balance；沒有 bank／balance 時沿用舊畫面零讀值。`ledger_sum` 仍是原交易全數加總（含 voided），只供對帳。兩者不同時新增一筆 `migration_opening_adjustment`：金額為已存餘額減原交易總和，理由「轉換期初調整」，日期取明傳切換日，未傳時取 updatedAt。原交易與原始數字均不改動。BALANCE_DRIFT 與 TRANSACTION_BALANCE_DRIFT 放入 `report.notices`，附路徑與保存／重算金額，不擋匯入；實際差額另列 `report.adjustments` 的 path／amount／date／reason。
 2. 舊更正見 `src/views/DashboardView.jsx:499`：原交易標 voided，新增 amount=新金額−原金額，餘額加此差額。例 +100、−20、+5 的鏈合計 +85，不能排除前兩筆後只剩 +5。保留原金流與差額鏈，**不轉寫成反向沖銷**。更正差額本身又被改時仍指向該差額交易，不把它誤當根交易的新絕對金額。
 3. 每筆更正的舊 correctedTxId 只在同一學生的交易中解析。找不到、重複、缺原編號或循環都報錯，無法可靠解析的外鍵為 null；兩份同名商品或相同理由不作關聯依據。
 4. `accounts.total_earned` 若來源有 totalEarned 就**原樣保留**；缺欄位才照舊 helper 重算，來源分別標 `legacy_stored`／`legacy_recomputed`。依據 `src/utils/helpers.js:463`。非數值不硬轉數字，輸出 typed null、保留 raw 並報錯。
 5. 舊增量更新為 `options.excludeFromTotal ? 0 : amount`（`src/utils/helpers.js:478`）。商店購買及道具使用傳入此選項，交易本身**沒有保存此選項**（`src/views/DashboardView.jsx:586`、`src/views/DashboardView.jsx:618`）。更正時依原交易理由前綴「購買」「使用道具」決定累計是否變動（`src/views/DashboardView.jsx:507`）。不能宣稱只從歷史交易可還原當初所有 excludeFromTotal 決定。
-6. `earned_recomputed` 照 `src/utils/helpers.js:435`：先篩日期區間，再以區間內交易建立舊 ID 對照，排除 voided、理由以「購買」「使用道具」開頭，以及 correction 原交易在對照內且屬商店消費的差額，其餘加 amount。`excludeFromTotal` 即使出現在非標準歷史 tx，也不是此 helper 的篩選條件。已保存 totalEarned 與它不等時列 TOTAL_EARNED_DRIFT，兩值都保留。這是舊版增量／重算語意差異，不是轉換器可以私自修正的數字。
+6. `earned_recomputed` 照 `src/utils/helpers.js:435`：先篩日期區間，再以區間內交易建立舊 ID 對照，排除 voided、理由以「購買」「使用道具」開頭，以及 correction 原交易在對照內且屬商店消費的差額，其餘加 amount。`excludeFromTotal` 即使出現在非標準歷史 tx，也不是此 helper 的篩選條件。已保存 totalEarned 與它不等時列 TOTAL_EARNED_DRIFT 提示，兩值都保留，以已保存值為正式累計。這是舊版增量／重算語意差異，不是轉換器可以私自修正的數字。 新增調整以 `exclude_from_total=true, legacy_semantics=false` 表示由轉換產生；原交易為 legacy_semantics=true。舊 helper 不讀 excludeFromTotal，因此對帳投影會先排除 migration_opening_adjustment，再比對原交易的舊統計；不把所有原交易的 excludeFromTotal 當成舊 helper 的篩選旗標。
 7. 期中／期末統計使用來源 start/end 與臺灣本地日期，無界限沿用舊 helper 的全區間行為。原商店交易在區間外、更正在區間內時，舊 helper 查不到原交易，可能把差額計入；本次忠實保留此行為並測試，不順便修正舊統計。
 
 所有金額以原基底積分保存；不以現行幣值重新換算。非法金額保留原字串等 raw 值，typed amount=null，相關重算為 null 並報 INVALID_AMOUNT，不能當成合法零。交易筆數、更正邊、原 voided 與每筆內容逐項核對，不只比最後餘額。
@@ -119,35 +120,47 @@ const audit = reconcile(classA, result)
 
 ## 學期、在學狀態與重跑
 
-`currentSemester` 為空時，依來源 `data.updatedAt` 的臺灣日期套舊版月份公式（`src/utils/helpers.js:552`）：8–12 月為當年民國學年第 1 學期；1 月為前學年第 1 學期；2–7 月為前學年第 2 學期。這只是固定的「來源匯出日期讀取值」，不是所有歷史資料的學期。來源沒有可用日期就保持 null 並報錯；不取現在時間。已指定但格式未知也報錯。
+`currentSemester` 為空時，優先使用明傳 `cutoverDate` 的臺灣日期；未傳才沿用 `data.updatedAt` 試轉。依舊版月份公式（`src/utils/helpers.js:553`）：8～12 月為當年民國學年第 1 學期，1 月為前學年第 1 學期，2～7 月為前學年第 2 學期。批次 `semester_basis` 記 declared／cutover_date／updated_at，`cutover_date` 保存傳入日期，沒傳為 null。非法切換日報 INVALID_CUTOVER_DATE，不退回匯出日；調整缺可解析日期同樣報 UNKNOWN_TRANSACTION_SEMESTER。
 
-評語永遠用原 key。作業與交易沒有學期欄位或明確邊界裁決，全部 semester=null，逐筆列 UNKNOWN_TASK_SEMESTER／UNKNOWN_TRANSACTION_SEMESTER；保留日期，不能歸到目前學期，也不拿期中／期末區間當學期。
+評語永遠用原 key。交易依 date，作業依 createdAt（缺值才用所屬 log.date），先換算 Asia/Taipei 日期再套上述月份規則；無時區的 ISO 日期時間視為臺灣時間。無效日曆日期、缺日期或無法解析時 semester=null，列 UNKNOWN_TRANSACTION_SEMESTER／UNKNOWN_TASK_SEMESTER 並擋匯入。UNKNOWN_ASSIGNMENT_LIST 維持原樣，不補造歷史名單。
 
 `inactive=true` 只轉 `home_study`（在家自學）；false／缺欄位為 enrolled。另保留 transferred、archived 兩種新狀態於 DDL，但舊匯出沒有可驗證資料時不產生。依據 `src/utils/helpers.js:187`、`src/utils/constants.js:164`。不把缺席、自學、刪除學生混為轉出或封存。
 
-班級 ID 是 SHA-256(['class',來源班級編號])；其餘 ID 是 SHA-256([來源班級編號,表名,來源 path,舊編號])。無舊編號的 log、背包等用來源 path 作穩定定位，並報告需要舊 ID 的實體缺漏。批次 ID 由版本＋班級編號＋完整來源內容雜湊推導，不使用時間或亂數。**同一份來源**重跑列與 ID 完全一致；陣列重新排序／內容變更是另一份來源，不能用此工具自行合併或裁決裝置快照。
+班級 ID 是 SHA-256(['class',來源班級編號])；其餘 ID 是 SHA-256([來源班級編號,表名,來源 path,舊編號])。無舊編號的 log、背包等用來源 path 作穩定定位，並報告需要舊 ID 的實體缺漏。批次 ID 由版本＋班級編號＋完整來源內容雜湊推導，明傳切換日時另納入該選項，不使用時間或亂數。**同一份來源與同一切換日**重跑列與 ID 完全一致；陣列重新排序／內容變更是另一份來源，不能用此工具自行合併或裁決裝置快照。
 
 SQL 草稿以 ID 主鍵與批次／來源路徑唯一約束擋重複，legacy_ids 的 path 唯一約束另含表名。1B 必須將同 ID 同內容視為已處理，同 ID 異內容視為衝突，不能無條件 UPDATE。本次沒有實作資料庫寫入，不宣稱已驗證資料庫的重送、並行或權限。
 
 ## 匯入邊界、未知值與待確認
 
-`import_rules_enabled=false`、每筆交易 `legacy_semantics=true`，純函式完全不呼叫點數規則，不因 pending／missing／makeup 自動補帳。新規則僅從正式切換後生效；1B 的專用匯入路徑必須落實不觸發獎懲，不能僅靠這個布林欄位當安全措施。
+`import_rules_enabled=false`、原交易 `legacy_semantics=true`、轉換調整 `legacy_semantics=false, exclude_from_total=true`，純函式完全不呼叫點數規則，不因 pending／missing／makeup 自動補帳。新規則僅從正式切換後生效；1B 的專用匯入路徑必須落實不觸發獎懲，不能僅靠這個布林欄位當安全措施。
 
-錯誤分類包含 UNKNOWN_FIELD／STATUS／學期／名單，INVALID_*、MISSING_LEGACY_ID、DUPLICATE_LEGACY_ID、AMBIGUOUS_REFERENCE、ORPHAN_STUDENT／TASK／PRODUCT／JOB／CORRECTION、CORRECTION_CYCLE，以及餘額／累計／交易前綴差異。任何錯誤都使 ready_for_import=false；不把保留 raw 當成問題已解決。保留整包來源是最後的內容保全層，但對帳仍逐表驗證列數、原始內容、關聯與金額，不能只比整包副本。
+錯誤分類包含 UNKNOWN_FIELD／STATUS／學期／名單，INVALID_*、MISSING_LEGACY_ID、DUPLICATE_LEGACY_ID、AMBIGUOUS_REFERENCE、ORPHAN_STUDENT／TASK／PRODUCT／JOB／CORRECTION、CORRECTION_CYCLE；餘額／累計／交易前綴差異改列非阻擋的 notices。任何錯誤都使 ready_for_import=false；不把保留 raw 當成問題已解決。保留整包來源是最後的內容保全層，但對帳仍逐表驗證列數、原始內容、關聯與金額，不能只比整包副本。
 
-待確認清單（均未替老師或主控作資料裁決）：
+規則定案與後續處理清單：
 
-1. **歷史點數差異：** 商店購買第一次更正的理由是「修正：購買…」，第二次更正差額會加入累計，因為舊版流程只檢查被更正那筆理由的前綴（DashboardView.jsx:496–517）；轉換保留此行為。多跳回歸案例的逐步 totalEarned 與 helper 都是 105。  已保存 totalEarned 與舊 helper 重算不同時，正式新畫面要沿用哪個定義？本次並存、報錯，沒有更動來源。若餘額與全交易和不符，是否缺歷史、需要何種有依據的期初帳？必須有明確確認紀錄才能新增。
-2. **作業／交易學期：** 請提供學期邊界與歸屬裁決；不從目前學期或匯出日猜填。期中／期末區間不能替代學期邊界。
-3. **空 currentSemester 的基準日期：** 試轉以來源匯出日固定推算；正式切換若要用老師指定切換日，應明確傳入並版本化，不能依執行當下日期偷偷改結果。
-4. **歷史當時名單與舊訂正：** 如何取得原指派名單？舊訂正若要連原作業及老師確認，必須另有可核對資料或人工確認；沒有時維持未知／未連結。
-5. **已核銷物品：** 接受只能保存使用紀錄、無法建立已刪物品的個別購買／核銷鏈嗎？舊格式無法提供的資訊不可由本工具補造。
-6. **異常來源：** 未知欄位、狀態、重複編號、孤立關聯、雙商品來源衝突與非法資料由誰裁決？本次保留全值、隔離外鍵、阻擋匯入；不得用「對帳無差異」略過。
-7. **匯出未帶入的班級索引：** year／alias／status 等須在 1D 收齊來源，轉出／封存身分也不能從 inactive 推斷。number 與 seatNumber 衝突時須裁決，現階段兩值均保留。
+1. **歷史點數差異（2026-11-15 依規劃 5.2 第 8～10 列定案；本點對應第 8 列）：** 學生現在看到的已保存餘額與累計加分照搬；舊 helper 重算值只供對帳。全交易和不符餘額時新增轉換期初調整，三種 DRIFT 僅提示。商店購買第二次更正差額會加入累計，仍保留舊版語意；多跳案例的逐步 totalEarned 與 helper 都是 105。
+2. **作業／交易學期（2026-11-15 依規劃 5.2 第 8～10 列定案；本點對應第 9 列）：** 依每筆日期及舊 getCurrentSemester 月份規則歸屬，8 月到隔年 1 月為上學期，2～7 月為下學期。缺漏或無法解析仍擋匯入；期中／期末區間不代替學期。
+3. **空 currentSemester 的基準日期（2026-11-15 依規劃 5.2 第 8～10 列定案；本點對應第 10 列）：** 正式切換明傳 cutoverDate 並記入批次；未傳沿用 updatedAt 試轉。不得依執行當下日期改結果。
+4. **歷史當時名單與舊訂正：** 如何取得原指派名單？舊訂正若要連原作業及老師確認，必須另有可核對資料或人工確認；沒有時維持未知／未連結。 對應規劃 5.2 第 11 列：舊資料沒有就不補造，新畫面標成「舊資料」。
+5. **已核銷物品：** 接受只能保存使用紀錄、無法建立已刪物品的個別購買／核銷鏈嗎？舊格式無法提供的資訊不可由本工具補造。 對應規劃 5.2 第 12 列：已接受只保存使用紀錄，不重建已刪道具鏈。
+6. **異常來源：** 未知欄位、狀態、重複編號、孤立關聯、雙商品來源衝突與非法資料由誰裁決？本次保留全值、隔離外鍵、阻擋匯入；不得用「對帳無差異」略過。 對應規劃 5.2 第 13 列：主控在 1D 看報告裁決；只有 Feon 知道答案的列清單經 Kevin 詢問。
+7. **匯出未帶入的班級索引：** year／alias／status 等須在 1D 收齊來源，轉出／封存身分也不能從 inactive 推斷。number 與 seatNumber 衝突時須裁決，現階段兩值均保留。 對應規劃 5.2 第 14 列：第 0 階段收齊裝置資料時取得學年、別名、狀態；座號以 number 為準，seatNumber 留原值。
 
 做了哪些假設：JSON 匯出是本題的來源單位，不是所有本機儲存的聯集；時區依題目採 Asia/Taipei；既有交易已反映獎懲，不重新執行。無法從舊格式證明的關係全部保留未知並列錯誤，而非選一種資料解讀補填。
 
-## 驗證與前次審查對照
+## T-602 四項中度問題修正（2026-11-15）
+
+**缺編號與空值參照：** 對帳的 lookup 與同 log 作業查找排除 legacy_id=null，和轉換索引一致。缺編號學生加空座位，或缺編號作業加字串 null 狀態鍵，都不會誤連；原本的缺編號與孤立參照錯誤仍保留。
+
+**非物件陣列元素：** 對帳以具名 recordList／normalizeRecord 將學生、交易、背包、紀錄、作業、商品等陣列中的非物件視為 {}。來源快照與 INVALID_RECORD 保留原值；轉換、獨立驗證及對帳均可完成，錯誤清單一致且不放行匯入。
+
+**undefined 頂層來源：** canonicalJson(undefined) 固定回傳字串 null，digest 可安全計算；三支工具統一正規化成 null，避免來源雜湊或根物件錯誤不一致。
+
+**更正外鍵清空造成期間假差異：** 從獨立來源錯誤識別每位學生交易的 AMBIGUOUS_REFERENCE／CORRECTION_CYCLE，只跳過該生期間比對，輸出 period_skipped: [{path,reason}]。該生其他欄位仍逐項驗證；其他學生的期間照常比對。反例 C、D2 無假差異，同場正常學生的交易金額被改仍抓得到期間差異。跳過不代表來源有效，原錯誤仍擋匯入。
+
+期初調整由 source-validation.js 直接依來源獨立推導，透過 validateSource 的第三參數 {notices, adjustments, cutoverDate} 收集；不呼叫 convert、不讀轉換結果。reconcile 另核對報告提示、調整清單、調整交易完整欄位及帳本總和，少筆、多筆、改額皆列 differences。調整列 source_path 使用學生 bank 下保留的 migration_opening_adjustment 路徑，raw=null、legacy_id=null，編號沿用既有雜湊規則。
+
+## 前次驗證紀錄
 
 測試先於實作：初版 21 項中 19 項失敗、2 項僅重跑空結果的測試通過；實作後再增加舊 helper 交叉核對與破壞測試。執行根目錄 `npx vitest run`；新增檔案執行 `npx eslint server/migration`。DDL 僅靜態檢查輸出欄位與唯一鍵，**沒有在 PostgreSQL 執行**，真正約束與交易測試屬 1B。
 
@@ -155,7 +168,7 @@ SQL 草稿以 ID 主鍵與批次／來源路徑唯一約束擋重複，legacy_id
 | --- | --- |
 | NEXT 2：逐值狀態、訂正、編號、學期、未知值 | convert.test.js 狀態矩陣、重跑、不改來源、雙鎖、自學、孤立與循環；reconcile.test.js 日期邊界、無名單不回推、非法來源保全 |
 | NEXT 3：餘額／累計分開、更正鏈、商店背包 | 含 voided 的金流和、快取與重算並存、商店跨區間與實際舊 helper 相等、同商品多件及使用交易保存 |
-| CRITICAL 不遺失／不自動調整 | 完整來源快照＋逐實體 raw；逐表缺列／重複／改壞內容會出差異；餘額不平只報錯不加交易 |
+| CRITICAL 不遺失／已授權調整 | 完整來源與逐實體 raw 保全；原交易不變，依定案補期初調整，對帳驗少筆、多筆與改額 |
 | HIGH 可重跑 | 同來源兩次深度相等、列 ID 唯一、舊編號對照、DDL 主鍵／來源唯一鍵草稿 |
 
 測試資料 `__fixtures__/classes.js` 僅含「測試甲／乙／丙」與假班、假老師；沒有讀任何真實學生資料。全程未連網路，未讀 `.env*`、憑證或正式資料。
@@ -172,7 +185,7 @@ R4：重複交易編號的累計重算仍取最後一筆，與舊 helper 的 Obj
 
 R5：reconcile 以獨立的 source-validation.js 走訪來源，重新檢查所有目前轉換器支援的來源錯誤；不呼叫 convert、不讀輸出列來判定來源有效性。錯誤以 code/path/value 的多重集合比較（忽略排列，保留重複次數），少報、多報、改值均在 errors 與批次 validation_errors 列差異；ready_for_import 使用獨立來源檢查結果與列差異。
 
-R6：更正外鍵統一由 corrections.js 解析，只在同一學生交易中以嚴格相等 `tx.id === correctedTxId` 比對，排除 null/undefined；數字 101 與字串 101 不合併，避免建立舊版 DashboardView.jsx:496 不會選中的關係。0 與空字串仍是可比對的原編號；缺值與重複目標不猜填。一般學生／商品／職務的物件 key 參照仍沿用字串鍵規則。期中／期末投影使用轉換列 id 與 corrected_transaction_id，外鍵清空或指錯會同時檢出欄位差異及受影響的區間數字。來源累計與來源區間仍照舊 helper 的規則（含 truthy correctedTxId），不更改舊版統計。
+R6：更正外鍵統一由 corrections.js 解析，只在同一學生交易中以嚴格相等 `tx.id === correctedTxId` 比對，排除 null/undefined；數字 101 與字串 101 不合併，避免建立舊版 DashboardView.jsx:496 不會選中的關係。0 與空字串仍是可比對的原編號；缺值與重複目標不猜填。一般學生／商品／職務的物件 key 參照仍沿用字串鍵規則。期中／期末投影使用轉換列 id 與 corrected_transaction_id，來源關聯可解析時，輸出外鍵清空或指錯會檢出欄位及期間差異；來源本來就有歧義或循環則明列 period_skipped。來源累計與來源區間仍照舊 helper 的規則（含 truthy correctedTxId），不更改舊版統計。
 
 R7：log.status 與各學生狀態容器均限非陣列物件；陣列、字串、數字、布林與 null 保留來源並報 INVALID_OBJECT，解析時視為空物件。已有學生容器時任務仍展開 pending/present=false，不從陣列或字串索引讀狀態。
 
