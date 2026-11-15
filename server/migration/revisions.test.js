@@ -39,3 +39,12 @@ it.each(["shop", "storeItems"])("R2 商品說明保全且不誤報 %s", location
   expect(out.errors.filter(e => e.code === "UNKNOWN_FIELD")).toEqual([])
   expect(out.rows.products[0].raw.description).toBe("說明")
 })
+
+it("R3 循環每筆外鍵清空，含自循環與通往循環的尾鏈", () => {
+  const source = snapshot([{ id: "a", amount: 1, correctedTxId: "b" }, { id: "b", amount: 2, correctedTxId: "a" }, { id: "c", amount: 3, correctedTxId: "c" }, { id: "tail", amount: 0, correctedTxId: "a" }])
+  const out = convert(source)
+  expect(out.rows.transactions.slice(0, 3).map(t => t.corrected_transaction_id)).toEqual([null, null, null])
+  expect(out.errors.filter(e => e.code === "CORRECTION_CYCLE")).toHaveLength(3)
+  expect(out.rows.transactions[3].corrected_transaction_id).toBe(out.rows.transactions[0].id)
+  expect(reconcile(source, out).differences).toEqual([])
+})

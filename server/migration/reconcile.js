@@ -1,3 +1,4 @@
+import { correctionCycleMembers } from "./corrections.js"
 import { isDeepStrictEqual } from 'node:util'
 import { digest, pointer, semesterAt, TABLES } from './convert.js'
 
@@ -56,10 +57,15 @@ export function reconcile(source, converted) {
     expectRow('accounts', `${p}/bank`, s.bank, { student_id: sr?.id, balance: numeric(balance) ? balance : null, total_earned: numeric(total) ? total : null, ledger_sum: ledger, earned_recomputed: earned, total_earned_source: bank.totalEarned === undefined ? 'legacy_recomputed' : 'legacy_stored' })
     const actualTxs = list(rows.transactions).filter(t => t.student_id === sr?.id)
     diff(`${p}/transaction_count`, txs.length, actualTxs.length)
+    const correctionEdges = new Map(txs.map((t, j) => {
+      const targets = txs.map((x, k) => ({ x, k })).filter(({ x }) => x.id != null && String(x.id) === String(t.correctedTxId))
+      return [j, targets.length === 1 ? targets[0].k : null]
+    }))
+    const cycleMembers = correctionCycleMembers(correctionEdges)
     txs.forEach((t, j) => {
       const target = txs.map((x, k) => ({ x, k })).filter(({ x }) => x.id === t.correctedTxId)
       const targetRow = target.length === 1 ? one('transactions', `${p}/bank/transactions/${target[0].k}`) : null
-      expectRow('transactions', `${p}/bank/transactions/${j}`, t, { student_id: sr?.id, legacy_id: t.id ?? null, amount: numeric(t.amount) ? t.amount : null, reason: t.reason ?? null, occurred_at: t.date ?? null, balance_after: t.balance ?? null, voided: Boolean(t.voided), transaction_type: t.type ?? 'legacy', corrected_transaction_id: t.correctedTxId === undefined ? null : targetRow?.id ?? null, semester: null, legacy_semantics: true })
+      expectRow('transactions', `${p}/bank/transactions/${j}`, t, { student_id: sr?.id, legacy_id: t.id ?? null, amount: numeric(t.amount) ? t.amount : null, reason: t.reason ?? null, occurred_at: t.date ?? null, balance_after: t.balance ?? null, voided: Boolean(t.voided), transaction_type: t.type ?? 'legacy', corrected_transaction_id: t.correctedTxId === undefined || cycleMembers.has(j) ? null : targetRow?.id ?? null, semester: null, legacy_semantics: true })
     })
     diff(`${p}/converted_ledger_sum`, ledger, actualTxs.every(t => numeric(t.amount)) ? actualTxs.reduce((n, t) => n + t.amount, 0) : null)
     list(s.inventory).forEach((item, j) => expectRow('inventory_items', `${p}/inventory/${j}`, item, { student_id: sr?.id, product_id: lookup('products', item.itemId), legacy_index: j, purchase_transaction_id: null, consumed: false }))

@@ -1,3 +1,4 @@
+import { correctionCycleMembers } from "./corrections.js"
 import { createHash } from 'node:crypto'
 
 export const TABLES = ['migration_batches', 'migration_sources', 'legacy_ids', 'classes', 'students', 'accounts', 'transactions', 'inventory_items', 'comments', 'exempt_rules', 'logs', 'tasks', 'submissions', 'settings_entries', 'products', 'jobs', 'job_assignments', 'daily_duties', 'seats', 'announcements', 'rules', 'groups', 'semesters']
@@ -98,15 +99,14 @@ export function convert(input) {
       const target = txs[j].correctedTxId
       if (target !== undefined) r.corrected_transaction_id = ref(tm, target, 'ORPHAN_CORRECTION', `${r.source_path}/correctedTxId`)
       if (r.transaction_type === 'correction' && target === undefined) error('ORPHAN_CORRECTION', r.source_path)
-      const seen = new Set([r.id])
-      let next = r.corrected_transaction_id
-      while (next) {
-        if (seen.has(next)) { error('CORRECTION_CYCLE', r.source_path, target); break }
-        seen.add(next)
-        const n = tr.find(t => t.id === next), targets = tm.get(String(n?.raw.correctedTxId))
-        next = targets?.length === 1 ? targets[0].id : null
-      }
     })
+    const edges = new Map(tr.map(r => [r.id, r.corrected_transaction_id]))
+    for (const r of tr) {
+      if (correctionCycleMembers(edges).has(r.id)) {
+        error("CORRECTION_CYCLE", r.source_path, r.raw.correctedTxId)
+        r.corrected_transaction_id = null
+      }
+    }
     const valid = txs.every(t => numeric(t.amount))
     const ledger = valid ? txs.reduce((sum, t) => sum + t.amount, 0) : null
     if (valid) {
