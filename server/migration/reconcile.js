@@ -16,6 +16,13 @@ function normalizeRecord(value) {
   return {}
 }
 
+function periodSkipReasons(errors, studentPath) {
+  return [...new Set(errors.filter(error => {
+    if (!error.path.startsWith(`${studentPath}/bank/transactions/`)) return false
+    return ['AMBIGUOUS_REFERENCE', 'CORRECTION_CYCLE'].includes(error.code)
+  }).map(error => error.code))]
+}
+
 function projectTransactions(transactions) {
   const byId = new Map(transactions.map(transaction => [transaction.id, transaction]))
   return transactions.map(transaction => {
@@ -50,6 +57,7 @@ export function legacyEarned(transactions, { startDate, endDate } = {}) {
 
 export function reconcile(source, converted) {
   source = source ?? null
+  const periodSkipped = []
   const differences = [], students = [], rows = converted?.rows || {}, expected = new Map()
   const diff = (path, expected, actual) => { if (!isDeepStrictEqual(expected, actual)) differences.push({ path, expected, actual }) }
   const one = (table, path) => list(rows[table]).find(r => r.source_path === path)
@@ -110,7 +118,10 @@ export function reconcile(source, converted) {
       else expectRow('exempt_rules', `${p}/taskExemptRules`, s.taskExemptRules, { student_id: sr?.id })
     }
     const periods = {}
+    const skipReasons = periodSkipReasons(sourceErrors, p)
+    for (const reason of skipReasons) periodSkipped.push({ path: p, reason })
     for (const [period, bounds] of entries(settings.semesterPeriods)) {
+      if (skipReasons.length) continue
       const options = { startDate: bounds?.start || undefined, endDate: bounds?.end || undefined }
       const projected = projectTransactions(actualTxs)
       periods[period] = valid ? legacyEarned(txs, options) : null
@@ -157,5 +168,5 @@ export function reconcile(source, converted) {
     diff(`legacy_ids/${r.id}/count`, 1, mappings.length)
     if (mappings.length === 1) diff(`legacy_ids/${r.id}`, { id: digest(['map', r.id]), batch_id: batchId, class_id: classId, legacy_id: r.legacy_id, source_path: r.source_path, raw: null, table_name: table, target_id: r.id }, mappings[0])
   }
-  return { matches: differences.length === 0, differences, students, source_errors: sourceErrors, ready_for_import: differences.length === 0 && sourceErrors.length === 0 }
+  return { matches: differences.length === 0, differences, students, period_skipped: periodSkipped, source_errors: sourceErrors, ready_for_import: differences.length === 0 && sourceErrors.length === 0 }
 }

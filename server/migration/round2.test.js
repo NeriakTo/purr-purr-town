@@ -17,6 +17,28 @@ function assertAligned(source) {
   expect(result.ready_for_import).toBe(false)
 }
 describe('第二輪正式轉換', () => {
+  it.each([
+    [
+      { id: 'dup', amount: -30, reason: '購買：貼紙', voided: true },
+      { id: 'dup', amount: -40, reason: '購買：筆', voided: true },
+      { id: 'fix', type: 'correction', amount: 10, correctedTxId: 'dup' },
+    ],
+    [
+      { id: 'a', amount: -20, reason: '購買：貼紙', voided: true, correctedTxId: 'b' },
+      { id: 'b', type: 'correction', amount: 20, correctedTxId: 'a' },
+    ],
+  ])('A4 無法解析更正關聯時只跳過受影響學生期間 %#', (...transactions) => {
+    const dated = transactions.map(t => ({ ...t, date: '2026-09-10' }))
+    const source = sourceWith([student(dated), student([{ id: 'ok', amount: 5, date: '2026-09-10' }], { id: 's2' })])
+    source.data.settings.semesterPeriods = { midterm: { start: '2026-09-01', end: '2026-10-31' } }
+    const converted = convert(source)
+    const result = reconcile(source, converted)
+    expect(result.differences).toEqual([])
+    expect(result.period_skipped).toEqual(expect.arrayContaining([expect.objectContaining({ path: '/data/students/0', reason: expect.any(String) })]))
+    expect(result.period_skipped.every(item => item.path === '/data/students/0')).toBe(true)
+    converted.rows.transactions.find(t => t.raw?.id === 'ok').amount = 6
+    expect(reconcile(source, converted).differences).toContainEqual({ path: '/data/students/1/period/midterm', expected: 5, actual: 6 })
+  })
   it('A3 undefined 來源有固定雜湊與一致錯誤', () => {
     expect(canonicalJson(undefined)).toBe(canonicalJson(null))
     expect(digest(undefined)).toBe(digest(null))
