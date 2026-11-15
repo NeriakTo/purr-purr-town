@@ -169,3 +169,5 @@ SQL 草稿以 ID 主鍵與批次／來源路徑唯一約束擋重複，legacy_id
 結果：新增 `shop.products[].description` 與相容 `storeItems[].description`（SettingsModal.jsx:433–444、1163）；完整保存在 products.raw。學生、bank/交易、背包、免交規則、評語、log/task/status、職務與指派、值日生、公告、貨幣、自動化、座位及自訂物件的其餘寫入欄位均已在上方清冊，未發現其他漏列。班級索引 alias/year/status/studentCount 與獨立 localStorage 的密碼、API key、同步設定不屬班級 JSON 匯出，不納入允許欄位；僅閱讀程式碼，未讀取任何設定值或憑證。還原與同步保留任意來源欄位，不代表它們是 UI 定義的已知欄位，仍逐筆報 UNKNOWN_FIELD。
 
 R4：重複交易編號的累計重算仍取最後一筆，與舊 helper 的 Object.fromEntries 相同；AMBIGUOUS_REFERENCE 會列錯誤且更正外鍵為 null，阻擋匯入。重算數字用於比對舊版，不能把外鍵隔離解讀成修正歷史統計。
+
+R5：reconcile 以獨立的 source-validation.js 走訪來源，重新檢查所有目前轉換器支援的來源錯誤；不呼叫 convert、不讀輸出列來判定來源有效性。錯誤以 code/path/value 的多重集合比較（忽略排列，保留重複次數），少報、多報、改值均在 errors 與批次 validation_errors 列差異；ready_for_import 使用獨立來源檢查結果與列差異。

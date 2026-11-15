@@ -1,3 +1,4 @@
+import { validateSource, orderedErrors } from "./source-validation.js"
 import { correctionCycleMembers } from "./corrections.js"
 import { isDeepStrictEqual } from 'node:util'
 import { digest, pointer, semesterAt, TABLES } from './convert.js'
@@ -32,12 +33,17 @@ export function reconcile(source, converted) {
     const key = path.split('/').at(-1)?.replaceAll('~1', '/').replaceAll('~0', '~')
     const legacy = table === 'classes' ? source?.classId ?? source?.data?.classId ?? null : table === 'students' ? raw?.id || raw?.uuid || null : ['transactions', 'tasks', 'products', 'jobs', 'announcements', 'rules'].includes(table) ? raw?.id ?? null : table === 'inventory_items' ? raw?.itemId ?? null : ['groups', 'submissions'].includes(table) ? key : null
     diff(`${table}${path}/legacy_id`, legacy, row?.legacy_id)
-    for (const [key, value] of Object.entries(fields)) diff(`${table}${path}/${key}`, value, row?.[key])
+    for (const [key, value] of Object.entries(fields)) {
+      if (key === "validation_errors") diff(`${table}${path}/${key}`, orderedErrors(value), orderedErrors(row?.[key]))
+      else diff(`${table}${path}/${key}`, value, row?.[key])
+    }
     return row
   }
   const data = source?.data || {}, settings = data.settings || {}, classKey = source?.classId ?? data.classId ?? null
   const classId = digest(['class', classKey]), batchId = digest(['v2-1A', classKey, source])
-  expectRow('migration_batches', '', null, { id: batchId, source_hash: digest(source), import_rules_enabled: false, converter_version: 'v2-1A', validation_errors: converted?.errors || [] })
+  const sourceErrors = validateSource(source, legacyEarned)
+  diff("errors", orderedErrors(sourceErrors), orderedErrors(converted?.errors))
+  expectRow('migration_batches', '', null, { id: batchId, source_hash: digest(source), import_rules_enabled: false, converter_version: 'v2-1A', validation_errors: sourceErrors })
   expectRow('migration_sources', '', source)
   const declared = settings.currentSemester
   const currentSemester = declared === undefined || declared === null || declared === '' ? semesterAt(data.updatedAt) : typeof declared === 'string' && /^\d+-[12]$/.test(declared) ? declared : null
@@ -125,5 +131,5 @@ export function reconcile(source, converted) {
     diff(`legacy_ids/${r.id}/count`, 1, mappings.length)
     if (mappings.length === 1) diff(`legacy_ids/${r.id}`, { id: digest(['map', r.id]), batch_id: batchId, class_id: classId, legacy_id: r.legacy_id, source_path: r.source_path, raw: null, table_name: table, target_id: r.id }, mappings[0])
   }
-  return { matches: differences.length === 0, differences, students, source_errors: converted?.errors || [], ready_for_import: differences.length === 0 && list(converted?.errors).length === 0 }
+  return { matches: differences.length === 0, differences, students, source_errors: sourceErrors, ready_for_import: differences.length === 0 && sourceErrors.length === 0 }
 }

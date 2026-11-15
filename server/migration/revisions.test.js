@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { convert } from './convert.js'
 import { reconcile } from './reconcile.js'
+import { classA } from "./__fixtures__/classes.js"
 import { calcEarnedFromTransactions } from '../../src/utils/helpers.js'
 
 function snapshot(transactions = []) {
@@ -57,4 +58,47 @@ it("R4 重複交易隔離外鍵但重算沿用最後一筆", () => {
   expect(out.rows.accounts[0].earned_recomputed).toBe(calcEarnedFromTransactions(txs))
   expect(out.rows.accounts[0].earned_recomputed).toBe(0)
   expect(readme().includes("重複交易編號的累計重算仍取最後一筆")).toBe(true)
+})
+
+it("R5 獨立找回被清空的來源錯誤且拒絕匯入", () => {
+  const source = structuredClone(classA)
+  source.data.students[0].bank.balance = 999
+  source.data.students[0].bank.transactions[0].balance = 999
+  source.data.settings.extra = true
+  const out = convert(source)
+  const errors = structuredClone(out.errors)
+  out.errors = []
+  out.rows.migration_batches[0].validation_errors = []
+  const audit = reconcile(source, out)
+  expect(audit.ready_for_import).toBe(false)
+  expect(audit.source_errors).toEqual(expect.arrayContaining(errors))
+  expect(audit.differences.some(d => d.path === "errors")).toBe(true)
+})
+it("R5 偽造多報及改寫錯誤也列差異", () => {
+  const source = snapshot()
+  const out = convert(source)
+  out.errors.push({ code: "UNKNOWN_FIELD", path: "/fake", value: true })
+  out.rows.migration_batches[0].validation_errors = structuredClone(out.errors)
+  expect(reconcile(source, out).differences.some(d => d.path === "errors")).toBe(true)
+  out.errors[0].value = 999
+  expect(reconcile(source, out).matches).toBe(false)
+})
+
+it("R5 每一筆既有來源錯誤少報都獨立識別", () => {
+  const source = structuredClone(classA)
+  source.data.settings.unknown = 1
+  source.data.students[0].inventory.push({ itemId: "absent" })
+  source.data.settings.jobAssignments.absent = ["absent"]
+  source.data.students[0].bank.transactions[0].balance = 999
+  const baseline = convert(source)
+  expect(baseline.errors.map(e => e.code)).toEqual(expect.arrayContaining(["ORPHAN_PRODUCT", "ORPHAN_JOB", "ORPHAN_STUDENT", "ORPHAN_TASK", "TOTAL_EARNED_DRIFT", "TRANSACTION_BALANCE_DRIFT", "UNKNOWN_STATUS", "UNKNOWN_FIELD"]))
+  for (let i = 0; i < baseline.errors.length; i++) {
+    const out = structuredClone(baseline)
+    out.errors.splice(i, 1)
+    out.rows.migration_batches[0].validation_errors = structuredClone(out.errors)
+    const audit = reconcile(source, out)
+    expect(audit.source_errors).toEqual(expect.arrayContaining(baseline.errors))
+    expect(audit.differences.some(d => d.path === "errors")).toBe(true)
+    expect(audit.ready_for_import).toBe(false)
+  }
 })
