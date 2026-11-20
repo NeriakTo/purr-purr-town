@@ -65,16 +65,16 @@ describeDatabase('提交操作', () => {
     expect(await classSnapshot(client, fixture.classId)).toBe(before)
   })
 
-  test('老師入口拒收小野及尚未支援的排程與系統身分', async () => {
+  test('老師入口拒收小野及尚未支援的系統身分', async () => {
     const { client } = db()
     const fixture = await addClass(client)
     const op = adjustment(fixture)
     const count = await operationCount(client)
     await expect(submit(client, op, { kind: 'agent', id: 'fixture' }))
       .rejects.toMatchObject({ code: '22023' })
-    for (const kind of ['scheduler', 'system']) {
+    for (const kind of ['system']) {
       await expect(submit(client, op, { kind, id: 'fixture' }))
-        .rejects.toMatchObject({ code: '0A000', detail: 'actor_scheduler_system' })
+        .rejects.toMatchObject({ code: '0A000', detail: 'actor_system' })
     }
     expect(await operationCount(client)).toBe(count)
   })

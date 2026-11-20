@@ -32,7 +32,8 @@ DECLARE
   access_error operation_code;
 BEGIN
   PERFORM require_read_committed();
-  access_error := lock_teacher_operation_class(class_id, op_id, actor);
+  PERFORM require_teacher_actor(actor);
+  access_error := lock_operation_class(class_id, op_id, actor);
   IF access_error IS NOT NULL THEN
     RETURN retry_receipt(op_id, access_error);
   END IF;

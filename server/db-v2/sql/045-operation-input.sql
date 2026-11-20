@@ -25,6 +25,7 @@ AS $$
     ('"correction.redo"'::jsonb, ARRAY['teacher'], 'required'),
     ('"correction.cancel"'::jsonb, ARRAY['teacher'], 'required'),
     ('"correction.set_due"'::jsonb, ARRAY['teacher'], 'required'),
+    ('"schedule.correction_overdue"'::jsonb, ARRAY['scheduler'], 'forbidden'),
     ('"rule.save"'::jsonb, ARRAY['teacher'], 'required'),
     ('"rule.retire"'::jsonb, ARRAY['teacher'], 'required'),
     ('"task.create"'::jsonb, ARRAY['teacher'], 'forbidden'),
