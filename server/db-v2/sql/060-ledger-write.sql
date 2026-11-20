@@ -58,7 +58,9 @@ CREATE FUNCTION ppt.append_account_transaction(
   p_occurred_at timestamptz,
   p_effective_at timestamptz,
   p_reason text,
-  p_root_transaction_id text DEFAULT NULL
+  p_root_transaction_id text DEFAULT NULL,
+  p_rule_id text DEFAULT NULL,
+  p_rule_rev integer DEFAULT NULL
 )
 RETURNS ppt.ledger_entry
 LANGUAGE plpgsql
@@ -71,10 +73,10 @@ BEGIN
   entry.account_change := update_account(p_class_id, p_student_id, p_op_id, p_amount, p_earned_delta);
   INSERT INTO transactions (
     class_id, student_id, transaction_id, kind, amount, earned_delta, occurred_at,
-    effective_at, reason, origin, op_id, root_transaction_id
+    effective_at, reason, origin, op_id, root_transaction_id, rule_id, rule_rev
   ) VALUES (
     p_class_id, p_student_id, entry.transaction_id, p_kind, p_amount, p_earned_delta,
-    p_occurred_at, p_effective_at, p_reason, 'op', p_op_id, p_root_transaction_id
+    p_occurred_at, p_effective_at, p_reason, 'op', p_op_id, p_root_transaction_id, p_rule_id, p_rule_rev
   );
   RETURN entry;
 END;

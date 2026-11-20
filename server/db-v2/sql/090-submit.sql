@@ -4,16 +4,17 @@ LANGUAGE plpgsql
 SET search_path = pg_catalog, ppt, pg_temp
 AS $$
 BEGIN
-  IF p_type IS NULL OR p_type NOT IN ('"points.adjust"'::jsonb, '"shop.purchase"'::jsonb) THEN
+  IF p_type IS NULL OR p_type NOT IN ('"points.adjust"'::jsonb, '"shop.purchase"'::jsonb, '"submission.set_status"'::jsonb) THEN
     PERFORM reject_operation('UNKNOWN_OP_TYPE');
   END IF;
-  IF p_actor->>'kind' IS DISTINCT FROM 'teacher' THEN
+  IF p_actor->>'kind' IS DISTINCT FROM 'teacher'
+    AND NOT (p_actor->>'kind' IS NOT DISTINCT FROM 'agent' AND p_type = '"submission.set_status"'::jsonb) THEN
     PERFORM reject_operation('FORBIDDEN_ROLE');
   END IF;
 END;
 $$;
 
-CREATE FUNCTION ppt.check_operation_input_and_target(p_op jsonb)
+CREATE FUNCTION ppt.check_operation_input_and_target(p_op jsonb, p_actor jsonb)
 RETURNS void
 LANGUAGE plpgsql
 SET search_path = pg_catalog, ppt, pg_temp
@@ -32,6 +33,9 @@ BEGIN
       PERFORM require_active_student(p_op->>'class_id', p_op->'payload'->>'student_id');
     WHEN 'shop.purchase' THEN
       PERFORM validate_shop_purchase(p_op->'payload', p_op ? 'expect');
+    WHEN 'submission.set_status' THEN
+      PERFORM validate_submission_status(p_op->'payload', p_op->'expect');
+      PERFORM require_submission_targets(p_op, p_actor);
     ELSE
       RAISE EXCEPTION '已知操作缺少輸入與目標檢查';
   END CASE;
@@ -47,6 +51,7 @@ BEGIN
   CASE p_op->>'type'
     WHEN 'points.adjust' THEN RETURN apply_points_adjust(p_op, p_time);
     WHEN 'shop.purchase' THEN RETURN apply_shop_purchase(p_op, p_time);
+    WHEN 'submission.set_status' THEN RETURN apply_submission_status(p_op, p_time);
     ELSE RAISE EXCEPTION '已知操作缺少寫入函式';
   END CASE;
 END;
@@ -75,7 +80,7 @@ DECLARE
 BEGIN
   -- Steps 4 and 5: apply role checks before operation input and target checks.
   PERFORM check_operation_role(p_op->'type', p_actor);
-  PERFORM check_operation_input_and_target(p_op);
+  PERFORM check_operation_input_and_target(p_op, p_actor);
 
   -- Step 6: apply and advance the sequence within this subtransaction.
   outcome := apply_operation(p_op, p_time);
