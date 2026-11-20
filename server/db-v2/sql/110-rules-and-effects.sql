@@ -58,7 +58,7 @@ CREATE TABLE ppt.effects (
   class_id text NOT NULL,
   effect_id text NOT NULL,
   student_id text NOT NULL,
-  event ppt.rule_event NOT NULL,
+  event ppt.rule_event,
   subject_kind text NOT NULL,
   subject_key text NOT NULL,
   rule_id text,
@@ -76,7 +76,8 @@ CREATE TABLE ppt.effects (
   FOREIGN KEY (class_id, created_op_id) REFERENCES ppt.operations (class_id, op_id),
   FOREIGN KEY (class_id, reversed_op_id) REFERENCES ppt.operations (class_id, op_id),
   CHECK ((rule_id IS NULL) = (rule_rev IS NULL)),
-  CHECK (status NOT IN ('active', 'reversed') OR root_transaction_id IS NOT NULL),
+  CHECK (status NOT IN ('active', 'reversed') OR (event IS NOT NULL AND root_transaction_id IS NOT NULL)),
+  CHECK (status <> 'legacy_unresolved' OR (event IS NULL AND root_transaction_id IS NULL)),
   CHECK (status IN ('active', 'reversed') OR origin = 'legacy')
 );
 

@@ -18,7 +18,7 @@ BEGIN
     SELECT 1 FROM effects
     WHERE class_id = class_key AND student_id = payload->>'student_id'
       AND subject_kind = 'task' AND subject_key = payload->>'task_id'
-      AND event IN ('submission.late', 'submission.missing') AND status = 'legacy_unresolved'
+      AND status = 'legacy_unresolved'
   ) THEN
     -- PPT-PENDING: legacy_unresolved
     PERFORM pending_operation('legacy_unresolved');

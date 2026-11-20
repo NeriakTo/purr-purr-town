@@ -297,7 +297,7 @@ describeDatabase('OP-14 繳交狀態', () => {
     if (key === 'only_if_no_proposal') op.payload.only_if_no_proposal = false
     if (key === 'legacy_unresolved') await client.query(`
       INSERT INTO ppt.effects (class_id, student_id, effect_id, event, subject_kind, subject_key, status, origin, lineage_id)
-      VALUES ($1,$2,'legacy-test','submission.missing','task',$3,'legacy_unresolved','legacy','legacy-test')
+      VALUES ($1,$2,'legacy-test',NULL,'task',$3,'legacy_unresolved','legacy','legacy-test')
     `, [target.classId, target.studentId, target.taskId])
     const snapshot = await classSnapshot(client, target.classId)
     const count = await operationCount(client)
