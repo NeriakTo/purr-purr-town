@@ -313,3 +313,29 @@ describe('7.4 G 對帳七項檢查', () => {
     })
   })
 })
+
+describe('7.4 I 匯入繳交版本', () => {
+  it('檢查匯入列的版本與指派狀態，舊版缺鍵的待收列也逐筆核對', () => {
+    const source = sourceWith()
+    source.data.logs = [{
+      date: '2026-11-20', tasks: [{ id: 'present' }, { id: 'pending' }], status: { s1: { present: true } },
+    }]
+    const converted = convert(source, { decisions })
+    expect(converted.rows.submissions.map(row => row.present)).toEqual([true, false])
+    for (const row of converted.rows.submissions) expect(row).not.toHaveProperty('rev')
+    expect(reconcile(source, converted).differences).toEqual([])
+
+    const imported = converted.rows.submissions.map(row => ({
+      ...row, rev: 1, basis_rev: 1, assignment_active: true,
+    }))
+    expect(reconcile(source, converted, { importedSubmissions: imported }).differences).toEqual([])
+    for (const [key, value] of Object.entries({ rev: 2, basis_rev: 0, assignment_active: false })) {
+      const tampered = structuredClone(imported)
+      tampered[1][key] = value
+      expect(reconcile(source, converted, { importedSubmissions: tampered }).differences.map(item => item.path))
+        .toContain('imported_submissions' + tampered[1].source_path + '/' + key)
+    }
+    expect(reconcile(source, converted, { importedSubmissions: imported.slice(0, 1) }).differences.map(item => item.path))
+      .toContain('imported_submissions/source_paths')
+  })
+})

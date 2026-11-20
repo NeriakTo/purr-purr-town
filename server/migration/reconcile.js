@@ -134,7 +134,23 @@ function comparePeriods(path, periodSettings, { source, sourceFacts, converted, 
   return { periods: Object.fromEntries(periods), comparison: Object.fromEntries(comparison) }
 }
 
-export function reconcile(source, converted, { decisions: expectedDecisions } = {}) {
+function checkImportedSubmissions(imported, convertedRows, diff) {
+  if (!Array.isArray(imported)) {
+    diff('imported_submissions/input', '陣列', imported)
+    return
+  }
+  const expected = new Map(convertedRows.map(row => [row.source_path, row.id]))
+  diff('imported_submissions/source_paths', [...expected.keys()].sort(), imported.map(row => row?.source_path).sort())
+  for (const row of imported) {
+    const path = `imported_submissions${row?.source_path}`
+    diff(`${path}/id`, expected.get(row?.source_path), row?.id)
+    diff(`${path}/rev`, 1, row?.rev)
+    diff(`${path}/basis_rev`, 1, row?.basis_rev)
+    diff(`${path}/assignment_active`, true, row?.assignment_active)
+  }
+}
+
+export function reconcile(source, converted, { decisions: expectedDecisions, importedSubmissions } = {}) {
   source = source ?? null
   const periodSkipped = [], notices = [], openingAdjustments = []
   const differences = [], students = [], rows = converted?.rows || {}, expected = new Map()
@@ -267,5 +283,6 @@ export function reconcile(source, converted, { decisions: expectedDecisions } = 
     diff(`legacy_ids/${r.id}/count`, 1, mappings.length)
     if (mappings.length === 1) diff(`legacy_ids/${r.id}`, { id: digest(['map', r.id]), batch_id: batchId, class_id: classId, legacy_id: r.legacy_id, source_path: r.source_path, raw: null, table_name: table, target_id: r.id }, mappings[0])
   }
+  if (importedSubmissions !== undefined) checkImportedSubmissions(importedSubmissions, list(rows.submissions), diff)
   return { matches: differences.length === 0, differences, students, notices, opening_adjustments: openingAdjustments, period_skipped: periodSkipped, source_errors: sourceErrors, ready_for_import: differences.length === 0 && sourceErrors.length === 0 }
 }
