@@ -73,6 +73,17 @@ describeDatabase('OP-52 訂正逾期扣分', () => {
     await expectCorrectionState(client, target, 2, 2, 'required', penalty, [[overdueEvent, penalty]])
   })
 
+  test('OP-43 接受帶小數位的整數設定，排程依相同天數判定', async () => {
+    const { client } = db()
+    const { target, today, classId } = await overdueFixture(client)
+    const setting = JSON.stringify(setSetting(classId, graceKey, 3)).replace('"value":3', '"value":3.0')
+    expect(await submit(client, setting)).toMatchObject({ status: 'committed', code: 'OK' })
+    expect(await scheduleOverdue(client, classId, offsetDay(today, -7))).toMatchObject(noChanges)
+    const overdue = offsetDay(today, -6)
+    await scheduleOverdue(client, classId, overdue)
+    expect(await correctionRow(client, target)).toMatchObject({ overdue_on: overdue })
+  })
+
   test.each(['returned', '無期限', 'confirmed', 'cancelled'])('跳過 %s 的訂正', async (scenario) => {
     const { client } = db()
     const { target, today, classId } = await overdueFixture(client)

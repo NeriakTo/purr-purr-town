@@ -16,7 +16,7 @@ LANGUAGE sql
 SET search_path = pg_catalog, ppt, pg_temp
 AS $$
   SELECT coalesce((
-    SELECT (value #>> '{}')::integer FROM settings_entries
+    SELECT value::numeric::integer FROM settings_entries
     WHERE class_id = p_class_id AND key = 'correctionOverdueGraceDays'
   ), 1);
 $$;
