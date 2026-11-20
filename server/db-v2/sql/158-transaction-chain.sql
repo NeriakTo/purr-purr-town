@@ -39,3 +39,19 @@ AS $$
   SELECT CASE WHEN p_root.kind IN ('adjust', 'rule_auto', 'payroll', 'legacy_general')
     THEN p_amount ELSE 0 END;
 $$;
+
+CREATE FUNCTION ppt.append_root_reversal(p_chain ppt.transaction_chain, p_op_id text, p_time timestamptz)
+RETURNS ppt.ledger_entry
+LANGUAGE plpgsql
+SET search_path = pg_catalog, ppt, pg_temp
+AS $$
+DECLARE
+  root transactions := p_chain.root;
+  delta numeric := -p_chain.effective_amount;
+BEGIN
+  RETURN append_account_transaction(
+    root.class_id, root.student_id, p_op_id, 'reversal', delta, root_earned_delta(root, delta),
+    p_time, root.effective_at, '沖回' || root.reason, root.transaction_id
+  );
+END;
+$$;

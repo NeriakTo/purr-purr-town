@@ -55,6 +55,27 @@ BEGIN
 END;
 $$;
 
+CREATE FUNCTION ppt.mark_effect_reversed(
+  p_effect ppt.effects, p_op_id text, p_chain ppt.transaction_chain
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SET search_path = pg_catalog, ppt, pg_temp
+SET timezone = 'UTC'
+AS $$
+DECLARE
+  root transactions := p_chain.root;
+BEGIN
+  UPDATE effects
+  SET status = 'reversed', reversed_op_id = p_op_id
+  WHERE class_id = p_effect.class_id AND effect_id = p_effect.effect_id;
+  RETURN effect_identity(p_effect) || jsonb_build_object(
+    'rule_id', p_effect.rule_id, 'rule_rev', p_effect.rule_rev,
+    'effective_amount', p_chain.effective_amount, 'effective_at', root.effective_at
+  );
+END;
+$$;
+
 CREATE FUNCTION ppt.reverse_event_effect(p_effect ppt.effects, p_op_id text, p_time timestamptz)
 RETURNS ppt.effect_write
 LANGUAGE plpgsql
@@ -63,7 +84,6 @@ SET timezone = 'UTC'
 AS $$
 DECLARE
   root transactions;
-  effective_amount numeric;
   chain transaction_chain;
   entry ledger_entry;
 BEGIN
@@ -73,21 +93,7 @@ BEGIN
       OR root.student_id IS DISTINCT FROM p_effect.student_id OR root.kind = 'legacy_orphan_correction' THEN
     RAISE EXCEPTION '效果的根交易無效';
   END IF;
-  effective_amount := chain.effective_amount;
-
-  entry := append_account_transaction(
-    root.class_id, root.student_id, p_op_id, 'reversal', -effective_amount, root_earned_delta(root, -effective_amount),
-    p_time, root.effective_at, '沖回' || root.reason, root.transaction_id
-  );
-  UPDATE effects
-  SET status = 'reversed', reversed_op_id = p_op_id
-  WHERE class_id = p_effect.class_id AND effect_id = p_effect.effect_id;
-  RETURN (
-    entry,
-    effect_identity(p_effect) || jsonb_build_object(
-      'rule_id', p_effect.rule_id, 'rule_rev', p_effect.rule_rev,
-      'effective_amount', effective_amount, 'effective_at', root.effective_at
-    )
-  )::effect_write;
+  entry := append_root_reversal(chain, p_op_id, p_time);
+  RETURN (entry, mark_effect_reversed(p_effect, p_op_id, chain))::effect_write;
 END;
 $$;
