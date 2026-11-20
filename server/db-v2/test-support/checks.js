@@ -38,3 +38,15 @@ export async function classSnapshot(client, classId, { ignoreClassSequence = fal
   }
   return snapshot.digest('hex')
 }
+
+export async function assertInactiveSubmissionsHaveNoDeductions(client) {
+  const { rows } = await client.query(`
+    SELECT e.class_id, e.student_id, s.task_id, e.effect_id, e.event
+    FROM ppt.effects AS e
+    JOIN ppt.submissions AS s
+      ON s.class_id = e.class_id AND s.student_id = e.student_id AND s.task_id = e.subject_key
+    WHERE e.status = 'active' AND e.subject_kind = 'task'
+      AND e.event IN ('submission.late', 'submission.missing') AND NOT s.assignment_active
+  `)
+  expect(rows).toEqual([])
+}

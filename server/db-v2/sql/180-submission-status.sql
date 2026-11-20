@@ -92,6 +92,39 @@ AS $$
   );
 $$;
 
+CREATE FUNCTION ppt.finish_submission_change(
+  p_previous ppt.submissions, p_updated ppt.submissions, p_effects ppt.submission_effect_outcome,
+  p_op_id text, p_time timestamptz
+)
+RETURNS ppt.operation_outcome
+LANGUAGE plpgsql
+SET search_path = pg_catalog, ppt, pg_temp
+AS $$
+DECLARE
+  entity_key jsonb := jsonb_build_object('task_id', p_updated.task_id, 'student_id', p_updated.student_id);
+  account_change jsonb := p_effects.account_change;
+  daily submission_effect_outcome;
+  due_date date;
+  changes jsonb;
+BEGIN
+  SELECT due_on INTO STRICT due_date FROM tasks
+  WHERE class_id = p_updated.class_id AND task_id = p_updated.task_id;
+  daily := apply_daily_quest(p_updated.class_id, p_updated.student_id, due_date, p_op_id, p_time);
+  IF daily.account_change IS NOT NULL THEN
+    account_change := merge_account_change(account_change, daily.account_change);
+  END IF;
+  changes := jsonb_build_array(submission_change(p_previous, p_updated, entity_key, p_op_id));
+  IF account_change IS NOT NULL THEN
+    changes := changes || jsonb_build_array(account_change);
+  END IF;
+  RETURN (operation_result(
+    (p_effects.result->'transactions') || (daily.result->'transactions'),
+    (p_effects.result->'effects_added') || (daily.result->'effects_added'),
+    (p_effects.result->'effects_reversed') || (daily.result->'effects_reversed')
+  ), changes, daily.warnings)::operation_outcome;
+END;
+$$;
+
 CREATE FUNCTION ppt.write_submission_change(
   p_class_id text, p_task_id text, p_student_id text, p_previous ppt.submissions,
   p_status ppt.submission_status, p_op_id text, p_time timestamptz
@@ -101,29 +134,12 @@ LANGUAGE plpgsql
 SET search_path = pg_catalog, ppt, pg_temp
 AS $$
 DECLARE
-  entity_key jsonb := jsonb_build_object('task_id', p_task_id, 'student_id', p_student_id);
   updated submissions;
   outcome submission_effect_outcome;
-  daily submission_effect_outcome;
-  due_date date;
-  changes jsonb;
 BEGIN
   updated := store_submission_status(p_class_id, p_task_id, p_student_id, p_status, p_op_id);
   outcome := apply_submission_effects(updated, p_op_id, p_time);
-  SELECT due_on INTO STRICT due_date FROM tasks WHERE class_id = p_class_id AND task_id = p_task_id;
-  daily := apply_daily_quest(p_class_id, p_student_id, due_date, p_op_id, p_time);
-  IF daily.account_change IS NOT NULL THEN
-    outcome.account_change := merge_account_change(outcome.account_change, daily.account_change);
-  END IF;
-  changes := jsonb_build_array(submission_change(p_previous, updated, entity_key, p_op_id));
-  IF outcome.account_change IS NOT NULL THEN
-    changes := changes || jsonb_build_array(outcome.account_change);
-  END IF;
-  RETURN (operation_result(
-    (outcome.result->'transactions') || (daily.result->'transactions'),
-    (outcome.result->'effects_added') || (daily.result->'effects_added'),
-    (outcome.result->'effects_reversed') || (daily.result->'effects_reversed')
-  ), changes, daily.warnings)::operation_outcome;
+  RETURN finish_submission_change(p_previous, updated, outcome, p_op_id, p_time);
 END;
 $$;
 

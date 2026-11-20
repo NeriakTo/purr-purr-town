@@ -143,3 +143,48 @@ describeDatabase('提供撤銷使用的存摺與道具收據', () => {
     expect(await transactionFrom(client, receipt)).toMatchObject({ kind: 'item_use', amount: '0', earned_delta: '0' })
   })
 })
+
+describeDatabase('提供撤銷使用的調整與購買收據', () => {
+  const database = useTestDatabase()
+
+  test('OP-24 收據只有帳戶與一筆調整交易', async () => {
+    const { adjustment } = await import('./test-support/operations.js')
+    const { transactionFrom } = await import('./test-support/transactions.js')
+    const { client } = database()
+    const target = await addClass(client)
+    const receipt = await commitOperation(client, adjustment(target, 10))
+    await assertUndoFields(client, receipt, { added: [], reversed: [], entities: ['account'] })
+    expect(receipt.changes[0]).toMatchObject({
+      key: { student_id: target.studentId }, prev_value: { balance: 0, total_earned: 0 },
+      value: { balance: 10, total_earned: 10 },
+    })
+    expect(receipt.result.transactions).toHaveLength(1)
+    expect(await transactionFrom(client, receipt)).toMatchObject({ kind: 'adjust' })
+  })
+
+  test('OP-31 收據依序列物品、商品與帳戶，可追回購買交易', async () => {
+    const { adjustment } = await import('./test-support/operations.js')
+    const { saveProduct } = await import('./test-support/products.js')
+    const { purchase } = await import('./test-support/shop.js')
+    const { transactionFrom } = await import('./test-support/transactions.js')
+    const { client } = database()
+    const target = await addClass(client)
+    const product = saveProduct(target.classId)
+    await commitOperation(client, product)
+    await commitOperation(client, adjustment(target, 10))
+    const op = purchase({ ...target, productId: product.payload.product_id })
+    const receipt = await commitOperation(client, op)
+    await assertUndoFields(client, receipt, {
+      added: [], reversed: [], entities: ['inventory_item', 'product', 'account'],
+    })
+    expect(receipt.result.transactions).toHaveLength(1)
+    expect(await transactionFrom(client, receipt)).toMatchObject({ kind: 'shop_purchase' })
+    expect(receipt.changes[0]).toMatchObject({
+      key: { item_id: op.payload.item_id }, prev_rev: 0, prev_value: null,
+      value: { status: 'held', purchase_transaction_id: receipt.result.transactions[0] },
+    })
+    expect(receipt.changes[1].key).toEqual({ product_id: product.payload.product_id })
+    expect(receipt.changes[1].prev_value).toEqual({ stock: 3 })
+    expect(receipt.changes[1].value).toEqual({ stock: 2 })
+  })
+})
