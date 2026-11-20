@@ -34,6 +34,9 @@ BEGIN
     WHEN 'points.adjust' THEN
       PERFORM validate_points_adjust(p_op->'payload');
       PERFORM require_active_student(p_op->>'class_id', p_op->'payload'->>'student_id');
+    WHEN 'tx.correct' THEN
+      PERFORM validate_transaction_change(p_op);
+      PERFORM require_transaction_change(p_op);
     WHEN 'points.apply_rule' THEN
       PERFORM validate_points_apply_rule(p_op->'payload');
       PERFORM require_manual_rule_version(p_op, p_actor);
@@ -75,6 +78,7 @@ AS $$
 BEGIN
   CASE p_op->>'type'
     WHEN 'points.adjust' THEN RETURN apply_points_adjust(p_op, p_time);
+    WHEN 'tx.correct' THEN RETURN apply_transaction_correction(p_op, p_time);
     WHEN 'points.apply_rule' THEN RETURN apply_points_rule(p_op, p_actor, p_time);
     WHEN 'shop.purchase' THEN RETURN apply_shop_purchase(p_op, p_time);
     WHEN 'submission.set_status' THEN RETURN apply_submission_status(p_op, p_time);
