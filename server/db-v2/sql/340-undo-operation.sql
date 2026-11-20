@@ -40,6 +40,8 @@ BEGIN
   CASE p_target.type
     WHEN 'points.adjust', 'points.apply_rule', 'submission.set_status',
         'tx.correct', 'shop.purchase', 'inventory.use' THEN NULL;
+    WHEN 'correction.require', 'correction.mark_returned', 'correction.confirm',
+        'correction.redo', 'correction.cancel' THEN NULL;
     WHEN 'confirmation.confirm' THEN
       IF NOT EXISTS (
         SELECT 1 FROM confirmations
@@ -48,7 +50,6 @@ BEGIN
       ) THEN
         PERFORM reject_operation('NOT_UNDOABLE');
       END IF;
-    -- PPT-PENDING: undo_correction
     -- PPT-PENDING: undo_payroll
     ELSE PERFORM reject_operation('NOT_UNDOABLE');
   END CASE;
@@ -79,6 +80,8 @@ BEGIN
   CASE target.type
     WHEN 'points.adjust', 'points.apply_rule' THEN NULL;
     WHEN 'submission.set_status', 'confirmation.confirm' THEN PERFORM check_undo_submission(target, p_actor);
+    WHEN 'correction.require', 'correction.mark_returned', 'correction.confirm',
+        'correction.redo', 'correction.cancel' THEN PERFORM check_undo_correction_round(target, p_actor);
     WHEN 'tx.correct' THEN PERFORM check_undo_correction(target, p_actor);
     WHEN 'shop.purchase' THEN PERFORM check_undo_item(target, p_actor, 'held');
     WHEN 'inventory.use' THEN PERFORM check_undo_item(target, p_actor, 'used');
@@ -103,6 +106,8 @@ BEGIN
     CASE target.type
       WHEN 'points.adjust', 'points.apply_rule' THEN outcome := undo_points_operation(target, op_key, p_time);
       WHEN 'submission.set_status', 'confirmation.confirm' THEN outcome := undo_submission(target, op_key, p_time);
+      WHEN 'correction.require', 'correction.mark_returned', 'correction.confirm',
+          'correction.redo', 'correction.cancel' THEN outcome := undo_correction_round(target, op_key, p_time);
       WHEN 'tx.correct' THEN outcome := undo_transaction_correction(target, op_key, p_time);
       WHEN 'shop.purchase' THEN outcome := undo_purchase(target, op_key, p_time);
       WHEN 'inventory.use' THEN outcome := undo_inventory_use(target, op_key, p_time);

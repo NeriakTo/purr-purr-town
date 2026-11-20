@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto'
+import { expect } from 'vitest'
 import { agentSubmit, authorizeAgent } from './agent.js'
 import { addClass, adjustment } from './operations.js'
 import { commitOperation, operation } from './schoolwork.js'
-import { assignTask } from './submission-flow.js'
+import { assignTask, balanceOf } from './submission-flow.js'
 
 export async function setupCorrectionTask(client, options, fields) {
   return assignTask(client, await addClass(client, options), fields)
@@ -78,4 +79,18 @@ export async function addOverdueEffect(client, target, rule, amount = rule.amoun
     VALUES ($1, $2, $3, $3, $4, 'correction', $5, $6, 1, $7, 'active', 'op', $8)
   `, [classId, studentId, effectId, overdueEvent, correctionId, rule.rule_id, id, source.op_id])
   return { effectId, rootId: id, effectiveAt: source.committed_at }
+}
+
+export async function expectCorrectionState(client, target, rev, basis, status, balance, effects = []) {
+  expect(await correctionRow(client, target)).toMatchObject({ rev, basis_rev: basis, status })
+  const { rows } = await client.query(`
+    SELECT e.event, ppt.effective_transaction_amount(t)::int AS amount
+    FROM ppt.effects e
+    JOIN ppt.transactions t ON t.class_id = e.class_id AND t.transaction_id = e.root_transaction_id
+    WHERE e.class_id = $1 AND e.student_id = $2 AND e.subject_kind = 'correction' AND e.subject_key = $3
+      AND e.status = 'active'
+    ORDER BY e.event
+  `, [target.classId, target.studentId, target.correctionId])
+  expect(rows).toEqual(effects.map(([event, amount]) => ({ event, amount })))
+  expect(await balanceOf(client, target)).toBe(balance)
 }
