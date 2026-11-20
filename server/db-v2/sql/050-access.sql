@@ -53,10 +53,17 @@ LANGUAGE sql
 VOLATILE
 SET search_path = pg_catalog, ppt, pg_temp
 AS $$
-  SELECT p_actor->>'kind' = 'teacher' AND EXISTS (
-    SELECT 1 FROM class_ownership
-    WHERE class_id = p_class_id AND teacher_id = p_actor->>'id'
-  );
+  SELECT CASE p_actor->>'kind'
+    WHEN 'teacher' THEN EXISTS (
+      SELECT 1 FROM class_ownership
+      WHERE class_id = p_class_id AND teacher_id = p_actor->>'id'
+    )
+    WHEN 'agent' THEN EXISTS (
+      SELECT 1 FROM class_authorizations
+      WHERE class_id = p_class_id AND actor_kind = 'agent'
+    )
+    ELSE false
+  END;
 $$;
 
 CREATE FUNCTION ppt.lock_authorized_class(p_class_id text, p_actor jsonb)
