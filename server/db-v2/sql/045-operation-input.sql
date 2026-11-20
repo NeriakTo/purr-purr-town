@@ -9,6 +9,7 @@ AS $$
     ('"tx.correct"'::jsonb, ARRAY['teacher'], 'forbidden'),
     ('"points.apply_rule"'::jsonb, ARRAY['teacher', 'agent'], 'forbidden'),
     ('"points.adjust"'::jsonb, ARRAY['teacher'], 'forbidden'),
+    ('"setting.set"'::jsonb, ARRAY['teacher'], 'required'),
     ('"product.save"'::jsonb, ARRAY['teacher'], 'required'),
     ('"product.retire"'::jsonb, ARRAY['teacher'], 'required'),
     ('"inventory.use"'::jsonb, ARRAY['teacher'], 'forbidden'),
