@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import { expect } from 'vitest'
+import { createRound, overdueEvent, setupCorrectionTask, taipeiDayOffset } from './correction-rounds.js'
 import { submit } from './operations.js'
 
 export const scheduler = { kind: 'scheduler', id: 'scheduler' }
@@ -35,4 +36,20 @@ export function offsetDay(day, days) {
   const date = new Date(day + 'T00:00:00Z')
   date.setUTCDate(date.getUTCDate() + days)
   return date.toISOString().slice(0, 10)
+}
+
+export async function overdueFixture(client, options, correctionFields = {}) {
+  const today = await taipeiDayOffset(client, 0)
+  const task = await setupCorrectionTask(client, options)
+  await authorizeScheduler(client, task.classId)
+  const target = await createRound(client, task, { due_on: offsetDay(today, -10), ...correctionFields })
+  return { today, target, classId: task.classId }
+}
+
+export async function overdueEffects(client, { classId, correctionId }) {
+  const { rows } = await client.query(`
+    SELECT * FROM ppt.effects
+    WHERE class_id = $1 AND event = $2 AND subject_kind = 'correction' AND subject_key = $3
+  `, [classId, overdueEvent, correctionId])
+  return rows
 }
