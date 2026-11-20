@@ -73,7 +73,8 @@ describe('第二輪正式轉換', () => {
     expect(semesterAt(date)).toBe(semester)
     expect(converted.rows.transactions[0].semester).toBe(semester)
     expect(converted.rows.tasks.map(t => t.semester)).toEqual([semester, '114-1'])
-    expect(converted.errors.map(e => e.code)).toEqual(['UNKNOWN_ASSIGNMENT_LIST', 'UNKNOWN_ASSIGNMENT_LIST'])
+    expect(converted.errors).toEqual([])
+    expect(converted.report.notices.map(e => e.code)).toEqual(['UNKNOWN_ASSIGNMENT_LIST', 'UNKNOWN_ASSIGNMENT_LIST'])
     expect(reconcile(source, converted).differences).toEqual([])
   })
   it.each([undefined, '', 'bad', '2026-02-30'])('B6 缺漏或非法日期 %s 仍擋匯入', date => {
@@ -83,7 +84,7 @@ describe('第二輪正式轉換', () => {
     const converted = convert(source)
     expect(converted.rows.transactions[0].semester).toBeNull()
     expect(converted.rows.tasks[0].semester).toBeNull()
-    expect(converted.errors.map(e => e.code)).toEqual(expect.arrayContaining(['UNKNOWN_TRANSACTION_SEMESTER', 'UNKNOWN_TASK_SEMESTER', 'UNKNOWN_ASSIGNMENT_LIST']))
+    expect(converted.errors.map(e => e.code)).toEqual(expect.arrayContaining(['UNKNOWN_TRANSACTION_SEMESTER', 'UNKNOWN_TASK_SEMESTER', 'INVALID_TRANSACTION_DATE']))
     assertAligned(source)
   })
   it('B6 臺灣跨日邊界與無時區時間有固定結果', () => {

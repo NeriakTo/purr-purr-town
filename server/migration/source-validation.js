@@ -2,7 +2,7 @@ import { pointer, canonicalJson } from './convert.js'
 import {
   accountFields, legacyTransactionFacts, openingAdjustmentFor, reportAccountDrift, validateTransactionDate,
 } from './ledger.js'
-import { openingAdjustmentEnabled, requireDecisions, resolveCurrentSemester, validateDatedSemester } from './decisions.js'
+import { openingAdjustmentEnabled, requireDecisions, resolveCurrentSemester, validateTaskDate } from './decisions.js'
 import { correctionCycleMembers, correctionTargets, correctionMatches } from './corrections.js'
 
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -16,7 +16,7 @@ export function validateSource(source, earnedFromLegacy, { notices = [], opening
   function error(code, path, value = null) {
     errors.push({ code, path, value: structuredClone(value) })
   }
-  function notice(code, path, value) {
+  function notice(code, path, value = null) {
     notices.push({ code, path, value: structuredClone(value) })
   }
   function record(value, path) {
@@ -175,8 +175,8 @@ export function validateSource(source, earnedFromLegacy, { notices = [], opening
       const tp = `${p}/tasks/${j}`
       fields(t, tp, 'id title type createdAt dueDate')
       enumeration(t.type, [...array(settings.taskTypes, '/data/settings/taskTypes'), '作業', '訂正', '攜帶物品', '考試', '通知單', '回條'], 'UNKNOWN_TASK_TYPE', `${tp}/type`)
-      validateDatedSemester('TASK', t.createdAt ?? log.date, decisions, tp, error)
-      error('UNKNOWN_ASSIGNMENT_LIST', tp)
+      validateTaskDate(t.createdAt ?? log.date, decisions, tp, error)
+      notice('UNKNOWN_ASSIGNMENT_LIST', tp)
     })
     const tm = index(tasks, `${p}/tasks`)
     for (const [sid, values] of Object.entries(record(log.status, `${p}/status`))) {

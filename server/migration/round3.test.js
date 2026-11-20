@@ -172,3 +172,30 @@ describe('7.4 E–F 期初調整與帳戶', () => {
     expect(withoutAdjustment.errors.map(error => error.code)).toEqual(['BALANCE_DRIFT', 'TOTAL_EARNED_DRIFT'])
   })
 })
+
+describe('7.4 G 作業與來源檢查', () => {
+  it('歷史作業名單維持未知並列路徑提示，單靠此提示不阻擋匯入', () => {
+    const source = sourceWith()
+    source.data.logs = [{ date: '2026-11-20', tasks: [{ id: 'task' }] }]
+    const output = convert(source, { decisions })
+    expect(output.errors).toEqual([])
+    expect(output.rows.tasks[0]).toMatchObject({ semester: '115-1', assignees_known: false })
+    expect(output.report.notices).toEqual([
+      { code: 'UNKNOWN_ASSIGNMENT_LIST', path: '/data/logs/0/tasks/0', value: null },
+    ])
+    expect(reconcile(source, output).ready_for_import).toBe(true)
+    output.report.notices = []
+    expect(reconcile(source, output).differences.map(item => item.path)).toContain('report/notices')
+  })
+
+  it('指定月份規則仍擋非法發布日期，已填但格式錯誤的目前學期也擋匯入', () => {
+    const source = sourceWith()
+    source.data.settings.currentSemester = false
+    source.data.logs = [{ date: '2026-02-30', tasks: [{ id: 'task' }] }]
+    const output = convert(source, { decisions })
+    expect(output.rows.classes[0].current_semester).toBeNull()
+    expect(output.rows.tasks[0].semester).toBeNull()
+    expect(output.errors.map(error => error.code)).toEqual(['INVALID_CURRENT_SEMESTER', 'INVALID_TASK_DATE'])
+    expect(reconcile(source, output).ready_for_import).toBe(false)
+  })
+})

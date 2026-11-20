@@ -4,7 +4,7 @@ import {
   accountFields, legacyTransactionFacts, openingAdjustmentFields, openingAdjustmentFor,
   openingAdjustmentRaw, reportAccountDrift, transactionFields, validateTransactionDate,
 } from './ledger.js'
-import { openingAdjustmentEnabled, requireDecisions, resolveCurrentSemester, selectedSemester, validateDatedSemester } from './decisions.js'
+import { openingAdjustmentEnabled, requireDecisions, resolveCurrentSemester, selectedSemester, validateTaskDate } from './decisions.js'
 
 export const TABLES = ['migration_batches', 'migration_sources', 'legacy_ids', 'classes', 'students', 'accounts', 'transactions', 'inventory_items', 'comments', 'exempt_rules', 'logs', 'tasks', 'submissions', 'settings_entries', 'products', 'jobs', 'job_assignments', 'daily_duties', 'seats', 'announcements', 'rules', 'groups', 'semesters']
 export const pointer = v => String(v).replaceAll('~', '~0').replaceAll('/', '~1')
@@ -34,7 +34,7 @@ export function convert(input, { decisions = {} } = {}) {
   const source = structuredClone(input ?? null)
   const rows = Object.fromEntries(TABLES.map(t => [t, []])), errors = [], notices = [], openingAdjustments = []
   const error = (code, path, value = null) => errors.push({ code, path, value: structuredClone(value) })
-  const notice = (code, path, value) => notices.push({ code, path, value: structuredClone(value) })
+  const notice = (code, path, value = null) => notices.push({ code, path, value: structuredClone(value) })
   const arr = (v, p) => {
     if (v === undefined) return []
     if (!Array.isArray(v)) { error('INVALID_ARRAY', p, v); return [] }
@@ -180,8 +180,8 @@ export function convert(input, { decisions = {} } = {}) {
     const tasks = arr(log.tasks, `${p}/tasks`).map((t, j) => {
       check(t, `${p}/tasks/${j}`, 'id title type createdAt dueDate')
       enumeration(t.type, [...arr(settings.taskTypes, '/data/settings/taskTypes'), '作業', '訂正', '攜帶物品', '考試', '通知單', '回條'], 'UNKNOWN_TASK_TYPE', `${p}/tasks/${j}/type`)
-      validateDatedSemester('TASK', t.createdAt ?? log.date, decisions, `${p}/tasks/${j}`, error)
-      error('UNKNOWN_ASSIGNMENT_LIST', `${p}/tasks/${j}`)
+      validateTaskDate(t.createdAt ?? log.date, decisions, `${p}/tasks/${j}`, error)
+      notice('UNKNOWN_ASSIGNMENT_LIST', `${p}/tasks/${j}`)
       return add('tasks', `${p}/tasks/${j}`, t, { log_id: lr.id, title: t.title ?? null, task_type: t.type ?? null, published_on: t.createdAt ?? log.date ?? null, due_on: t.dueDate ?? log.date ?? null, semester: selectedSemester(t.createdAt ?? log.date, decisions), correction_state: t.type === '訂正' ? 'legacy_unlinked' : null, original_task_id: null, teacher_confirmed: null, assignees_known: false }, t.id ?? null)
     })
     const tm = index(tasks, `${p}/tasks`)

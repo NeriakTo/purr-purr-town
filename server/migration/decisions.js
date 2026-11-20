@@ -54,11 +54,11 @@ export function selectedSemester(date, { semesterRule }) {
   return semesterRule === 'month' ? semesterAt(date) : null
 }
 
-export function validateDatedSemester(entity, date, decisions, path, error) {
+export function validateTaskDate(date, decisions, path, error) {
   if (decisions.semesterRule !== 'month') {
-    error('UNKNOWN_' + entity + '_SEMESTER', path)
+    error('UNKNOWN_TASK_SEMESTER', path)
   } else if (taipeiTimestamp(date) === null) {
-    error('INVALID_' + entity + '_DATE', path, date)
+    error('INVALID_TASK_DATE', path, date)
   }
 }
 
