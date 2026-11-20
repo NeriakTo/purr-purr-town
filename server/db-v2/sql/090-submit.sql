@@ -64,6 +64,10 @@ BEGIN
       PERFORM require_proposal_target(p_op, p_actor);
     WHEN 'confirmation.confirm', 'confirmation.reject' THEN
       PERFORM validate_confirmation_payload(p_op->'payload');
+    WHEN 'correction.require' THEN
+      PERFORM check_correction_round_creation(p_op, p_actor);
+    WHEN 'correction.mark_returned' THEN
+      PERFORM check_correction_round_return(p_op, p_actor);
     WHEN 'rule.save' THEN
       PERFORM validate_rule_save(p_op->'payload');
     WHEN 'rule.retire' THEN
@@ -101,6 +105,8 @@ BEGIN
     WHEN 'submission.set_status' THEN RETURN apply_submission_status(p_op, p_time);
     WHEN 'submission.propose' THEN RETURN apply_submission_proposal(p_op, p_time);
     WHEN 'confirmation.confirm', 'confirmation.reject' THEN RETURN apply_confirmation_operation(p_op, p_actor, p_time);
+    WHEN 'correction.require' THEN RETURN apply_correction_round_creation(p_op);
+    WHEN 'correction.mark_returned' THEN RETURN apply_correction_round_return(p_op);
     WHEN 'rule.save' THEN RETURN apply_rule_operation(p_op, p_time);
     WHEN 'rule.retire' THEN RETURN apply_rule_operation(p_op, p_time);
     WHEN 'task.create' THEN RETURN apply_task_create(p_op);

@@ -19,6 +19,8 @@ AS $$
     ('"submission.propose"'::jsonb, ARRAY['teacher'], 'forbidden'),
     ('"confirmation.confirm"'::jsonb, ARRAY['teacher'], 'forbidden'),
     ('"confirmation.reject"'::jsonb, ARRAY['teacher'], 'forbidden'),
+    ('"correction.require"'::jsonb, ARRAY['teacher', 'agent'], 'forbidden'),
+    ('"correction.mark_returned"'::jsonb, ARRAY['teacher', 'agent'], 'required'),
     ('"rule.save"'::jsonb, ARRAY['teacher'], 'required'),
     ('"rule.retire"'::jsonb, ARRAY['teacher'], 'required'),
     ('"task.create"'::jsonb, ARRAY['teacher'], 'forbidden'),
