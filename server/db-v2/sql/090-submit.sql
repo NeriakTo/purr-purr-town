@@ -4,7 +4,7 @@ LANGUAGE plpgsql
 SET search_path = pg_catalog, ppt, pg_temp
 AS $$
 BEGIN
-  IF p_type IS DISTINCT FROM '"points.adjust"'::jsonb THEN
+  IF p_type IS NULL OR p_type NOT IN ('"points.adjust"'::jsonb, '"shop.purchase"'::jsonb) THEN
     PERFORM reject_operation('UNKNOWN_OP_TYPE');
   END IF;
   IF p_actor->>'kind' IS DISTINCT FROM 'teacher' THEN
@@ -30,6 +30,8 @@ BEGIN
     WHEN 'points.adjust' THEN
       PERFORM validate_points_adjust(p_op->'payload', p_op ? 'expect');
       PERFORM require_active_student(p_op->>'class_id', p_op->'payload'->>'student_id');
+    WHEN 'shop.purchase' THEN
+      PERFORM validate_shop_purchase(p_op->'payload', p_op ? 'expect');
     ELSE
       RAISE EXCEPTION '已知操作缺少輸入與目標檢查';
   END CASE;
@@ -44,6 +46,7 @@ AS $$
 BEGIN
   CASE p_op->>'type'
     WHEN 'points.adjust' THEN RETURN apply_points_adjust(p_op, p_time);
+    WHEN 'shop.purchase' THEN RETURN apply_shop_purchase(p_op, p_time);
     ELSE RAISE EXCEPTION '已知操作缺少寫入函式';
   END CASE;
 END;
