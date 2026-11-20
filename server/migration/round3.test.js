@@ -258,6 +258,14 @@ describe('7.4 G 對帳七項檢查', () => {
     })
   })
 
+  it('3 空的根編號與前一筆外鍵都無法指向根', () => {
+    verifyAuditTampering(correctionPath + '/correction_root', rows => {
+      rows.transactions[0].id = null
+      rows.transactions[1].corrected_transaction_id = null
+      rows.transactions[1].root_transaction_id = null
+    })
+  })
+
   it.each(['effective_at', 'semester'])('4 更正的 %s 必須跟根交易相同', key => {
     verifyAuditTampering(correctionPath + '/root_' + key, rows => { rows.transactions[1][key] = null })
   })

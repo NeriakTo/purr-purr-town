@@ -70,6 +70,7 @@ function reachableRoot(correction, byId) {
   const visited = new Set()
   let row = correction
   while (row?.kind === 'correction') {
+    if (row.corrected_transaction_id == null) return null
     if (visited.has(row.id)) return null
     visited.add(row.id)
     row = byId.get(row.corrected_transaction_id)
@@ -90,7 +91,9 @@ function checkTransactionInvariants(path, transactions, diff) {
     }
     if (row.kind === 'correction') {
       const root = reachableRoot(row, byId)
-      diff(`${rowPath}/correction_root`, true, root !== null && root.id === row.root_transaction_id)
+      const expectedRootId = root?.id ?? null
+      const matchesRoot = expectedRootId !== null && row.root_transaction_id === expectedRootId
+      diff(`${rowPath}/correction_root`, true, matchesRoot)
       if (root) {
         diff(`${rowPath}/root_effective_at`, root.effective_at, row.effective_at)
         diff(`${rowPath}/root_semester`, root.semester, row.semester)
