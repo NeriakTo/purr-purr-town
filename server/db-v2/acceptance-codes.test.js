@@ -104,6 +104,32 @@ const cases = [
     expect((await submit(client, confirm)).code).toBe('OK')
     return { ...confirm, op_id: randomUUID() }
   }],
+  ['RULE_VERSION_STALE', async (client, target) => {
+    const ruleId = randomUUID()
+    const save = {
+      ...adjustment(target), type: 'rule.save', expect: { rev: 0 },
+      payload: { rule_id: ruleId, kind: 'manual', name: '驗收規則', amount: 10 },
+    }
+    expect((await submit(client, save)).code).toBe('OK')
+    expect((await submit(client, { ...save, op_id: randomUUID(), expect: { rev: 1 },
+      payload: { ...save.payload, amount: 5 } })).code).toBe('OK')
+    return { ...adjustment(target), type: 'points.apply_rule',
+      payload: { student_id: target.studentId, rule_id: ruleId, rule_version: 1 } }
+  }],
+  ['TX_NOT_REVERSIBLE', async (client, target) => {
+    expect((await submit(client, adjustment(target, 10))).code).toBe('OK')
+    const bought = await submit(client, purchase(target))
+    expect(bought.code).toBe('OK')
+    return { ...adjustment(target), type: 'tx.reverse',
+      payload: { transaction_id: bought.result.transactions[0], expect_effective_amount: -3 } }
+  }],
+  ['TX_ALREADY_REVERSED', async (client, target) => {
+    const root = await submit(client, adjustment(target, 10))
+    expect(root.code).toBe('OK')
+    const payload = { transaction_id: root.result.transactions[0], expect_effective_amount: 10 }
+    expect((await submit(client, { ...adjustment(target), type: 'tx.reverse', payload })).code).toBe('OK')
+    return { ...adjustment(target), type: 'tx.correct', payload: { ...payload, new_amount: 5 } }
+  }],
 ]
 
 describeDatabase('錯誤碼逐碼驗收', () => {
