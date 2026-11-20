@@ -31,6 +31,9 @@ BEGIN
 
   PERFORM validate_operation_expect(p_op);
   CASE p_op->>'type'
+    WHEN 'op.undo' THEN
+      PERFORM validate_undo_payload(p_op->'payload');
+      PERFORM check_undo_operation(p_op, p_actor);
     WHEN 'points.adjust' THEN
       PERFORM validate_points_adjust(p_op->'payload');
       PERFORM require_active_student(p_op->>'class_id', p_op->'payload'->>'student_id');
@@ -86,6 +89,7 @@ SET search_path = pg_catalog, ppt, pg_temp
 AS $$
 BEGIN
   CASE p_op->>'type'
+    WHEN 'op.undo' THEN RETURN apply_undo_operation(p_op, p_time);
     WHEN 'points.adjust' THEN RETURN apply_points_adjust(p_op, p_time);
     WHEN 'tx.reverse' THEN RETURN apply_transaction_reversal(p_op, p_time);
     WHEN 'tx.correct' THEN RETURN apply_transaction_correction(p_op, p_time);
