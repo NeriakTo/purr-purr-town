@@ -1,8 +1,3 @@
-ALTER TYPE ppt.operation_code ADD VALUE 'ID_CONFLICT';
-ALTER TYPE ppt.operation_code ADD VALUE 'PRICE_CHANGED';
-ALTER TYPE ppt.operation_code ADD VALUE 'OUT_OF_STOCK';
-ALTER TYPE ppt.operation_code ADD VALUE 'INSUFFICIENT_BALANCE';
-
 CREATE FUNCTION ppt.validate_shop_purchase(p_payload jsonb, p_has_expect boolean)
 RETURNS void
 LANGUAGE plpgsql

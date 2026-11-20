@@ -1,5 +1,3 @@
-ALTER TYPE ppt.operation_code ADD VALUE 'SCOPE_FORBIDDEN';
-
 CREATE FUNCTION ppt.validate_submission_status(p_payload jsonb, p_expect jsonb)
 RETURNS void
 LANGUAGE plpgsql
