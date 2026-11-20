@@ -40,6 +40,9 @@ BEGIN
     WHEN 'points.apply_rule' THEN
       PERFORM validate_points_apply_rule(p_op->'payload');
       PERFORM require_manual_rule_version(p_op, p_actor);
+    WHEN 'inventory.use' THEN
+      PERFORM validate_inventory_use(p_op->'payload');
+      PERFORM require_inventory_use(p_op);
     WHEN 'shop.purchase' THEN
       PERFORM validate_shop_purchase(p_op->'payload');
     WHEN 'submission.set_status' THEN
@@ -81,6 +84,7 @@ BEGIN
     WHEN 'tx.reverse' THEN RETURN apply_transaction_reversal(p_op, p_time);
     WHEN 'tx.correct' THEN RETURN apply_transaction_correction(p_op, p_time);
     WHEN 'points.apply_rule' THEN RETURN apply_points_rule(p_op, p_actor, p_time);
+    WHEN 'inventory.use' THEN RETURN apply_inventory_use(p_op, p_time);
     WHEN 'shop.purchase' THEN RETURN apply_shop_purchase(p_op, p_time);
     WHEN 'submission.set_status' THEN RETURN apply_submission_status(p_op, p_time);
     WHEN 'submission.propose' THEN RETURN apply_submission_proposal(p_op, p_time);
