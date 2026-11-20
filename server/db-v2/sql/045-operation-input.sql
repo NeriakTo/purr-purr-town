@@ -8,6 +8,7 @@ AS $$
     ('"points.adjust"'::jsonb, ARRAY['teacher'], 'forbidden'),
     ('"shop.purchase"'::jsonb, ARRAY['teacher'], 'forbidden'),
     ('"submission.set_status"'::jsonb, ARRAY['teacher', 'agent'], 'required'),
+    ('"submission.propose"'::jsonb, ARRAY['teacher'], 'forbidden'),
     ('"rule.save"'::jsonb, ARRAY['teacher'], 'required'),
     ('"rule.retire"'::jsonb, ARRAY['teacher'], 'required'),
     ('"task.create"'::jsonb, ARRAY['teacher'], 'forbidden'),

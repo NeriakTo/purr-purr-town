@@ -39,6 +39,9 @@ BEGIN
     WHEN 'submission.set_status' THEN
       PERFORM validate_submission_status(p_op->'payload');
       PERFORM require_submission_targets(p_op, p_actor);
+    WHEN 'submission.propose' THEN
+      PERFORM validate_submission_proposal(p_op->'payload');
+      PERFORM require_proposal_target(p_op, p_actor);
     WHEN 'rule.save' THEN
       PERFORM validate_rule_save(p_op->'payload');
     WHEN 'rule.retire' THEN
@@ -67,6 +70,7 @@ BEGIN
     WHEN 'points.adjust' THEN RETURN apply_points_adjust(p_op, p_time);
     WHEN 'shop.purchase' THEN RETURN apply_shop_purchase(p_op, p_time);
     WHEN 'submission.set_status' THEN RETURN apply_submission_status(p_op, p_time);
+    WHEN 'submission.propose' THEN RETURN apply_submission_proposal(p_op, p_time);
     WHEN 'rule.save' THEN RETURN apply_rule_operation(p_op, p_time);
     WHEN 'rule.retire' THEN RETURN apply_rule_operation(p_op, p_time);
     WHEN 'task.create' THEN RETURN apply_task_create(p_op);
