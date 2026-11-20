@@ -9,10 +9,10 @@
 | `classes` | 班級狀態、版本及從 0 起算的 `class_seq`。序號是提交游標，推進序號時班級資料的版本與最後改動者維持原值。 |
 | `class_ownership` | 班級與老師的對應，每班一位擁有者。 |
 | `class_authorizations` | 以班級與身分種類為鍵，保存小野授權並預留排程授權。測試由 SQL 建立授權列。 |
-| `operations` | 以全庫唯一的 `op_id` 保存操作者、輸入、內容雜湊、狀態和收據。`recorded_at` 記登記時間。只有成立的操作有 `class_seq` 與 `committed_at`。 |
+| `operations` | 以全庫唯一的 `op_id` 保存操作者、輸入、內容雜湊、狀態和收據。`recorded_at` 記登記時間。只有成立的操作有 `class_seq` 與 `committed_at`。`operations_one_committed_undo` 是部分唯一索引，只收成立的 `op.undo`，鍵是 `class_id` 與 `payload->>'target_op_id'`。 |
 | `students` | 以班級與學生編號為鍵，保存座號、姓名、小組、在學狀態及版本。`exempt_rules` 預設為空陣列，每項有 `keyword` 與 `taskType`。 |
 | `accounts` | 每位學生一列，保存餘額、累計加分及版本。每寫一筆交易，帳戶版本加一並更新 `last_op_id`。 |
-| `transactions` | 以班級與交易編號為鍵的存摺。來源與操作／轉換批次的關係由資料庫檢查，每筆根交易至多沖回一次。觸發程序擋下更新、刪除及清空。規則產生的交易記 `rule_id` 與 `rule_rev`。 |
+| `transactions` | 以班級與交易編號為鍵的存摺。來源與操作／轉換批次的關係由資料庫檢查，每筆根交易至多沖回一次。觸發程序擋下更新、刪除及清空。規則產生的交易記 `rule_id` 與 `rule_rev`。程序依 `effective_at` 的臺灣日期填 `semester`，無歸屬時間時留空。撤銷補回的根交易另記 `restored_from_transaction_id`，指向快照記下的原根交易。 |
 | `rules`、`rule_versions` | 規則的 `rev` 指向現行版本。每班每個事件至多一條啟用規則，已發行的版本只能新增。建立規則與首版、調整現行版本與新增版本均須在同一交易完成。 |
 | `effects` | 記學生、事件、對象、規則版本、根交易、來源、接替鏈及產生／沖回的操作。未裁決歷史效果的事件與根交易為空。同一班內，同一學生同一事件同一對象、同一接替鏈，各至多一筆有效效果。 |
 | `tasks`、`submissions` | 作業列存標題、類型、可空的頁碼文字 `page_text`、發布日、截止日、學期及作廢狀態。繳交以班級、作業、學生為鍵，含狀態、版本、基準、是否參與及匯入時的狀態。 |
@@ -59,7 +59,7 @@
 1. 提交先檢查交易隔離層級，再驗信封。操作須為物件、有非空的字串 `class_id`，且 `payload` 以資料庫的 JSONB 文字輸出計算，最多 64 KiB UTF-8。信封不符回 `BAD_ENVELOPE`。
 2. 驗班級存取權，接著驗編號格式。鎖住班級列後再驗一次存取權。班級不存在或無存取權都回 `CLASS_FORBIDDEN`，編號不符回 `INVALID_OP_ID`。老師的提交與放棄入口另驗傳入身分，小野入口先檢查整批信封和重複編號。
 3. 登記編號。主鍵處理跨班同編號競爭。已有編號時依重送規則比對，內容衝突回 `OP_ID_REUSED`。
-4. 新操作依序檢查 `UNKNOWN_OP_TYPE`、`FORBIDDEN_ROLE`、`CLASS_ARCHIVED`、輸入的 `INVALID_PAYLOAD`、小野的 `SCOPE_FORBIDDEN`、`NOT_FOUND`、`ENTITY_INACTIVE`、`INVALID_TRANSITION`、`STALE_STATE`、各操作專屬檢查。專屬檢查若有 `ID_CONFLICT`，排在其餘專屬檢查之前。目前辨識 OP-10 至 OP-17、OP-24 至 OP-27、OP-31 至 OP-34、OP-38、OP-39 與 OP-43。小野可呼叫 OP-14、OP-25。
+4. 新操作依序檢查 `UNKNOWN_OP_TYPE`、`FORBIDDEN_ROLE`、`CLASS_ARCHIVED`、輸入的 `INVALID_PAYLOAD`、小野的 `SCOPE_FORBIDDEN`、`NOT_FOUND`、`ENTITY_INACTIVE`、`INVALID_TRANSITION`、`STALE_STATE`、各操作專屬檢查。專屬檢查若有 `ID_CONFLICT`，排在其餘專屬檢查之前。OP-50 查到原操作後依下節的順序檢查。目前辨識 OP-10 至 OP-17、OP-24 至 OP-27、OP-31 至 OP-34、OP-38、OP-39、OP-43 與 OP-50。小野可呼叫 OP-14、OP-25 與 OP-50，撤銷限自己的操作。
 5. 套用操作後，推進 `class_seq` 並保存收據。OP-24 的金額是非零整數，絕對值至多 100000，理由至多 100 字，省略或空白時存「手動調整」。帳戶可為負值，這筆交易的 `earned_delta` 等於 `amount`。
 
 OP-14 接受 `expect.rev` 或同班且已成立的 `expect.after_op`。不存在或不參與的列接受 `rev: 0`；重新建立不參與的列會推進版本並重設基準。改成補交時保留作業扣分效果。其他狀態依現存效果沖回或新增。沖回採根交易的有效金額與原歸屬時間，包含 0 元沖回。版本通過後先檢查 `only_if_no_proposal`，再判斷同值。同值成立時保留待確認提議，真正改動才取代提議。
@@ -128,6 +128,47 @@ OP-14 與 OP-16 真的改動繳交時，在同一交易判定這位學生於作�
 | `semesterPeriods` | 各值皆為物件。有 `start` 或 `end` 時，各值須為 JSON null 或有效的 `YYYY-MM-DD` 日期。 |
 | `shopMeta` | 物件。 |
 
+## 撤銷 OP-50
+
+`op.undo` 屬累加型，禁止帶 `expect`，包含 JSON null。唯一的 `payload` 鍵是 `target_op_id`，接受既有操作的非空字串編號。老師可以撤銷本班任何操作者的操作，小野只能撤銷本班自己的操作。
+
+1. 在本班查原操作。老師查不到回 `NOT_FOUND`。小野查不到或原操作屬於其他操作者，一律回 `SCOPE_FORBIDDEN`。兩者都省略 `current`。
+2. 原操作未成立或不在下表時，回 `NOT_UNDOABLE`。已被成立的撤銷處理過時，回 `ALREADY_UNDONE`。原操作的 `result.noop` 是 true 時，直接成立。
+3. 繳交類先查作業與學生是否有效。作業已作廢，或學生已轉出、封存時回 `ENTITY_INACTIVE`。再比對繳交的 `basis_rev` 與原收據記的繳交 `rev`，不符回 `UNDO_CONFLICT`。
+4. 依下表預檢各操作的其餘前提。通過所有檢查才寫入。一筆定案拒絕只保存拒絕收據，班級序號維持原值，也不佔用原操作的撤銷名額。
+
+| 原操作 | 其餘前提 | 成立時的寫入 |
+|---|---|---|
+| OP-14 `submission.set_status` | 要補回的效果不可撞到同一有效效果或接替鏈。這次會先沖回的效果可排除。 | 回復繳交、反做效果並重判截止日的每日任務。 |
+| OP-16 `confirmation.confirm` | 只支援學生點收提議，繳交與效果的前提同 OP-14。 | 同 OP-14，已確認的提議保留原值。 |
+| OP-24 `points.adjust` | 無。 | 用目前有效金額沖回原交易。已沖回時跳過。 |
+| OP-25 `points.apply_rule` | 無。 | 同 OP-24。規則金額與是否停用皆不影響沖回。 |
+| OP-26 `tx.correct` | 根交易在原更正之後，依班級序號查無後續更正或沖回。 | 寫一筆反向更正，沿用根交易的歸屬時間與累計加分口徑，理由加上「撤銷」前綴。原更正為零元備註時照樣寫零元反向更正。 |
+| OP-31 `shop.purchase` | 物品仍為 `held`。 | 依目前有效金額退點，物品改成 `returned`，商品庫存加一。物品、商品與帳戶推進版本。停用商品或轉出學生也可撤。金額改過時帶提示，改為零時寫零元沖回。 |
+| OP-32 `inventory.use` | 物品仍為 `used`。 | 物品回到 `held`，對原使用交易寫零元沖回，物品與帳戶推進版本。 |
+
+繳交撤銷的 `rev` 加一，`basis_rev` 回到原收據的 `prev_basis_rev`。撤銷新建或重新建立時，保留資料列並設成不參與、待收、基準 0，這時才會取代尚未處理的學生提議。其餘回復保留尚未處理的提議，原操作已確認或順帶取代的項目也保留原值。之後可用撤銷的 `op_id` 當 `expect.after_op`，也可用新操作重做。撤銷本身不可再撤。
+
+繳交的扣分只按原收據處理。先沿接替鏈沖回原本新增且仍有效的效果，金額以現值為準，含零元。再依快照補回原本沖回且金額非零的效果，沿用接替鏈、規則版本、原交易理由與歸屬時間。每日任務項目從兩份反做清單略過，繳交回復後直接按截止日與現行規則重判。達標且沒有有效獎勵時補發，包含曾被單獨沖回的獎勵。舊版點收過的日子照常帶 `LEGACY_DAY_NO_DAILY_QUEST`。
+
+### 撤銷收據
+
+- 每筆成立的撤銷都含 `result.undo`，鍵為 `target_op_id`、`skipped`、`amount_changed`。原操作未改資料，或 OP-24／OP-25 的交易都已沖回時，撤銷成立並取得 `class_seq`，`result.noop` 是 true，`changes` 與新交易均為空。
+- OP-31 的 `changes` 依序是 `inventory_item`、`product`、`account`。OP-32 依序是 `inventory_item`、`account`。物品的前後值只列 `status`，商品只列 `stock`。OP-26 只列帳戶。
+- 原交易或效果已沖回而跳過，或以改過的金額沖回時，逐筆加上 `UNDO_EFFECT_MANUALLY_CHANGED`。物件有 `code`、`case`、`effect_id`、`lineage_id`、`transaction_id`、`changed_by_op_id`、`original_amount`、`amount`。純交易的效果與接替鏈編號為 null。
+- `case: already_reversed` 帶原操作記的根交易編號、執行沖回的操作編號及 `amount: null`。效果已接替時，取接替鏈最後一筆效果的沖回者，順序依建立該效果的班級序號，沒有建立操作的歷史效果排最前。
+- `case: amount_changed` 帶實際被沖回的根交易編號、該根交易最後一筆更正的操作編號及本次沖回前的有效金額。補回時金額已不同、而這筆根交易沒有更正時，`changed_by_op_id` 為 null。原操作記的效果金額，或純交易的根交易金額，放在 `original_amount`。
+- `result.undo.skipped` 和 `result.undo.amount_changed` 分別收錄上述兩種物件，省略 `code` 與 `case`。提示及這兩個陣列省略理由、規則名稱與操作者編號。撤銷的效果與新交易照常列在 `result`，交易依寫入順序。
+
+`UNDO_CONFLICT` 的 `current` 依原因回傳下列欄位。小野的 `actor` 只帶 `kind`。
+
+| `reason` | `current` 的其餘欄位 |
+|---|---|
+| `basis_changed` | `value`（繳交狀態及是否參與）、`rev`、`basis_rev`、`last_op_id`、`actor`、`committed_at`。 |
+| `effect_already_active` | 同 `basis_changed`，另帶阻擋補回的有效 `effect_id`。 |
+| `tx_changed_later` | `transaction_id`、`effective_amount`、`reversed`，以及最後更正或沖回的 `last_op_id`、`actor`、`committed_at`。 |
+| `item_state_changed` | `value`（只有 `status`）、`rev`、`last_op_id`、`actor`、`committed_at`。 |
+
 ## 暫定做法
 
 - 資料庫以 `type`、`class_id`、`payload` 與 `expect` 組成 JSONB，轉成 UTF-8 文字後計算 SHA-256。鍵順序和輸入排版不影響比對，陣列順序會影響。省略 `expect` 和傳 JSON null 在雜湊中相同。新編號若帶 `expect`，包含 JSON null，累加型驗證會拒絕。已登記的編號先走重送比對。雜湊只供資料庫使用，中繼資料與傳送路徑不參與比對。
@@ -147,6 +188,8 @@ OP-14 與 OP-16 真的改動繳交時，在同一交易判定這位學生於作�
 - 更正的新金額限正負 100000 內的整數，理由至多 100 字。省略理由或只有空白時，以「更正」加根交易理由。零差額需有理由才寫更正交易。沖回連到有效效果時會保存規則、有效金額與歸屬時間快照，已配對的歷史效果之規則欄位為 null。購買與用道具的更正或沖回不計累計加分。更正及沖回允許餘額為負。
 - 商品名稱長度為 1 至 100 字，價格、庫存及初始庫存限 0 至 100000 的整數，單位限 `point`、`fish`、`cookie`。圖示與說明選填，省略時存空值。已存在的商品可用匯入編號。使用道具只驗物品狀態，學生轉出與商品停用不影響已持有物品。
 - 設定逐鍵保存並控管版本，只驗新送的值。更新幣別影響後續購買，歷史交易保留原值。
+- 更正、沖回與補回交易的學期沿用其歸屬時間。匯入交易保留匯入結果。撤銷較晚的更正會寫一筆新的反向更正，因此較早的更正仍回 `tx_changed_later`。老師要再調整時用 OP-26。
+- 撤銷回到仍參與且非待收的繳交時，尚未處理的提議保留。若老師試著確認，會回 `INVALID_TRANSITION`，可用 OP-17 退回。
 
 ## 未實作清單
 
@@ -155,7 +198,7 @@ OP-14 與 OP-16 真的改動繳交時，在同一交易判定這位學生於作�
 | `actor_scheduler_system` | 排程及系統身分入口 | 第 5 包排程、第 9 包系統 |
 | `agent_call_record` | 呼叫紀錄、整批重播、`CALL_ID_REUSED` 與新舊分組 | 第 8 包 |
 | `agent_held_confirmation` | 確認或退回小野暫緩批次 | 第 8 包 |
-| `agent_limits` | 小野操作上限、整批暫緩及待確認佇列，含 OP-25 的當日重複暫緩 | 第 8 包 |
+| `agent_limits` | 小野操作上限、整批暫緩及待確認佇列，含 OP-25 的當日重複暫緩。也含小野撤銷自己的操作所寫的交易怎麼算進上限。 | 第 8 包 |
 | `agent_note` | 保存小野呼叫的 `note` | 第 8 包 |
 | `class_create` | OP-01 在班級列尚不存在時的建班路徑 | 第 9 包 |
 | `legacy_unresolved` | 有未裁決歷史效果時，依 OP-53 與繳交限制處理 | 第 6 包 |
