@@ -81,7 +81,7 @@ OP-31 檢查新物品編號、價格、庫存與餘額後，在同一交易扣�
 - 購買專屬檢查依次為 `ID_CONFLICT`、`PRICE_CHANGED`、`OUT_OF_STOCK`、`INSUFFICIENT_BALANCE`。幣別採 `currency` 的舊版 `tier1.rate`／`tier2.rate`，依序對應 `fish`／`cookie`，預設 100／1000，`point` 為 1。
 - 小野身分集中在 `ppt.agent_actor()` 取得。若 `call_id` 或任何一筆 `op_id` 不合格式，整批回 `INVALID_OP_ID`，不保存。
 
-- 建作業與規則存檔的實體編號使用小寫 UUID v4。既有目標查找採本班的文字編號。日期必須是有效的 `YYYY-MM-DD`，截止日可早於發布日。學期依發布日，8 月到隔年 1 月是上學期，2 至 7 月是下學期。
+- 新建作業與規則的實體編號使用小寫 UUID v4。既有目標查找採本班的非空文字編號，OP-38 可存檔與重新啟用匯入的規則。日期必須是有效的 `YYYY-MM-DD`，截止日可早於發布日。學期依發布日，8 月到隔年 1 月是上學期，2 至 7 月是下學期。
 - 省略指派名單時，只取 `enrolled`。明列名單可含 `home_study`，名單不可空或重複。自動免交以非空關鍵字比對標題子字串，忽略大小寫，類型須完全相同。指派名單在建立時固定，類型接受非空字串。
 - `page_text` 可傳 JSON null 以清除頁碼，其他選填欄位以省略表示未提供。規則存檔每次帶完整內容。規則名稱為 1 至 100 字，金額為絕對值不超過 100000 的整數，允許 0。手動規則禁止傳 `event`，事件規則的代號固定為 `submission.late`、`submission.missing`、`daily_quest.complete`、`correction.confirmed`、`correction.overdue`。
 - 規則的新建版本條件不符時，`current.rev` 是 0。改種類、改事件或與另一條啟用事件規則重複時，版本檢查後回 `INVALID_PAYLOAD`。同內容且仍啟用的規則存檔、重複停用、重複作廢及同值更新在版本相符時回 `noop`。用現行版本存檔停用規則會重啟並新增版本。

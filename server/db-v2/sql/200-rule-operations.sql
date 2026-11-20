@@ -7,7 +7,7 @@ DECLARE
   amount numeric;
 BEGIN
   IF NOT has_only_keys(p_payload, ARRAY['rule_id', 'kind', 'event', 'name', 'amount', 'icon', 'category'])
-    OR NOT valid_v4_op_id(p_payload->>'rule_id')
+    OR NOT has_nonempty_string(p_payload, 'rule_id')
     OR NOT has_nonempty_string(p_payload, 'kind')
     OR p_payload->>'kind' NOT IN ('manual', 'event')
     OR NOT has_nonempty_string(p_payload, 'name')
@@ -59,6 +59,9 @@ LANGUAGE plpgsql
 SET search_path = pg_catalog, ppt, pg_temp
 AS $$
 BEGIN
+  IF p_before.rev IS NULL AND NOT valid_v4_op_id(p_after.rule_id) THEN
+    PERFORM reject_operation('INVALID_PAYLOAD');
+  END IF;
   IF p_before.rev IS NOT NULL AND (
     p_before.kind <> p_after.kind OR p_before.event IS DISTINCT FROM p_after.event
   ) THEN
