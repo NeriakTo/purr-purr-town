@@ -87,3 +87,59 @@ describeDatabase('提供撤銷使用的繳交收據', () => {
     })
   })
 })
+
+describeDatabase('提供撤銷使用的存摺與道具收據', () => {
+  const database = useTestDatabase()
+
+  test('OP-25 收據完整列出一筆交易與帳戶前後值', async () => {
+    const { operation, saveRule } = await import('./test-support/schoolwork.js')
+    const { client } = database()
+    const { classId, studentId } = await addClass(client)
+    const rule = saveRule(classId)
+    await commitOperation(client, rule)
+    const op = operation(classId, 'points.apply_rule', {
+      student_id: studentId, rule_id: rule.payload.rule_id, rule_version: 1,
+    })
+    const receipt = await commitOperation(client, op)
+    await assertUndoFields(client, receipt, { added: [], reversed: [], entities: ['account'] })
+    expect(receipt.changes[0]).toMatchObject({
+      key: { student_id: studentId }, prev_value: { balance: 0, total_earned: 0 },
+      value: { balance: 5, total_earned: 5 },
+    })
+    expect(receipt.result.transactions).toHaveLength(1)
+  })
+
+  test('OP-26 收據可追回根交易，無改動時交易清單為空', async () => {
+    const { adjustment } = await import('./test-support/operations.js')
+    const { correct, transactionFrom } = await import('./test-support/transactions.js')
+    const { client } = database()
+    const target = await addClass(client)
+    const root = await transactionFrom(client, await commitOperation(client, adjustment(target, 10)))
+    const receipt = await commitOperation(client, correct(target.classId, root.transaction_id, 10, 8))
+    await assertUndoFields(client, receipt, { added: [], reversed: [], entities: ['account'] })
+    expect(receipt.result.transactions).toHaveLength(1)
+    expect(await transactionFrom(client, receipt)).toMatchObject({
+      kind: 'correction', root_transaction_id: root.transaction_id,
+    })
+    const noop = await commitOperation(client, correct(target.classId, root.transaction_id, 8, 8))
+    await assertUndoFields(client, noop, { added: [], reversed: [], entities: [] })
+    expect(noop.result).toMatchObject({ noop: true, transactions: [] })
+  })
+
+  test('OP-32 收據依序列狀態與帳戶，交易是唯一的零元使用紀錄', async () => {
+    const { buyItem, useItem } = await import('./test-support/inventory.js')
+    const { saveProduct } = await import('./test-support/products.js')
+    const { transactionFrom } = await import('./test-support/transactions.js')
+    const { client } = database()
+    const target = await addClass(client)
+    const product = saveProduct(target.classId)
+    await commitOperation(client, product)
+    const itemId = await buyItem(client, target, product.payload.product_id)
+    const receipt = await commitOperation(client, useItem(target.classId, itemId))
+    await assertUndoFields(client, receipt, { added: [], reversed: [], entities: ['inventory_item', 'account'] })
+    expect(receipt.changes[0].prev_value).toEqual({ status: 'held' })
+    expect(receipt.changes[0].value).toEqual({ status: 'used' })
+    expect(receipt.result.transactions).toHaveLength(1)
+    expect(await transactionFrom(client, receipt)).toMatchObject({ kind: 'item_use', amount: '0', earned_delta: '0' })
+  })
+})

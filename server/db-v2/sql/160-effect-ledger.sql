@@ -55,14 +55,25 @@ BEGIN
 END;
 $$;
 
-CREATE FUNCTION ppt.effective_transaction_amount(p_root ppt.transactions)
-RETURNS numeric
-LANGUAGE sql
+CREATE FUNCTION ppt.mark_effect_reversed(
+  p_effect ppt.effects, p_op_id text, p_chain ppt.transaction_chain
+)
+RETURNS jsonb
+LANGUAGE plpgsql
 SET search_path = pg_catalog, ppt, pg_temp
+SET timezone = 'UTC'
 AS $$
-  SELECT p_root.amount + coalesce(sum(amount), 0) FROM transactions
-  WHERE class_id = p_root.class_id AND student_id = p_root.student_id
-    AND root_transaction_id = p_root.transaction_id AND kind IN ('correction', 'reversal');
+DECLARE
+  root transactions := p_chain.root;
+BEGIN
+  UPDATE effects
+  SET status = 'reversed', reversed_op_id = p_op_id
+  WHERE class_id = p_effect.class_id AND effect_id = p_effect.effect_id;
+  RETURN effect_identity(p_effect) || jsonb_build_object(
+    'rule_id', p_effect.rule_id, 'rule_rev', p_effect.rule_rev,
+    'effective_amount', p_chain.effective_amount, 'effective_at', root.effective_at
+  );
+END;
 $$;
 
 CREATE FUNCTION ppt.reverse_event_effect(p_effect ppt.effects, p_op_id text, p_time timestamptz)
@@ -73,32 +84,16 @@ SET timezone = 'UTC'
 AS $$
 DECLARE
   root transactions;
-  effective_amount numeric;
-  earned_delta numeric;
+  chain transaction_chain;
   entry ledger_entry;
 BEGIN
-  SELECT * INTO STRICT root FROM transactions
-  WHERE class_id = p_effect.class_id AND transaction_id = p_effect.root_transaction_id
-    AND student_id = p_effect.student_id AND kind NOT IN ('correction', 'reversal', 'legacy_orphan_correction');
-  effective_amount := effective_transaction_amount(root);
-  earned_delta := CASE
-    WHEN root.kind IN ('shop_purchase', 'item_use') THEN 0
-    ELSE -effective_amount
-  END;
-
-  entry := append_account_transaction(
-    root.class_id, root.student_id, p_op_id, 'reversal', -effective_amount, earned_delta,
-    p_time, root.effective_at, '沖回' || root.reason, root.transaction_id
-  );
-  UPDATE effects
-  SET status = 'reversed', reversed_op_id = p_op_id
-  WHERE class_id = p_effect.class_id AND effect_id = p_effect.effect_id;
-  RETURN (
-    entry,
-    effect_identity(p_effect) || jsonb_build_object(
-      'rule_id', p_effect.rule_id, 'rule_rev', p_effect.rule_rev,
-      'effective_amount', effective_amount, 'effective_at', root.effective_at
-    )
-  )::effect_write;
+  chain := load_transaction_chain(p_effect.class_id, p_effect.root_transaction_id);
+  root := chain.root;
+  IF root.transaction_id IS DISTINCT FROM p_effect.root_transaction_id
+      OR root.student_id IS DISTINCT FROM p_effect.student_id OR root.kind = 'legacy_orphan_correction' THEN
+    RAISE EXCEPTION '效果的根交易無效';
+  END IF;
+  entry := append_root_reversal(chain, p_op_id, p_time);
+  RETURN (entry, mark_effect_reversed(p_effect, p_op_id, chain))::effect_write;
 END;
 $$;
