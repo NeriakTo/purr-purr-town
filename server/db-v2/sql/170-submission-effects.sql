@@ -1,19 +1,26 @@
 CREATE TYPE ppt.submission_effect_outcome AS (result jsonb, account_change jsonb, warnings jsonb);
 
-CREATE FUNCTION ppt.require_resolved_submission_effects(p_class_id text, p_task_id text, p_student_id text)
+CREATE FUNCTION ppt.require_resolved_submission_effects(
+  p_class_id text, p_task_id text, p_student_id text, p_status ppt.submission_status
+)
 RETURNS void
 LANGUAGE plpgsql
 SET search_path = pg_catalog, ppt, pg_temp
 AS $$
+DECLARE
+  unresolved jsonb;
 BEGIN
-  IF EXISTS (
-    SELECT 1 FROM effects
-    WHERE class_id = p_class_id AND student_id = p_student_id
-      AND subject_kind = 'task' AND subject_key = p_task_id
-      AND status = 'legacy_unresolved'
-  ) THEN
-    -- PPT-PENDING: legacy_unresolved
-    PERFORM pending_operation('legacy_unresolved');
+  IF p_status = 'makeup' THEN
+    RETURN;
+  END IF;
+
+  SELECT jsonb_agg(jsonb_build_object('effect_id', effect_id) ORDER BY effect_id COLLATE "C")
+  INTO unresolved FROM effects
+  WHERE class_id = p_class_id AND student_id = p_student_id
+    AND subject_kind = 'task' AND subject_key = p_task_id AND status = 'legacy_unresolved';
+
+  IF unresolved IS NOT NULL THEN
+    PERFORM reject_operation('LEGACY_EFFECT_UNRESOLVED', jsonb_build_object('unresolved_legacy_effects', unresolved));
   END IF;
 END;
 $$;

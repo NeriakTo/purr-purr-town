@@ -243,7 +243,6 @@ OP-18 先驗輸入，再查作業與學生，並依序擋下無效目標、已�
 | `agent_limits` | 小野操作上限、整批暫緩及待確認佇列，含 OP-25 的當日重複暫緩。也含小野撤銷自己的操作所寫的交易怎麼算進上限。含小野送 OP-18、OP-19 影響的學生數。 | 第 8 包 |
 | `agent_note` | 保存小野呼叫的 `note` | 第 8 包 |
 | `class_create` | OP-01 在班級列尚不存在時的建班路徑 | 第 9 包 |
-| `legacy_unresolved` | 有未裁決歷史效果時，依 OP-53 與繳交限制處理 | 第 6 包 |
 | `setting_duty_job` | 驗證 `dutyJobId` 指向本班職務 | 第 7 包 |
 | `task_void_legacy_effects` | 作廢作業選沖回時，略過並回報未裁決歷史效果 | 第 6 包 |
 | `undo_payroll` | 撤銷發薪操作 | 第 7 包 |

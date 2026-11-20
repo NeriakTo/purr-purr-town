@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { expect, test } from 'vitest'
 import { agentSubmit, authorizeAgent } from './test-support/agent.js'
 import { classSnapshot } from './test-support/checks.js'
+import { addImportedEffect } from './test-support/legacy-effects.js'
 import { addClass, adjustment, classSequence, operationCount, submit } from './test-support/operations.js'
 import { addProduct, purchase } from './test-support/shop.js'
 import { addSubmission, addTask, setStatus } from './test-support/submissions.js'
@@ -169,6 +170,14 @@ const cases = [
     expect(missing.code).toBe('OK')
     expect((await submit(client, setStatus(assigned, 'on_time', { rev: 2 }))).code).toBe('OK')
     return { ...adjustment(target), type: 'op.undo', payload: { target_op_id: missing.op_id } }
+  }],
+  ['LEGACY_EFFECT_UNRESOLVED', async (client, target) => {
+    await client.query(`
+      UPDATE ppt.submissions SET status = 'missing', legacy_status_at_import = 'missing'
+      WHERE class_id = $1 AND task_id = $2 AND student_id = $3
+    `, [target.classId, target.taskId, target.studentId])
+    await addImportedEffect(client, target)
+    return setStatus(target, 'on_time')
   }],
 ]
 

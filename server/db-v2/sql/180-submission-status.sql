@@ -164,7 +164,6 @@ BEGIN
     submission_value(previous), NOT coalesce(previous.assignment_active, false)
   );
   PERFORM require_no_submission_proposal(p_op, previous);
-  PERFORM require_resolved_submission_effects(class_key, task_key, student_key);
   IF previous.assignment_active AND previous.status = new_status THEN
     RETURN (
       operation_result(p_noop => true),
@@ -172,6 +171,7 @@ BEGIN
     )::operation_outcome;
   END IF;
 
+  PERFORM require_resolved_submission_effects(class_key, task_key, student_key, new_status);
   outcome := write_submission_change(class_key, task_key, student_key, previous, new_status, op_key, p_time);
   outcome.changes := outcome.changes || supersede_submission_proposal(class_key, task_key, student_key, op_key, p_time);
   RETURN outcome;
