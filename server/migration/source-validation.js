@@ -1,5 +1,7 @@
 import { pointer, canonicalJson } from './convert.js'
-import { validateTransactionDate } from './ledger.js'
+import {
+  accountFields, legacyTransactionFacts, openingAdjustmentFor, reportAccountDrift, validateTransactionDate,
+} from './ledger.js'
 import { openingAdjustmentEnabled, requireDecisions, resolveCurrentSemester, validateDatedSemester } from './decisions.js'
 import { correctionCycleMembers, correctionTargets, correctionMatches } from './corrections.js'
 
@@ -7,7 +9,7 @@ const object = value => value !== null && typeof value === 'object' && !Array.is
 const numeric = value => typeof value === 'number' && Number.isFinite(value)
 
 // 直接走訪來源，不呼叫 convert，也不讀取轉換結果的列或錯誤。
-export function validateSource(source, earnedFromLegacy, { notices = [], adjustments = [], decisions = {} } = {}) {
+export function validateSource(source, earnedFromLegacy, { notices = [], openingAdjustments = [], decisions = {} } = {}) {
   requireDecisions(decisions)
   source = source ?? null
   const errors = []
@@ -127,9 +129,9 @@ export function validateSource(source, earnedFromLegacy, { notices = [], adjustm
       if (target !== undefined && matches.length !== 1) error(matches.length ? "AMBIGUOUS_REFERENCE" : "ORPHAN_CORRECTION", `${p}/correctedTxId`, target)
       if (t.type === 'correction' && target === undefined) error('ORPHAN_CORRECTION', p)
     })
-    for (const j of correctionCycleMembers(edges)) error('CORRECTION_CYCLE', `${path}/bank/transactions/${j}`, txs[j].correctedTxId)
+    const cycles = correctionCycleMembers(edges)
+    for (const j of cycles) error('CORRECTION_CYCLE', `${path}/bank/transactions/${j}`, txs[j].correctedTxId)
     const valid = txs.every(t => numeric(t.amount))
-    const ledger = valid ? txs.reduce((sum, t) => sum + t.amount, 0) : null
     const earned = valid ? earnedFromLegacy(txs) : null
     let running = 0
     if (valid) {
@@ -138,24 +140,16 @@ export function validateSource(source, earnedFromLegacy, { notices = [], adjustm
         if (t.balance !== undefined && t.balance !== running) notice('TRANSACTION_BALANCE_DRIFT', `${path}/bank/transactions/${j}/balance`, { stored: t.balance, computed_from_zero: running })
       })
     }
-    const balance = bank.balance === undefined ? 0 : bank.balance
-    const total = bank.totalEarned === undefined ? earned : bank.totalEarned
-    if (!numeric(balance)) error('INVALID_BALANCE', `${path}/bank/balance`, balance)
-    if (!numeric(total)) error('INVALID_TOTAL_EARNED', `${path}/bank/totalEarned`, total)
-    const drift = openingAdjustmentEnabled(decisions) ? notice : error
-    if (balance !== ledger) drift('BALANCE_DRIFT', `${path}/bank`, { stored: balance, computed: ledger })
-    if (total !== earned) drift('TOTAL_EARNED_DRIFT', `${path}/bank`, { stored: total, computed: earned })
-    calculateOpeningAdjustment()
-    function calculateOpeningAdjustment() {
-      if (!openingAdjustmentEnabled(decisions)) return
-      if (!numeric(balance) || !numeric(ledger) || balance === ledger) return
-      const adjustmentPath = `${path}/bank/migration_opening_adjustment`
-      adjustments.push({
-        path: adjustmentPath,
-        amount: balance - ledger,
-        date: decisions.cutoverDate,
-        reason: '轉換期初調整',
-      })
+    const facts = legacyTransactionFacts(txs, edges, cycles)
+    const account = accountFields(bank, txs, facts, earned)
+    const accountPath = `${path}/bank`
+    if (!numeric(account.balance)) error('INVALID_BALANCE', `${accountPath}/balance`, account.balance)
+    if (!numeric(account.total_earned)) error('INVALID_TOTAL_EARNED', `${accountPath}/totalEarned`, account.total_earned)
+    const adjustmentEnabled = openingAdjustmentEnabled(decisions)
+    reportAccountDrift(accountPath, account, adjustmentEnabled, error, notice)
+    if (adjustmentEnabled) {
+      const adjustment = openingAdjustmentFor(accountPath, account)
+      if (adjustment) openingAdjustments.push(adjustment)
     }
     array(s.inventory, `${path}/inventory`, true).forEach((item, j) => {
       fields(item, `${path}/inventory/${j}`, 'itemId name icon purchasedAt')

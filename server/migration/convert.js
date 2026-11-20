@@ -1,6 +1,9 @@
 import { correctionCycleMembers, correctionMatches, correctionTargets } from "./corrections.js"
 import { createHash } from 'node:crypto'
-import { legacyTransactionFacts, transactionFields, validateTransactionDate } from './ledger.js'
+import {
+  accountFields, legacyTransactionFacts, openingAdjustmentFields, openingAdjustmentFor,
+  openingAdjustmentRaw, reportAccountDrift, transactionFields, validateTransactionDate,
+} from './ledger.js'
 import { openingAdjustmentEnabled, requireDecisions, resolveCurrentSemester, selectedSemester, validateDatedSemester } from './decisions.js'
 
 export const TABLES = ['migration_batches', 'migration_sources', 'legacy_ids', 'classes', 'students', 'accounts', 'transactions', 'inventory_items', 'comments', 'exempt_rules', 'logs', 'tasks', 'submissions', 'settings_entries', 'products', 'jobs', 'job_assignments', 'daily_duties', 'seats', 'announcements', 'rules', 'groups', 'semesters']
@@ -29,7 +32,7 @@ export function migrationBatchId(classKey, source, decisions) {
 export function convert(input, { decisions = {} } = {}) {
   requireDecisions(decisions)
   const source = structuredClone(input ?? null)
-  const rows = Object.fromEntries(TABLES.map(t => [t, []])), errors = [], notices = [], adjustments = []
+  const rows = Object.fromEntries(TABLES.map(t => [t, []])), errors = [], notices = [], openingAdjustments = []
   const error = (code, path, value = null) => errors.push({ code, path, value: structuredClone(value) })
   const notice = (code, path, value) => notices.push({ code, path, value: structuredClone(value) })
   const arr = (v, p) => {
@@ -125,7 +128,6 @@ export function convert(input, { decisions = {} } = {}) {
       Object.assign(r, transactionFields(facts[j], index => tr[index].id, decisions))
     })
     const valid = txs.every(t => numeric(t.amount))
-    const ledger = valid ? txs.reduce((sum, t) => sum + t.amount, 0) : null
     if (valid) {
       let running = 0
       txs.forEach(function checkRunningBalance(t, j) {
@@ -136,29 +138,24 @@ export function convert(input, { decisions = {} } = {}) {
     }
     const txMap = Object.fromEntries(txs.map(t => [t.id, t]))
     const earned = valid ? txs.filter(t => !t.voided && !store(t.reason) && !(t.type === 'correction' && t.correctedTxId && store(txMap[t.correctedTxId]?.reason))).reduce((sum, t) => sum + t.amount, 0) : null
-    const balance = bank.balance === undefined ? 0 : bank.balance, total = bank.totalEarned === undefined ? earned : bank.totalEarned
-    if (!numeric(balance)) error('INVALID_BALANCE', `${p}/bank/balance`, balance)
-    if (!numeric(total)) error('INVALID_TOTAL_EARNED', `${p}/bank/totalEarned`, total)
-    add('accounts', `${p}/bank`, s.bank, { student_id: sid, balance: numeric(balance) ? balance : null, total_earned: numeric(total) ? total : null, total_earned_source: bank.totalEarned === undefined ? 'legacy_recomputed' : 'legacy_stored', ledger_sum: ledger, earned_recomputed: earned })
-    const drift = openingAdjustmentEnabled(decisions) ? notice : error
-    if (balance !== ledger) drift('BALANCE_DRIFT', `${p}/bank`, { stored: balance, computed: ledger })
-    if (total !== earned) drift('TOTAL_EARNED_DRIFT', `${p}/bank`, { stored: total, computed: earned })
-    addOpeningAdjustment()
-    function addOpeningAdjustment() {
-      if (!openingAdjustmentEnabled(decisions)) return
-      if (!numeric(balance) || !numeric(ledger) || balance === ledger) return
-      const path = `${p}/bank/migration_opening_adjustment`
-      const amount = balance - ledger
-      const date = decisions.cutoverDate
-      const adjustment = { path, amount, date, reason: '轉換期初調整' }
-      adjustments.push(adjustment)
-      add('transactions', path, null, {
-        student_id: sid, amount, reason: adjustment.reason, occurred_at: date,
-        balance_after: balance, voided: false, transaction_type: 'migration_opening_adjustment',
-        corrected_transaction_id: null, semester: selectedSemester(date, decisions), legacy_semantics: false,
-        kind: 'migration_opening_adjustment', root_transaction_id: null, chain_broken: false,
-        earned_delta: 0, effective_at: null, origin: 'migration', op_id: null,
-      })
+    const accountPath = `${p}/bank`
+    const account = accountFields(bank, txs, facts, earned)
+    if (!numeric(account.balance)) error('INVALID_BALANCE', `${accountPath}/balance`, account.balance)
+    if (!numeric(account.total_earned)) error('INVALID_TOTAL_EARNED', `${accountPath}/totalEarned`, account.total_earned)
+    add('accounts', accountPath, s.bank, {
+      ...account, student_id: sid,
+      balance: numeric(account.balance) ? account.balance : null,
+      total_earned: numeric(account.total_earned) ? account.total_earned : null,
+    })
+    const adjustmentEnabled = openingAdjustmentEnabled(decisions)
+    reportAccountDrift(accountPath, account, adjustmentEnabled, error, notice)
+    if (adjustmentEnabled) {
+      const adjustment = openingAdjustmentFor(accountPath, account)
+      if (adjustment) {
+        openingAdjustments.push(adjustment)
+        const fields = openingAdjustmentFields(adjustment, decisions.cutoverDate, sid)
+        add('transactions', accountPath, openingAdjustmentRaw(account), fields)
+      }
     }
     arr(s.inventory, `${p}/inventory`).forEach((item, j) => {
       check(item, `${p}/inventory/${j}`, 'itemId name icon purchasedAt')
@@ -232,5 +229,5 @@ export function convert(input, { decisions = {} } = {}) {
   for (const key of ['base', 'tier1', 'tier2']) if (settings.currency?.[key] !== undefined) check(settings.currency[key], `/data/settings/currency/${key}`, 'name icon rate')
   arr(settings.ruleCategories, '/data/settings/ruleCategories').forEach((v, i) => check(v, `/data/settings/ruleCategories/${i}`, 'id name icon'))
   rows.migration_batches[0].validation_errors = structuredClone(errors)
-  return { rows, errors, report: { converter_version: CONVERTER_VERSION, source_hash: digest(source), notices, adjustments, row_counts: Object.fromEntries(Object.entries(rows).map(([t, list]) => [t, list.length])), error_count: errors.length, ready_for_import: errors.length === 0, rules_triggered: 0 } }
+  return { rows, errors, report: { converter_version: CONVERTER_VERSION, source_hash: digest(source), notices, opening_adjustments: openingAdjustments, row_counts: Object.fromEntries(Object.entries(rows).map(([t, list]) => [t, list.length])), error_count: errors.length, ready_for_import: errors.length === 0, rules_triggered: 0 } }
 }

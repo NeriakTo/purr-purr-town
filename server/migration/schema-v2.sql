@@ -83,7 +83,8 @@ CREATE TABLE migration_v2.accounts (
   total_earned numeric,
   total_earned_source text NOT NULL,
   ledger_sum numeric,
-  earned_recomputed numeric,
+  legacy_earned_recomputed numeric,
+  earned_delta_sum numeric,
   UNIQUE (batch_id, source_path)
 );
 
@@ -114,7 +115,7 @@ CREATE TABLE migration_v2.transactions (
     (origin = 'op' AND op_id IS NOT NULL AND batch_id IS NULL)
     OR (origin = 'migration' AND op_id IS NULL AND batch_id IS NOT NULL)
   ),
-  legacy_semantics boolean NOT NULL,
+  legacy_semantics boolean NOT NULL CHECK (legacy_semantics = true),
   UNIQUE (batch_id, source_path)
 );
 

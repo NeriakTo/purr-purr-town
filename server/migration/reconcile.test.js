@@ -75,7 +75,8 @@ describe('舊版規則的獨立對照與失敗隔離', () => {
     source.data.students[0].bank.balance = 999
     source.data.students[0].bank.transactions[0].balance = 101
     const out = convert(source, { decisions: { cutoverDate: '2026-11-15', openingAdjustment: true } })
-    expect(out.report.notices.map(e => e.code)).toEqual(expect.arrayContaining(['BALANCE_DRIFT', 'TRANSACTION_BALANCE_DRIFT']))
+    expect(out.report.notices.map(e => e.code)).toEqual(expect.arrayContaining(['TRANSACTION_BALANCE_DRIFT']))
+    expect(out.report.opening_adjustments).toContainEqual(expect.objectContaining({ path: '/data/students/0/bank', amount: 944 }))
     expect(out.rows.accounts[0].balance).toBe(999)
     expect(out.rows.transactions).toHaveLength(7)
     expect(reconcile(source, out).ready_for_import).toBe(false)

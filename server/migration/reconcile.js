@@ -1,7 +1,9 @@
 import { validateSource, orderedErrors } from "./source-validation.js"
 import { correctionCycleMembers, correctionTargets } from "./corrections.js"
 import { isDeepStrictEqual } from 'node:util'
-import { legacyTransactionFacts, transactionFields } from './ledger.js'
+import {
+  accountFields, legacyTransactionFacts, openingAdjustmentFields, openingAdjustmentRaw, sumNumeric, transactionFields,
+} from './ledger.js'
 import { CONVERTER_VERSION, digest, pointer, migrationBatchId, TABLES } from './convert.js'
 import { decisionInputError, resolveCurrentSemester, selectedSemester } from './decisions.js'
 
@@ -27,7 +29,7 @@ function periodSkipReasons(errors, studentPath) {
 
 function projectTransactions(transactions) {
   const byId = new Map(transactions.map(transaction => [transaction.id, transaction]))
-  return transactions.map(transaction => {
+  return transactions.filter(transaction => transaction.kind !== 'migration_opening_adjustment').map(transaction => {
     const target = byId.get(transaction.corrected_transaction_id)
     // 舊 helper 對 0／空字串不進入商店更正判斷；依已解析的目標列保留此語意。
     const correction = target?.legacy_id ? transaction.corrected_transaction_id : null
@@ -46,7 +48,6 @@ function projectTransactions(transactions) {
 // 獨立照 helpers.js:435 的舊統計計算，不能用新版帳本函式重算舊來源。
 export function legacyEarned(transactions, { startDate, endDate } = {}) {
   const dated = list(transactions).filter(t => {
-    if (t.type === 'migration_opening_adjustment') return false
     if (!startDate && !endDate) return true
     const ms = Date.parse(t.date)
     if (!Number.isFinite(ms)) return false
@@ -60,7 +61,7 @@ export function legacyEarned(transactions, { startDate, endDate } = {}) {
 
 export function reconcile(source, converted, { decisions: expectedDecisions } = {}) {
   source = source ?? null
-  const periodSkipped = [], notices = [], adjustments = []
+  const periodSkipped = [], notices = [], openingAdjustments = []
   const differences = [], students = [], rows = converted?.rows || {}, expected = new Map()
   const diff = (path, expected, actual) => { if (!isDeepStrictEqual(expected, actual)) differences.push({ path, expected, actual }) }
   const storedDecisions = list(rows.migration_batches)[0]?.decisions
@@ -85,9 +86,9 @@ export function reconcile(source, converted, { decisions: expectedDecisions } = 
   }
   const data = source?.data || {}, settings = data.settings || {}, classKey = source?.classId ?? data.classId ?? null
   const classId = digest(['class', classKey]), batchId = migrationBatchId(classKey, source, decisions)
-  const sourceErrors = validateSource(source, legacyEarned, { notices, adjustments, decisions })
+  const sourceErrors = validateSource(source, legacyEarned, { notices, openingAdjustments, decisions })
   diff("report/notices", orderedErrors(notices), orderedErrors(converted?.report?.notices))
-  diff("report/adjustments", adjustments, converted?.report?.adjustments)
+  diff("report/opening_adjustments", openingAdjustments, converted?.report?.opening_adjustments)
   diff("errors", orderedErrors(sourceErrors), orderedErrors(converted?.errors))
   expectRow('migration_batches', '', null, {
     id: batchId, source_hash: digest(source), import_rules_enabled: false,
@@ -106,16 +107,21 @@ export function reconcile(source, converted, { decisions: expectedDecisions } = 
     const sr = expectRow('students', p, s, { legacy_id: s.id || s.uuid || null, name: s.name ?? null, seat_number: s.number ?? null, group_key: s.group == null ? null : String(s.group), avatar: s.avatar ?? null, enrollment_status: typeof s.inactive === 'boolean' || s.inactive === undefined ? (s.inactive ? 'home_study' : 'enrolled') : 'unknown' })
     const bank = s.bank || {}, txs = recordList(bank.transactions), valid = txs.every(t => numeric(t.amount))
     const earned = valid ? legacyEarned(txs) : null
-    const ledger = valid ? txs.reduce((n, t) => n + t.amount, 0) : null
-    const balance = bank.balance === undefined ? 0 : bank.balance
-    const total = bank.totalEarned === undefined ? earned : bank.totalEarned
-    expectRow('accounts', `${p}/bank`, s.bank, { student_id: sr?.id, balance: numeric(balance) ? balance : null, total_earned: numeric(total) ? total : null, ledger_sum: ledger, earned_recomputed: earned, total_earned_source: bank.totalEarned === undefined ? 'legacy_recomputed' : 'legacy_stored' })
-    const actualTxs = list(rows.transactions).filter(t => t.student_id === sr?.id)
-    const adjustment = adjustments.find(item => item.path === `${p}/bank/migration_opening_adjustment`)
-    diff(`${p}/transaction_count`, txs.length + (adjustment ? 1 : 0), actualTxs.length)
     const correctionEdges = correctionTargets(txs)
     const cycleMembers = correctionCycleMembers(correctionEdges)
     const facts = legacyTransactionFacts(txs, correctionEdges, cycleMembers)
+    const account = accountFields(bank, txs, facts, earned)
+    const balance = account.balance
+    const total = account.total_earned
+    const accountPath = `${p}/bank`
+    expectRow('accounts', accountPath, s.bank, {
+      ...account, student_id: sr?.id,
+      balance: numeric(balance) ? balance : null,
+      total_earned: numeric(total) ? total : null,
+    })
+    const actualTxs = list(rows.transactions).filter(t => t.student_id === sr?.id)
+    const adjustment = openingAdjustments.find(item => item.path === accountPath)
+    diff(`${p}/transaction_count`, txs.length + (adjustment ? 1 : 0), actualTxs.length)
     function transactionIdAt(index) {
       return one('transactions', `${p}/bank/transactions/${index}`)?.id ?? null
     }
@@ -124,19 +130,11 @@ export function reconcile(source, converted, { decisions: expectedDecisions } = 
       const targetRow = targetIndex === null ? null : one("transactions", `${p}/bank/transactions/${targetIndex}`)
       expectRow('transactions', `${p}/bank/transactions/${j}`, t, { student_id: sr?.id, legacy_id: t.id ?? null, amount: numeric(t.amount) ? t.amount : null, reason: t.reason ?? null, occurred_at: t.date ?? null, balance_after: t.balance ?? null, voided: Boolean(t.voided), transaction_type: t.type ?? 'legacy', corrected_transaction_id: t.correctedTxId === undefined || cycleMembers.has(j) ? null : targetRow?.id ?? null, legacy_semantics: true, ...transactionFields(facts[j], transactionIdAt, decisions) })
     })
-    expectOpeningAdjustment()
-    function expectOpeningAdjustment() {
-      if (!adjustment) return
-      expectRow('transactions', adjustment.path, null, {
-        student_id: sr?.id, amount: adjustment.amount, reason: adjustment.reason,
-        occurred_at: adjustment.date, balance_after: balance, voided: false,
-        transaction_type: 'migration_opening_adjustment', corrected_transaction_id: null,
-        semester: selectedSemester(adjustment.date, decisions), legacy_semantics: false,
-        kind: 'migration_opening_adjustment', root_transaction_id: null, chain_broken: false,
-        earned_delta: 0, effective_at: null, origin: 'migration', op_id: null,
-      })
+    if (adjustment) {
+      const fields = openingAdjustmentFields(adjustment, decisions.cutoverDate, sr?.id)
+      expectRow('transactions', accountPath, openingAdjustmentRaw(account), fields)
     }
-    diff(`${p}/converted_ledger_sum`, adjustment ? balance : ledger, actualTxs.every(t => numeric(t.amount)) ? actualTxs.reduce((n, t) => n + t.amount, 0) : null)
+    diff(`${p}/converted_ledger_sum`, adjustment ? balance : account.ledger_sum, sumNumeric(actualTxs.map(t => t.amount)))
     recordList(s.inventory).forEach((item, j) => expectRow('inventory_items', `${p}/inventory/${j}`, item, { student_id: sr?.id, product_id: lookup('products', item.itemId), legacy_index: j, purchase_transaction_id: null, consumed: false }))
     const inv = list(rows.inventory_items).filter(r => r.student_id === sr?.id)
     diff(`${p}/inventory_count`, recordList(s.inventory).length, inv.length)
@@ -198,5 +196,5 @@ export function reconcile(source, converted, { decisions: expectedDecisions } = 
     diff(`legacy_ids/${r.id}/count`, 1, mappings.length)
     if (mappings.length === 1) diff(`legacy_ids/${r.id}`, { id: digest(['map', r.id]), batch_id: batchId, class_id: classId, legacy_id: r.legacy_id, source_path: r.source_path, raw: null, table_name: table, target_id: r.id }, mappings[0])
   }
-  return { matches: differences.length === 0, differences, students, notices, adjustments, period_skipped: periodSkipped, source_errors: sourceErrors, ready_for_import: differences.length === 0 && sourceErrors.length === 0 }
+  return { matches: differences.length === 0, differences, students, notices, opening_adjustments: openingAdjustments, period_skipped: periodSkipped, source_errors: sourceErrors, ready_for_import: differences.length === 0 && sourceErrors.length === 0 }
 }

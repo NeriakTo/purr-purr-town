@@ -26,7 +26,7 @@ describe('1A 假資料轉換契約', () => {
   }
   it('餘額包含 voided 原交易；累計保留舊快取與獨立重算差異', () => {
     const out = convert(classA)
-    expect(out.rows.accounts[0]).toMatchObject({ balance: 55, total_earned: 85, ledger_sum: 55, earned_recomputed: 5 })
+    expect(out.rows.accounts[0]).toMatchObject({ balance: 55, total_earned: 85, ledger_sum: 55, legacy_earned_recomputed: 5 })
     expect(out.rows.transactions[2].corrected_transaction_id).toBe(out.rows.transactions[1].id)
     expect(out.rows.transactions[1].corrected_transaction_id).toBe(out.rows.transactions[0].id)
     expect(out.errors.some(e => e.code === 'TOTAL_EARNED_DRIFT')).toBe(true)
@@ -52,7 +52,7 @@ describe('1A 假資料轉換契約', () => {
     expect(convert(classB).rows.classes[0].current_semester).toBe('114-1')
     expect(a.rows.comments.map(r => [r.semester, r.locked_comment, r.locked_motto])).toEqual([['114-2', false, true], ['115-1', true, true]])
   })
-  it.each(['balance', 'total_earned', 'ledger_sum', 'earned_recomputed'])('對帳能抓出 %s 被改壞', field => {
+  it.each(['balance', 'total_earned', 'ledger_sum', 'legacy_earned_recomputed'])('對帳能抓出 %s 被改壞', field => {
     const out = convert(classA)
     out.rows.accounts[0][field] += 1
     expect(reconcile(classA, out).differences.length).toBeGreaterThan(0)

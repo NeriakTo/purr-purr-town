@@ -75,3 +75,68 @@ export function validateTransactionDate(date, decisions, path, error) {
   if (taipeiTimestamp(date) === null) error('INVALID_TRANSACTION_DATE', path, date)
   if (decisions.semesterRule !== 'month') error('UNKNOWN_TRANSACTION_SEMESTER', path)
 }
+
+export function sumNumeric(values) {
+  if (!values.every(Number.isFinite)) return null
+  const sum = values.reduce((total, value) => total + value, 0)
+  return Number.isFinite(sum) ? sum : null
+}
+
+export function accountFields(bank, transactions, facts, legacyEarned) {
+  const cached = bank.totalEarned !== undefined
+  return {
+    balance: bank.balance === undefined ? 0 : bank.balance,
+    total_earned: cached ? bank.totalEarned : legacyEarned,
+    total_earned_source: cached ? 'legacy_stored' : 'legacy_recomputed',
+    ledger_sum: sumNumeric(transactions.map(transaction => transaction.amount)),
+    legacy_earned_recomputed: legacyEarned,
+    earned_delta_sum: sumNumeric(facts.map(fact => fact.earnedDelta)),
+  }
+}
+
+export function openingAdjustmentFor(path, account) {
+  const raw = openingAdjustmentRaw(account)
+  if (!Object.values(raw).every(Number.isFinite)) return null
+  const amount = account.balance - account.ledger_sum
+  const earnedDelta = account.total_earned - account.earned_delta_sum
+  if (!Number.isFinite(amount) || !Number.isFinite(earnedDelta)) return null
+  if (amount === 0 && earnedDelta === 0) return null
+  return { path, amount, earned_delta: earnedDelta, reason: '轉換期初調整' }
+}
+
+export function openingAdjustmentFields(adjustment, cutoverDate, studentId) {
+  return {
+    student_id: studentId,
+    kind: 'migration_opening_adjustment',
+    amount: adjustment.amount,
+    earned_delta: adjustment.earned_delta,
+    reason: adjustment.reason,
+    occurred_at: `${cutoverDate}T00:00:00+08:00`,
+    transaction_type: 'opening_adjustment',
+    effective_at: null,
+    semester: null,
+    root_transaction_id: null,
+    corrected_transaction_id: null,
+    balance_after: null,
+    voided: false,
+    chain_broken: false,
+    legacy_semantics: true,
+    origin: 'migration',
+    op_id: null,
+  }
+}
+
+export function openingAdjustmentRaw({ balance, ledger_sum, total_earned, earned_delta_sum }) {
+  return { balance, ledger_sum, total_earned, earned_delta_sum }
+}
+
+export function reportAccountDrift(path, account, adjustmentEnabled, error, notice) {
+  const { balance, ledger_sum, total_earned, legacy_earned_recomputed } = account
+  if (!adjustmentEnabled && balance !== ledger_sum) {
+    error('BALANCE_DRIFT', path, { stored: balance, computed: ledger_sum })
+  }
+  if (total_earned !== legacy_earned_recomputed) {
+    const report = adjustmentEnabled ? notice : error
+    report('TOTAL_EARNED_DRIFT', path, { stored: total_earned, computed: legacy_earned_recomputed })
+  }
+}

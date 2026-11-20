@@ -124,3 +124,51 @@ describe('7.4 B–D 舊交易欄位', () => {
     expect(reconcile(source, output).ready_for_import).toBe(false)
   })
 })
+
+describe('7.4 E–F 期初調整與帳戶', () => {
+  it('餘額已平時仍補新累計差額，調整列遵循期初契約', () => {
+    const source = sourceWith([
+      { id: 'root', amount: 100, date: '2026-07-20', voided: true },
+      { id: 'fix', type: 'correction', correctedTxId: 'root', amount: -20, date: '2026-08-20' },
+      { id: 'buy', amount: -30, reason: '購買：假卡', date: '2026-09-10' },
+    ], { balance: 50, totalEarned: 85 })
+    const converted = convert(source, { decisions })
+    expect(converted.rows.accounts[0]).toMatchObject({
+      balance: 50, total_earned: 85, total_earned_source: 'legacy_stored', ledger_sum: 50,
+      legacy_earned_recomputed: -20, earned_delta_sum: 80,
+    })
+    expect(converted.rows.accounts[0]).not.toHaveProperty('earned_recomputed')
+    const [adjustment] = converted.rows.transactions.filter(row => row.kind === 'migration_opening_adjustment')
+    expect(adjustment).toMatchObject({
+      source_path: '/data/students/0/bank', kind: 'migration_opening_adjustment',
+      amount: 0, earned_delta: 5, occurred_at: '2026-11-15T00:00:00+08:00',
+      reason: '轉換期初調整', transaction_type: 'opening_adjustment',
+      effective_at: null, semester: null, root_transaction_id: null, corrected_transaction_id: null,
+      balance_after: null, legacy_id: null, voided: false, chain_broken: false, legacy_semantics: true,
+      origin: 'migration', op_id: null,
+      raw: { balance: 50, ledger_sum: 50, total_earned: 85, earned_delta_sum: 80 },
+    })
+    expect(converted.report.opening_adjustments).toEqual([
+      { path: '/data/students/0/bank', amount: 0, earned_delta: 5, reason: '轉換期初調整' },
+    ])
+    expect(converted.report.notices).toContainEqual({
+      code: 'TOTAL_EARNED_DRIFT', path: '/data/students/0/bank', value: { stored: 85, computed: -20 },
+    })
+    expect(reconcile(source, converted).differences).toEqual([])
+    expect(reconcile(source, converted).ready_for_import).toBe(true)
+  })
+
+  it('兩個差額為零時不補交易，切換日單獨提供時也不補交易', () => {
+    const source = sourceWith([{ id: 'tx', amount: 5, date: '2026-11-15', voided: true }], { balance: 5, totalEarned: 5 })
+    const unchanged = convert(source, { decisions })
+    expect(unchanged.rows.transactions).toHaveLength(1)
+    expect(unchanged.report.opening_adjustments).toEqual([])
+    expect(unchanged.report.notices.map(error => error.code)).toEqual(['TOTAL_EARNED_DRIFT'])
+
+    source.data.students[0].bank.balance = 30
+    const selected = { cutoverDate: decisions.cutoverDate, semesterRule: 'month' }
+    const withoutAdjustment = convert(source, { decisions: selected })
+    expect(withoutAdjustment.rows.transactions).toHaveLength(1)
+    expect(withoutAdjustment.errors.map(error => error.code)).toEqual(['BALANCE_DRIFT', 'TOTAL_EARNED_DRIFT'])
+  })
+})

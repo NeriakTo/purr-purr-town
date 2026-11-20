@@ -34,7 +34,7 @@ describe('第二輪正式轉換', () => {
     const converted = convert(source, options)
     expect(converted.rows.classes[0].current_semester).toBe('115-2')
     expect(converted.rows.migration_batches[0]).toMatchObject({ decisions: options.decisions, cutover_date: options.decisions.cutoverDate })
-    expect(converted.rows.transactions[0]).toMatchObject({ occurred_at: options.decisions.cutoverDate, semester: '115-2' })
+    expect(converted.rows.transactions[0]).toMatchObject({ occurred_at: '2027-02-01T00:00:00+08:00', semester: null })
     expect(reconcile(source, converted, options).differences).toEqual([])
     expect(reconcile(source, converted, options).ready_for_import).toBe(true)
     expect(convert(source, options)).toEqual(converted)
@@ -50,7 +50,7 @@ describe('第二輪正式轉換', () => {
     const converted = convert(source, options)
     expect(converted.rows.classes[0].current_semester).toBe('114-1')
     expect(converted.rows.migration_batches[0].decisions).toEqual(options.decisions)
-    expect(converted.rows.transactions[0].occurred_at).toBe(options.decisions.cutoverDate)
+    expect(converted.rows.transactions[0].occurred_at).toBe('2027-02-01T00:00:00+08:00')
     expect(reconcile(source, converted, options).differences).toEqual([])
   })
   it('B7 非法切換日明列錯誤，不退回匯出日', () => {
@@ -97,11 +97,14 @@ describe('第二輪正式轉換', () => {
     const options = { decisions: { cutoverDate: '2026-11-15', openingAdjustment: true } }
     const converted = convert(source, options)
     expect(converted.errors.map(e => e.code)).not.toContain('BALANCE_DRIFT')
-    expect(converted.report.notices.map(e => e.code)).toEqual(expect.arrayContaining(['BALANCE_DRIFT', 'TOTAL_EARNED_DRIFT', 'TRANSACTION_BALANCE_DRIFT']))
-    expect(converted.rows.accounts[0]).toMatchObject({ balance: 20, total_earned: 50, ledger_sum: 5, earned_recomputed: 5 })
-    const adjustment = converted.rows.transactions.find(t => t.transaction_type === 'migration_opening_adjustment')
-    expect(adjustment).toMatchObject({ amount: 15, reason: '轉換期初調整', occurred_at: '2026-11-15', earned_delta: 0, legacy_semantics: false })
-    expect(legacyEarned(converted.rows.transactions.map(t => ({ id: t.id, type: t.transaction_type, amount: t.amount })))).toBe(calcEarnedFromTransactions(source.data.students[0].bank.transactions))
+    expect(converted.report.notices.map(e => e.code)).toEqual(expect.arrayContaining(['TOTAL_EARNED_DRIFT', 'TRANSACTION_BALANCE_DRIFT']))
+    expect(converted.report.opening_adjustments).toContainEqual({
+      path: '/data/students/0/bank', amount: 15, earned_delta: 45, reason: '轉換期初調整',
+    })
+    expect(converted.rows.accounts[0]).toMatchObject({ balance: 20, total_earned: 50, ledger_sum: 5, legacy_earned_recomputed: 5 })
+    const adjustment = converted.rows.transactions.find(t => t.kind === 'migration_opening_adjustment')
+    expect(adjustment).toMatchObject({ amount: 15, reason: '轉換期初調整', occurred_at: '2026-11-15T00:00:00+08:00', earned_delta: 45, legacy_semantics: true })
+    expect(legacyEarned(converted.rows.transactions.filter(t => t.kind !== 'migration_opening_adjustment').map(t => ({ id: t.id, type: t.transaction_type, amount: t.amount })))).toBe(calcEarnedFromTransactions(source.data.students[0].bank.transactions))
     expect(reconcile(source, converted).differences).toEqual([])
     expect(convert(source, options)).toEqual(converted)
   })
@@ -109,7 +112,7 @@ describe('第二輪正式轉換', () => {
     const source = sourceWith([student()])
     source.data.students[0].bank.balance = -7
     const converted = convert(source, { decisions: { cutoverDate: '2026-11-15', openingAdjustment: true } })
-    const adjustment = converted.rows.transactions.find(t => t.transaction_type === 'migration_opening_adjustment')
+    const adjustment = converted.rows.transactions.find(t => t.kind === 'migration_opening_adjustment')
     expect(adjustment?.amount).toBe(-7)
     if (mutation === 'missing') converted.rows.transactions.pop()
     if (mutation === 'extra') converted.rows.transactions.push(structuredClone(adjustment))
