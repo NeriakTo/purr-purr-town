@@ -3,6 +3,7 @@ CREATE TABLE ppt.products (
   product_id text NOT NULL,
   name text NOT NULL,
   icon text,
+  description text,
   price numeric NOT NULL CHECK (price >= 0 AND price < 'Infinity'::numeric),
   price_unit text NOT NULL CHECK (price_unit IN ('point', 'fish', 'cookie')),
   stock integer CHECK (stock >= 0),
