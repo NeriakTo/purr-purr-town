@@ -97,3 +97,39 @@ BEGIN
   RETURN (entry, mark_effect_reversed(p_effect, p_op_id, chain))::effect_write;
 END;
 $$;
+
+CREATE FUNCTION ppt.restore_event_effect(
+  p_class_id text, p_student_id text, p_snapshot jsonb, p_op_id text, p_time timestamptz
+)
+RETURNS ppt.effect_write
+LANGUAGE plpgsql
+SET search_path = pg_catalog, ppt, pg_temp
+AS $$
+DECLARE
+  original_id text := p_snapshot->>'root_transaction_id';
+  amount numeric := (p_snapshot->>'effective_amount')::numeric;
+  rule_key text := p_snapshot->>'rule_id';
+  rule_version integer := (p_snapshot->>'rule_rev')::integer;
+  root_reason text;
+  entry ledger_entry;
+  effect effects;
+BEGIN
+  SELECT reason INTO STRICT root_reason FROM transactions
+  WHERE class_id = p_class_id AND student_id = p_student_id AND transaction_id = original_id;
+
+  entry := append_account_transaction(
+    p_class_id, p_student_id, p_op_id, 'rule_auto', amount, amount,
+    p_time, (p_snapshot->>'effective_at')::timestamptz, root_reason,
+    p_rule_id => rule_key, p_rule_rev => rule_version, p_restored_from_transaction_id => original_id
+  );
+  INSERT INTO effects (
+    class_id, effect_id, student_id, event, subject_kind, subject_key, rule_id, rule_rev,
+    root_transaction_id, status, origin, lineage_id, created_op_id
+  ) VALUES (
+    p_class_id, gen_random_uuid()::text, p_student_id, (p_snapshot->>'event')::rule_event,
+    p_snapshot->>'subject_kind', p_snapshot->>'subject_key', rule_key, rule_version,
+    entry.transaction_id, 'active', 'op', p_snapshot->>'lineage_id', p_op_id
+  ) RETURNING * INTO effect;
+  RETURN (entry, effect_identity(effect) || jsonb_build_object('amount', amount))::effect_write;
+END;
+$$;

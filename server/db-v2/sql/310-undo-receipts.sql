@@ -37,3 +37,16 @@ AS $$
     )), p_outcome.changes, p_outcome.warnings
   )::operation_outcome;
 $$;
+
+CREATE FUNCTION ppt.reject_undo_conflict(p_actor jsonb, p_reason text, p_current jsonb)
+RETURNS void
+LANGUAGE plpgsql
+SET search_path = pg_catalog, ppt, pg_temp
+AS $$
+BEGIN
+  IF p_actor->>'kind' = 'agent' THEN
+    p_current := p_current #- '{actor,id}';
+  END IF;
+  PERFORM reject_operation('UNDO_CONFLICT', p_current || jsonb_build_object('reason', p_reason));
+END;
+$$;

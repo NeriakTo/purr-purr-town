@@ -38,7 +38,7 @@ BEGIN
   END IF;
 
   CASE p_target.type
-    WHEN 'points.adjust', 'points.apply_rule' THEN NULL;
+    WHEN 'points.adjust', 'points.apply_rule', 'submission.set_status' THEN NULL;
     -- PPT-PENDING: undo_correction
     -- PPT-PENDING: undo_payroll
     ELSE PERFORM reject_operation('NOT_UNDOABLE');
@@ -69,6 +69,7 @@ BEGIN
 
   CASE target.type
     WHEN 'points.adjust', 'points.apply_rule' THEN NULL;
+    WHEN 'submission.set_status' THEN PERFORM check_undo_submission(target, p_actor);
     ELSE RAISE EXCEPTION '可撤銷的操作缺少預檢函式';
   END CASE;
 END;
@@ -89,6 +90,7 @@ BEGIN
   ELSE
     CASE target.type
       WHEN 'points.adjust', 'points.apply_rule' THEN outcome := undo_points_operation(target, op_key, p_time);
+      WHEN 'submission.set_status' THEN outcome := undo_submission(target, op_key, p_time);
       ELSE RAISE EXCEPTION '可撤銷的操作缺少寫入函式';
     END CASE;
   END IF;
