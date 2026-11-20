@@ -1,3 +1,9 @@
+CREATE TYPE ppt.operation_code AS ENUM (
+  'OK', 'OP_CANCELLED', 'BAD_ENVELOPE', 'CLASS_FORBIDDEN', 'INVALID_OP_ID',
+  'OP_ID_REUSED', 'UNKNOWN_OP_TYPE', 'FORBIDDEN_ROLE', 'CLASS_ARCHIVED',
+  'INVALID_PAYLOAD', 'NOT_FOUND', 'ENTITY_INACTIVE', 'STALE_STATE'
+);
+
 CREATE TABLE ppt.operations (
   op_id text PRIMARY KEY,
   class_id text NOT NULL REFERENCES ppt.classes (class_id),
@@ -8,7 +14,7 @@ CREATE TABLE ppt.operations (
   expect jsonb,
   content_hash bytea,
   status text NOT NULL CHECK (status IN ('committed', 'held', 'rejected', 'cancelled')),
-  code text,
+  code ppt.operation_code,
   class_seq bigint CHECK (class_seq > 0),
   recorded_at timestamptz NOT NULL,
   committed_at timestamptz,
