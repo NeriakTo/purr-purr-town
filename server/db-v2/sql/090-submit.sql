@@ -39,6 +39,10 @@ BEGIN
     WHEN 'submission.set_status' THEN
       PERFORM validate_submission_status(p_op->'payload');
       PERFORM require_submission_targets(p_op, p_actor);
+    WHEN 'rule.save' THEN
+      PERFORM validate_rule_save(p_op->'payload');
+    WHEN 'rule.retire' THEN
+      PERFORM validate_rule_retire(p_op->'payload');
     ELSE
       RAISE EXCEPTION '已知操作缺少輸入與目標檢查';
   END CASE;
@@ -55,6 +59,8 @@ BEGIN
     WHEN 'points.adjust' THEN RETURN apply_points_adjust(p_op, p_time);
     WHEN 'shop.purchase' THEN RETURN apply_shop_purchase(p_op, p_time);
     WHEN 'submission.set_status' THEN RETURN apply_submission_status(p_op, p_time);
+    WHEN 'rule.save' THEN RETURN apply_rule_operation(p_op, p_time);
+    WHEN 'rule.retire' THEN RETURN apply_rule_operation(p_op, p_time);
     ELSE RAISE EXCEPTION '已知操作缺少寫入函式';
   END CASE;
 END;

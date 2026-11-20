@@ -7,7 +7,9 @@ AS $$
   FROM (VALUES
     ('"points.adjust"'::jsonb, ARRAY['teacher'], 'forbidden'),
     ('"shop.purchase"'::jsonb, ARRAY['teacher'], 'forbidden'),
-    ('"submission.set_status"'::jsonb, ARRAY['teacher', 'agent'], 'required')
+    ('"submission.set_status"'::jsonb, ARRAY['teacher', 'agent'], 'required'),
+    ('"rule.save"'::jsonb, ARRAY['teacher'], 'required'),
+    ('"rule.retire"'::jsonb, ARRAY['teacher'], 'required')
   ) AS definition(type, roles, expect_mode)
   WHERE definition.type = p_type;
 $$;
