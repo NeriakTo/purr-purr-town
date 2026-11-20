@@ -85,7 +85,9 @@ BEGIN
 END;
 $$;
 
-CREATE FUNCTION ppt.check_correction_round_return(p_op jsonb, p_actor jsonb)
+CREATE FUNCTION ppt.check_open_correction_round_change(
+  p_op jsonb, p_actor jsonb, p_keys text[], p_statuses text[], p_require_active boolean
+)
 RETURNS void
 LANGUAGE plpgsql
 SET search_path = pg_catalog, ppt, pg_temp
@@ -94,14 +96,26 @@ DECLARE
   payload jsonb := p_op->'payload';
   target corrections;
 BEGIN
-  IF NOT has_only_keys(payload, ARRAY['correction_id']) OR NOT has_nonempty_string(payload, 'correction_id') THEN
+  IF NOT has_only_keys(payload, ARRAY['correction_id'] || p_keys)
+    OR NOT has_nonempty_string(payload, 'correction_id') THEN
     PERFORM reject_operation('INVALID_PAYLOAD');
   END IF;
 
   target := require_correction_round(p_op, p_actor);
-  IF target.status <> 'required' THEN
+  IF p_require_active THEN
+    PERFORM require_submission_targets(target.class_id, target.task_id, target.student_id, p_actor);
+  END IF;
+  IF NOT (target.status = ANY(p_statuses)) THEN
     PERFORM reject_operation('INVALID_TRANSITION');
   END IF;
   PERFORM require_correction_round_version(p_op, p_actor, target);
 END;
+$$;
+
+CREATE FUNCTION ppt.check_correction_round_return(p_op jsonb, p_actor jsonb)
+RETURNS void
+LANGUAGE sql
+SET search_path = pg_catalog, ppt, pg_temp
+AS $$
+  SELECT check_open_correction_round_change(p_op, p_actor, ARRAY[]::text[], ARRAY['required'], false);
 $$;

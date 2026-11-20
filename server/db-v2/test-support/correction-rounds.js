@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { agentSubmit, authorizeAgent } from './agent.js'
-import { addClass } from './operations.js'
+import { addClass, adjustment } from './operations.js'
 import { commitOperation, operation } from './schoolwork.js'
 import { assignTask } from './submission-flow.js'
 
@@ -58,4 +58,24 @@ export async function submitAgentCorrection(client, op) {
 
 export async function authorizeCorrectionAgent(client, { classId }) {
   await authorizeAgent(client, classId)
+}
+
+export const confirmedEvent = 'correction.confirmed'
+export const overdueEvent = 'correction.overdue'
+
+export async function addOverdueEffect(client, target, rule, amount = rule.amount) {
+  const { classId, studentId, correctionId } = target
+  const source = await commitOperation(client, adjustment(target, 1))
+  const { rows: [{ id }] } = await client.query(`
+    SELECT (ppt.append_account_transaction(
+      $1, $2, $3, 'rule_auto', $4, $4, $5, $5, '測試逾期扣分', NULL, $6, 1
+    )).transaction_id AS id
+  `, [classId, studentId, source.op_id, amount, source.committed_at, rule.rule_id])
+  const effectId = randomUUID()
+  await client.query(`
+    INSERT INTO ppt.effects (class_id, student_id, effect_id, lineage_id, event, subject_kind, subject_key,
+      rule_id, rule_rev, root_transaction_id, status, origin, created_op_id)
+    VALUES ($1, $2, $3, $3, $4, 'correction', $5, $6, 1, $7, 'active', 'op', $8)
+  `, [classId, studentId, effectId, overdueEvent, correctionId, rule.rule_id, id, source.op_id])
+  return { effectId, rootId: id, effectiveAt: source.committed_at }
 }
