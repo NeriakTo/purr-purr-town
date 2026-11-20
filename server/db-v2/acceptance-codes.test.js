@@ -69,6 +69,20 @@ const cases = [
     return purchase(target)
   }],
   ['PRICE_CHANGED', (_client, target) => purchase(target, 10)],
+  ['INVALID_TRANSITION', async (client, { classId }) => {
+    const taskId = randomUUID()
+    const created = await submit(client, {
+      op_id: randomUUID(), class_id: classId, type: 'task.create',
+      payload: {
+        task_id: taskId, title: '測試作業', task_type: '作業', published_on: '2026-11-21', due_on: '2026-11-22',
+      },
+    })
+    expect(created.code).toBe('OK')
+    return {
+      op_id: randomUUID(), class_id: classId, type: 'task.restore',
+      payload: { task_id: taskId }, expect: { rev: 1 },
+    }
+  }],
 ]
 
 describeDatabase('錯誤碼逐碼驗收', () => {
