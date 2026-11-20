@@ -51,12 +51,18 @@ BEGIN
 END;
 $$;
 
+CREATE FUNCTION ppt.undo_target_transaction_chain(p_target ppt.operations)
+RETURNS ppt.transaction_chain
+LANGUAGE sql
+SET search_path = pg_catalog, ppt, pg_temp
+AS $$
+  SELECT load_transaction_chain(p_target.class_id, p_target.receipt->'result'->'transactions'->>0);
+$$;
+
 CREATE FUNCTION ppt.undo_points_operation(p_target ppt.operations, p_op_id text, p_time timestamptz)
 RETURNS ppt.operation_outcome
 LANGUAGE sql
 SET search_path = pg_catalog, ppt, pg_temp
 AS $$
-  SELECT undo_root_transaction(
-    load_transaction_chain(p_target.class_id, p_target.receipt->'result'->'transactions'->>0), p_op_id, p_time
-  );
+  SELECT undo_root_transaction(undo_target_transaction_chain(p_target), p_op_id, p_time);
 $$;

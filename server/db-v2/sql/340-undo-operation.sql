@@ -38,7 +38,8 @@ BEGIN
   END IF;
 
   CASE p_target.type
-    WHEN 'points.adjust', 'points.apply_rule', 'submission.set_status' THEN NULL;
+    WHEN 'points.adjust', 'points.apply_rule', 'submission.set_status',
+        'tx.correct', 'shop.purchase', 'inventory.use' THEN NULL;
     WHEN 'confirmation.confirm' THEN
       IF NOT EXISTS (
         SELECT 1 FROM confirmations
@@ -78,6 +79,9 @@ BEGIN
   CASE target.type
     WHEN 'points.adjust', 'points.apply_rule' THEN NULL;
     WHEN 'submission.set_status', 'confirmation.confirm' THEN PERFORM check_undo_submission(target, p_actor);
+    WHEN 'tx.correct' THEN PERFORM check_undo_correction(target, p_actor);
+    WHEN 'shop.purchase' THEN PERFORM check_undo_item(target, p_actor, 'held');
+    WHEN 'inventory.use' THEN PERFORM check_undo_item(target, p_actor, 'used');
     ELSE RAISE EXCEPTION '可撤銷的操作缺少預檢函式';
   END CASE;
 END;
@@ -99,6 +103,9 @@ BEGIN
     CASE target.type
       WHEN 'points.adjust', 'points.apply_rule' THEN outcome := undo_points_operation(target, op_key, p_time);
       WHEN 'submission.set_status', 'confirmation.confirm' THEN outcome := undo_submission(target, op_key, p_time);
+      WHEN 'tx.correct' THEN outcome := undo_transaction_correction(target, op_key, p_time);
+      WHEN 'shop.purchase' THEN outcome := undo_purchase(target, op_key, p_time);
+      WHEN 'inventory.use' THEN outcome := undo_inventory_use(target, op_key, p_time);
       ELSE RAISE EXCEPTION '可撤銷的操作缺少寫入函式';
     END CASE;
   END IF;
