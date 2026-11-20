@@ -9,6 +9,8 @@ AS $$
     ('"shop.purchase"'::jsonb, ARRAY['teacher'], 'forbidden'),
     ('"submission.set_status"'::jsonb, ARRAY['teacher', 'agent'], 'required'),
     ('"submission.propose"'::jsonb, ARRAY['teacher'], 'forbidden'),
+    ('"confirmation.confirm"'::jsonb, ARRAY['teacher'], 'forbidden'),
+    ('"confirmation.reject"'::jsonb, ARRAY['teacher'], 'forbidden'),
     ('"rule.save"'::jsonb, ARRAY['teacher'], 'required'),
     ('"rule.retire"'::jsonb, ARRAY['teacher'], 'required'),
     ('"task.create"'::jsonb, ARRAY['teacher'], 'forbidden'),

@@ -16,22 +16,20 @@ BEGIN
 END;
 $$;
 
-CREATE FUNCTION ppt.require_submission_targets(p_op jsonb, p_actor jsonb)
+CREATE FUNCTION ppt.require_submission_targets(p_class_id text, p_task_id text, p_student_id text, p_actor jsonb)
 RETURNS void
 LANGUAGE plpgsql
 SET search_path = pg_catalog, ppt, pg_temp
 AS $$
 DECLARE
-  class_key text := p_op->>'class_id';
-  payload jsonb := p_op->'payload';
   task_voided boolean;
   enrollment text;
 BEGIN
   SELECT voided INTO task_voided FROM tasks
-  WHERE class_id = class_key AND task_id = payload->>'task_id';
+  WHERE class_id = p_class_id AND task_id = p_task_id;
 
   SELECT enrollment_status INTO enrollment FROM students
-  WHERE class_id = class_key AND student_id = payload->>'student_id';
+  WHERE class_id = p_class_id AND student_id = p_student_id;
 
   IF task_voided IS NULL OR enrollment IS NULL THEN
     IF p_actor->>'kind' = 'agent' THEN
@@ -55,13 +53,24 @@ AS $$
   END;
 $$;
 
-CREATE FUNCTION ppt.store_submission_status(p_op jsonb, p_status ppt.submission_status)
+CREATE FUNCTION ppt.load_submission(p_class_id text, p_task_id text, p_student_id text)
+RETURNS ppt.submissions
+LANGUAGE sql
+SET search_path = pg_catalog, ppt, pg_temp
+AS $$
+  SELECT * FROM submissions
+  WHERE class_id = p_class_id AND task_id = p_task_id AND student_id = p_student_id;
+$$;
+
+CREATE FUNCTION ppt.store_submission_status(
+  p_class_id text, p_task_id text, p_student_id text, p_status ppt.submission_status, p_op_id text
+)
 RETURNS ppt.submissions
 LANGUAGE sql
 SET search_path = pg_catalog, ppt, pg_temp
 AS $$
   INSERT INTO submissions (class_id, task_id, student_id, status, last_op_id)
-  VALUES (p_op->>'class_id', p_op->'payload'->>'task_id', p_op->'payload'->>'student_id', p_status, p_op->>'op_id')
+  VALUES (p_class_id, p_task_id, p_student_id, p_status, p_op_id)
   ON CONFLICT (class_id, task_id, student_id) DO UPDATE
   SET status = excluded.status, assignment_active = true, rev = submissions.rev + 1,
       basis_rev = submissions.rev + 1, last_op_id = excluded.last_op_id
@@ -83,6 +92,41 @@ AS $$
   );
 $$;
 
+CREATE FUNCTION ppt.write_submission_change(
+  p_class_id text, p_task_id text, p_student_id text, p_previous ppt.submissions,
+  p_status ppt.submission_status, p_op_id text, p_time timestamptz
+)
+RETURNS ppt.operation_outcome
+LANGUAGE plpgsql
+SET search_path = pg_catalog, ppt, pg_temp
+AS $$
+DECLARE
+  entity_key jsonb := jsonb_build_object('task_id', p_task_id, 'student_id', p_student_id);
+  updated submissions;
+  outcome submission_effect_outcome;
+  daily submission_effect_outcome;
+  due_date date;
+  changes jsonb;
+BEGIN
+  updated := store_submission_status(p_class_id, p_task_id, p_student_id, p_status, p_op_id);
+  outcome := apply_submission_effects(updated, p_op_id, p_time);
+  SELECT due_on INTO STRICT due_date FROM tasks WHERE class_id = p_class_id AND task_id = p_task_id;
+  daily := apply_daily_quest(p_class_id, p_student_id, due_date, p_op_id, p_time);
+  IF daily.account_change IS NOT NULL THEN
+    outcome.account_change := merge_account_change(outcome.account_change, daily.account_change);
+  END IF;
+  changes := jsonb_build_array(submission_change(p_previous, updated, entity_key, p_op_id));
+  IF outcome.account_change IS NOT NULL THEN
+    changes := changes || jsonb_build_array(outcome.account_change);
+  END IF;
+  RETURN (operation_result(
+    (outcome.result->'transactions') || (daily.result->'transactions'),
+    (outcome.result->'effects_added') || (daily.result->'effects_added'),
+    (outcome.result->'effects_reversed') || (daily.result->'effects_reversed')
+  ), changes, daily.warnings)::operation_outcome;
+END;
+$$;
+
 CREATE FUNCTION ppt.apply_submission_status(p_op jsonb, p_time timestamptz)
 RETURNS ppt.operation_outcome
 LANGUAGE plpgsql
@@ -92,24 +136,19 @@ DECLARE
   class_key text := p_op->>'class_id';
   op_key text := p_op->>'op_id';
   payload jsonb := p_op->'payload';
-  entity_key jsonb := jsonb_build_object('task_id', payload->'task_id', 'student_id', payload->'student_id');
+  task_key text := payload->>'task_id';
+  student_key text := payload->>'student_id';
+  entity_key jsonb := jsonb_build_object('task_id', task_key, 'student_id', student_key);
   new_status submission_status := (payload->>'status')::submission_status;
-  previous submissions;
-  updated submissions;
-  outcome submission_effect_outcome;
-  daily submission_effect_outcome;
-  due_date date;
-  changes jsonb;
+  previous submissions := load_submission(class_key, task_key, student_key);
+  outcome operation_outcome;
 BEGIN
-  SELECT * INTO previous FROM submissions
-  WHERE class_id = class_key AND task_id = payload->>'task_id' AND student_id = payload->>'student_id';
   PERFORM require_version_condition(
     p_op, 'submission', entity_key, previous.rev, previous.last_op_id,
     submission_value(previous), NOT coalesce(previous.assignment_active, false)
   );
-
   PERFORM require_no_submission_proposal(p_op, previous);
-  PERFORM check_pending_submission_branches(p_op);
+  PERFORM require_resolved_submission_effects(class_key, task_key, student_key);
   IF previous.assignment_active AND previous.status = new_status THEN
     RETURN (
       operation_result(p_noop => true),
@@ -117,22 +156,8 @@ BEGIN
     )::operation_outcome;
   END IF;
 
-  updated := store_submission_status(p_op, new_status);
-  outcome := apply_submission_effects(updated, op_key, p_time);
-  SELECT due_on INTO STRICT due_date FROM tasks WHERE class_id = class_key AND task_id = updated.task_id;
-  daily := apply_daily_quest(class_key, updated.student_id, due_date, op_key, p_time);
-  IF daily.account_change IS NOT NULL THEN
-    outcome.account_change := merge_account_change(outcome.account_change, daily.account_change);
-  END IF;
-  changes := jsonb_build_array(submission_change(previous, updated, entity_key, op_key));
-  IF outcome.account_change IS NOT NULL THEN
-    changes := changes || jsonb_build_array(outcome.account_change);
-  END IF;
-  changes := changes || supersede_submission_proposal(class_key, updated.task_id, updated.student_id, op_key, p_time);
-  RETURN (operation_result(
-    (outcome.result->'transactions') || (daily.result->'transactions'),
-    (outcome.result->'effects_added') || (daily.result->'effects_added'),
-    (outcome.result->'effects_reversed') || (daily.result->'effects_reversed')
-  ), changes, daily.warnings)::operation_outcome;
+  outcome := write_submission_change(class_key, task_key, student_key, previous, new_status, op_key, p_time);
+  outcome.changes := outcome.changes || supersede_submission_proposal(class_key, task_key, student_key, op_key, p_time);
+  RETURN outcome;
 END;
 $$;

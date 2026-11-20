@@ -33,16 +33,16 @@ SET search_path = pg_catalog, ppt, pg_temp
 AS $$
 DECLARE
   payload jsonb := p_op->'payload';
-  target submissions;
+  class_key text := p_op->>'class_id';
+  task_key text := payload->>'task_id';
+  student_key text := payload->>'student_id';
+  target submissions := load_submission(class_key, task_key, student_key);
 BEGIN
-  SELECT * INTO target FROM submissions
-  WHERE class_id = p_op->>'class_id' AND task_id = payload->>'task_id'
-    AND student_id = payload->>'student_id' AND assignment_active;
-  IF NOT FOUND THEN
+  IF target.assignment_active IS NOT TRUE THEN
     PERFORM reject_operation('NOT_FOUND');
   END IF;
   IF payload->>'proposed_status' <> 'pending' THEN
-    PERFORM require_submission_targets(p_op, p_actor);
+    PERFORM require_submission_targets(class_key, task_key, student_key, p_actor);
     PERFORM require_pending_submission(target);
   END IF;
 END;

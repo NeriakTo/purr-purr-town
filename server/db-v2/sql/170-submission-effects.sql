@@ -1,24 +1,20 @@
 CREATE TYPE ppt.submission_effect_outcome AS (result jsonb, account_change jsonb, warnings jsonb);
 
-CREATE FUNCTION ppt.check_pending_submission_branches(p_op jsonb)
+CREATE FUNCTION ppt.require_resolved_submission_effects(p_class_id text, p_task_id text, p_student_id text)
 RETURNS void
 LANGUAGE plpgsql
 SET search_path = pg_catalog, ppt, pg_temp
 AS $$
-DECLARE
-  class_key text := p_op->>'class_id';
-  payload jsonb := p_op->'payload';
 BEGIN
   IF EXISTS (
     SELECT 1 FROM effects
-    WHERE class_id = class_key AND student_id = payload->>'student_id'
-      AND subject_kind = 'task' AND subject_key = payload->>'task_id'
+    WHERE class_id = p_class_id AND student_id = p_student_id
+      AND subject_kind = 'task' AND subject_key = p_task_id
       AND status = 'legacy_unresolved'
   ) THEN
     -- PPT-PENDING: legacy_unresolved
     PERFORM pending_operation('legacy_unresolved');
   END IF;
-
 END;
 $$;
 

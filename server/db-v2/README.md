@@ -93,6 +93,7 @@ OP-31 檢查新物品編號、價格、庫存與餘額後，在同一交易扣�
 |---|---|---|
 | `actor_scheduler_system` | 排程及系統身分入口 | 第 5 包排程、第 9 包系統 |
 | `agent_call_record` | 呼叫紀錄、整批重播、`CALL_ID_REUSED` 與新舊分組 | 第 8 包 |
+| `agent_held_confirmation` | 確認或退回小野暫緩批次 | 第 8 包 |
 | `agent_limits` | 小野操作上限、整批暫緩及待確認佇列 | 第 8 包 |
 | `agent_note` | 保存小野呼叫的 `note` | 第 8 包 |
 | `class_create` | OP-01 在班級列尚不存在時的建班路徑 | 第 9 包 |

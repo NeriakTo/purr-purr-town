@@ -38,10 +38,14 @@ BEGIN
       PERFORM validate_shop_purchase(p_op->'payload');
     WHEN 'submission.set_status' THEN
       PERFORM validate_submission_status(p_op->'payload');
-      PERFORM require_submission_targets(p_op, p_actor);
+      PERFORM require_submission_targets(
+        p_op->>'class_id', p_op->'payload'->>'task_id', p_op->'payload'->>'student_id', p_actor
+      );
     WHEN 'submission.propose' THEN
       PERFORM validate_submission_proposal(p_op->'payload');
       PERFORM require_proposal_target(p_op, p_actor);
+    WHEN 'confirmation.confirm', 'confirmation.reject' THEN
+      PERFORM validate_confirmation_payload(p_op->'payload');
     WHEN 'rule.save' THEN
       PERFORM validate_rule_save(p_op->'payload');
     WHEN 'rule.retire' THEN
@@ -60,7 +64,7 @@ BEGIN
 END;
 $$;
 
-CREATE FUNCTION ppt.apply_operation(p_op jsonb, p_time timestamptz)
+CREATE FUNCTION ppt.apply_operation(p_op jsonb, p_actor jsonb, p_time timestamptz)
 RETURNS ppt.operation_outcome
 LANGUAGE plpgsql
 SET search_path = pg_catalog, ppt, pg_temp
@@ -71,6 +75,7 @@ BEGIN
     WHEN 'shop.purchase' THEN RETURN apply_shop_purchase(p_op, p_time);
     WHEN 'submission.set_status' THEN RETURN apply_submission_status(p_op, p_time);
     WHEN 'submission.propose' THEN RETURN apply_submission_proposal(p_op, p_time);
+    WHEN 'confirmation.confirm', 'confirmation.reject' THEN RETURN apply_confirmation_operation(p_op, p_actor, p_time);
     WHEN 'rule.save' THEN RETURN apply_rule_operation(p_op, p_time);
     WHEN 'rule.retire' THEN RETURN apply_rule_operation(p_op, p_time);
     WHEN 'task.create' THEN RETURN apply_task_create(p_op);
@@ -108,7 +113,7 @@ BEGIN
   PERFORM check_operation_input_and_target(p_op, p_actor);
 
   -- Step 6: apply and advance the sequence within this subtransaction.
-  outcome := apply_operation(p_op, p_time);
+  outcome := apply_operation(p_op, p_actor, p_time);
   seq := advance_class_sequence(p_op->>'class_id');
   RETURN operation_receipt(
     p_op->>'op_id', 'committed', 'OK', seq, p_time,
