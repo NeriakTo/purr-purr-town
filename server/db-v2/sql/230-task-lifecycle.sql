@@ -45,6 +45,16 @@ BEGIN
 END;
 $$;
 
+CREATE FUNCTION ppt.task_effects_to_reverse(p_task ppt.tasks)
+RETURNS SETOF ppt.effects
+LANGUAGE sql
+SET search_path = pg_catalog, ppt, pg_temp
+AS $$
+  SELECT * FROM effects
+  WHERE class_id = p_task.class_id AND subject_kind = 'task' AND subject_key = p_task.task_id AND status = 'active'
+  ORDER BY student_id COLLATE "C", event::text COLLATE "C";
+$$;
+
 CREATE FUNCTION ppt.reverse_task_effects(p_task ppt.tasks, p_op_id text, p_time timestamptz)
 RETURNS ppt.operation_outcome
 LANGUAGE plpgsql
@@ -60,9 +70,7 @@ DECLARE
   reversed jsonb := '[]';
 BEGIN
   FOR effect IN
-    SELECT * FROM effects
-    WHERE class_id = p_task.class_id AND subject_kind = 'task' AND subject_key = p_task.task_id AND status = 'active'
-    ORDER BY student_id COLLATE "C", event::text COLLATE "C"
+    SELECT * FROM task_effects_to_reverse(p_task)
   LOOP
     IF student_key IS DISTINCT FROM effect.student_id THEN
       IF account_change IS NOT NULL THEN
