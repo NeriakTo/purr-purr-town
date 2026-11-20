@@ -83,6 +83,27 @@ const cases = [
       payload: { task_id: taskId }, expect: { rev: 1 },
     }
   }],
+  ['CONFIRMATION_NOT_PENDING', async (client, { classId, studentId }) => {
+    const taskId = randomUUID()
+    const created = await submit(client, {
+      op_id: randomUUID(), class_id: classId, type: 'task.create',
+      payload: {
+        task_id: taskId, title: '測試作業', task_type: '作業', published_on: '2026-11-21', due_on: '2026-11-22',
+      },
+    })
+    expect(created.code).toBe('OK')
+    const proposal = await submit(client, {
+      op_id: randomUUID(), class_id: classId, type: 'submission.propose',
+      payload: { task_id: taskId, student_id: studentId, proposed_status: 'missing' },
+    })
+    expect(proposal.code).toBe('OK')
+    const confirm = {
+      op_id: randomUUID(), class_id: classId, type: 'confirmation.confirm',
+      payload: { confirmation_id: proposal.op_id },
+    }
+    expect((await submit(client, confirm)).code).toBe('OK')
+    return { ...confirm, op_id: randomUUID() }
+  }],
 ]
 
 describeDatabase('錯誤碼逐碼驗收', () => {
