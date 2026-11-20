@@ -24,14 +24,14 @@ function correctionRootIndex(transactions, edges, cycles, index, roots) {
   return root
 }
 
-function earnedDelta(transaction, kind, root) {
+function earnedDelta(transaction, kind, resolvedRootKind) {
   if (!Number.isFinite(transaction.amount)) return null
-  const earnedKind = earnedKindFor(transaction, kind, root)
+  const earnedKind = earnedKindFor(transaction, kind, resolvedRootKind)
   return earnedKind === 'legacy_general' ? transaction.amount : 0
 }
 
-function earnedKindFor(transaction, kind, root) {
-  if (kind === 'correction') return rootKind(root.reason)
+function earnedKindFor(transaction, kind, resolvedRootKind) {
+  if (kind === 'correction') return resolvedRootKind
   if (kind !== 'legacy_orphan_correction') return kind
   const reason = typeof transaction.reason === 'string' ? transaction.reason.replace(/^(?:(?:撤銷|修正)：)+/, '') : null
   return rootKind(reason)
@@ -39,23 +39,28 @@ function earnedKindFor(transaction, kind, root) {
 
 export function legacyTransactionFacts(transactions, edges, cycles) {
   const roots = new Map()
+  const rootKinds = transactions.map(function classifyRoot(transaction) {
+    if (transaction.type === 'correction') return null
+    return rootKind(transaction.reason)
+  })
   return transactions.map(function describeTransaction(transaction, index) {
     const isCorrection = transaction.type === 'correction'
     const rootIndex = isCorrection ? correctionRootIndex(transactions, edges, cycles, index, roots) : null
     const root = transactions[rootIndex]
     const chainBroken = isCorrection && rootIndex === null
-    const kind = kindFor(transaction, chainBroken)
+    const kind = kindFor(rootKinds[index], chainBroken)
     const date = root ? root.date : transaction.date
     const dateIsValid = taipeiTimestamp(transaction.date) !== null
     const effectiveAt = dateIsValid && taipeiTimestamp(date) !== null ? date : null
-    return { kind, rootIndex, chainBroken, effectiveAt, earnedDelta: earnedDelta(transaction, kind, root) }
+    const delta = earnedDelta(transaction, kind, rootKinds[rootIndex])
+    return { kind, rootIndex, chainBroken, effectiveAt, earnedDelta: delta }
   })
 }
 
-function kindFor(transaction, chainBroken) {
+function kindFor(ownRootKind, chainBroken) {
+  if (ownRootKind !== null) return ownRootKind
   if (chainBroken) return 'legacy_orphan_correction'
-  if (transaction.type === 'correction') return 'correction'
-  return rootKind(transaction.reason)
+  return 'correction'
 }
 
 export function transactionFields(facts, idAt, decisions) {
