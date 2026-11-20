@@ -59,6 +59,9 @@ BEGIN
       PERFORM require_submission_targets(
         p_op->>'class_id', p_op->'payload'->>'task_id', p_op->'payload'->>'student_id', p_actor
       );
+    WHEN 'legacy_effect.resolve' THEN
+      PERFORM validate_legacy_effect_resolution(p_op->'payload');
+      PERFORM check_legacy_effect_resolution(p_op);
     WHEN 'submission.propose' THEN
       PERFORM validate_submission_proposal(p_op->'payload');
       PERFORM require_proposal_target(p_op, p_actor);
@@ -113,6 +116,7 @@ BEGIN
     WHEN 'inventory.use' THEN RETURN apply_inventory_use(p_op, p_time);
     WHEN 'shop.purchase' THEN RETURN apply_shop_purchase(p_op, p_time);
     WHEN 'submission.set_status' THEN RETURN apply_submission_status(p_op, p_time);
+    WHEN 'legacy_effect.resolve' THEN RETURN apply_legacy_effect_resolution(p_op);
     WHEN 'submission.propose' THEN RETURN apply_submission_proposal(p_op, p_time);
     WHEN 'confirmation.confirm', 'confirmation.reject' THEN RETURN apply_confirmation_operation(p_op, p_actor, p_time);
     WHEN 'correction.require' THEN RETURN apply_correction_round_creation(p_op);

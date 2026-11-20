@@ -17,6 +17,7 @@ AS $$
     ('"shop.purchase"'::jsonb, ARRAY['teacher'], 'forbidden'),
     ('"submission.set_status"'::jsonb, ARRAY['teacher', 'agent'], 'required'),
     ('"submission.propose"'::jsonb, ARRAY['teacher'], 'forbidden'),
+    ('"legacy_effect.resolve"'::jsonb, ARRAY['teacher'], 'required'),
     ('"confirmation.confirm"'::jsonb, ARRAY['teacher'], 'forbidden'),
     ('"confirmation.reject"'::jsonb, ARRAY['teacher'], 'forbidden'),
     ('"correction.require"'::jsonb, ARRAY['teacher', 'agent'], 'forbidden'),
