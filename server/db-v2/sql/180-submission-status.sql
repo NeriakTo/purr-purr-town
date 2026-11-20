@@ -108,6 +108,7 @@ BEGIN
     submission_value(previous), NOT coalesce(previous.assignment_active, false)
   );
 
+  PERFORM require_no_submission_proposal(p_op, previous);
   PERFORM check_pending_submission_branches(p_op);
   IF previous.assignment_active AND previous.status = new_status THEN
     RETURN (
@@ -127,6 +128,7 @@ BEGIN
   IF outcome.account_change IS NOT NULL THEN
     changes := changes || jsonb_build_array(outcome.account_change);
   END IF;
+  changes := changes || supersede_submission_proposal(class_key, updated.task_id, updated.student_id, op_key, p_time);
   RETURN (operation_result(
     (outcome.result->'transactions') || (daily.result->'transactions'),
     (outcome.result->'effects_added') || (daily.result->'effects_added'),

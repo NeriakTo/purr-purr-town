@@ -114,8 +114,9 @@ BEGIN
     IF reverse_effects THEN
       outcome := reverse_task_effects(previous, op_key, p_time);
     END IF;
-    -- PPT-PENDING: task_void_proposals
-    -- Supersede proposals only when voiding an active task.
+    IF voiding THEN
+      outcome.changes := outcome.changes || supersede_task_proposals(previous, op_key, p_time);
+    END IF;
   END IF;
 
   outcome.changes := jsonb_build_array(entity_change(

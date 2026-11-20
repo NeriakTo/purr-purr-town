@@ -108,6 +108,44 @@ BEGIN
 END;
 $$;
 
+CREATE FUNCTION ppt.pending_submission_proposal(p_class_id text, p_task_id text, p_student_id text)
+RETURNS ppt.confirmations
+LANGUAGE sql
+SET search_path = pg_catalog, ppt, pg_temp
+AS $$
+  SELECT * FROM confirmations
+  WHERE class_id = p_class_id AND task_id = p_task_id AND student_id = p_student_id
+    AND kind = 'leader_proposal' AND status = 'pending';
+$$;
+
+CREATE FUNCTION ppt.require_no_submission_proposal(p_op jsonb, p_previous ppt.submissions)
+RETURNS void
+LANGUAGE plpgsql
+SET search_path = pg_catalog, ppt, pg_temp
+SET timezone = 'UTC'
+AS $$
+DECLARE
+  class_key text := p_op->>'class_id';
+  payload jsonb := p_op->'payload';
+  proposal confirmations;
+  current_state jsonb;
+BEGIN
+  IF (payload->>'only_if_no_proposal')::boolean IS NOT TRUE THEN
+    RETURN;
+  END IF;
+  proposal := pending_submission_proposal(class_key, payload->>'task_id', payload->>'student_id');
+  IF proposal.confirmation_id IS NOT NULL THEN
+    current_state := current_entity_revision(
+      class_key, p_previous.last_op_id, p_previous.rev, submission_value(p_previous)
+    );
+    PERFORM reject_operation('STALE_STATE', current_state || jsonb_build_object('proposal', jsonb_build_object(
+      'confirmation_id', proposal.confirmation_id, 'proposed_status', proposal.proposed_status,
+      'status', proposal.status, 'proposed_at', proposal.created_at
+    )));
+  END IF;
+END;
+$$;
+
 CREATE FUNCTION ppt.supersede_submission_proposal(
   p_class_id text, p_task_id text, p_student_id text, p_op_id text, p_time timestamptz
 )
@@ -116,15 +154,32 @@ LANGUAGE plpgsql
 SET search_path = pg_catalog, ppt, pg_temp
 AS $$
 DECLARE
-  previous confirmations;
+  previous confirmations := pending_submission_proposal(p_class_id, p_task_id, p_student_id);
 BEGIN
-  SELECT * INTO previous FROM confirmations
-  WHERE class_id = p_class_id AND task_id = p_task_id AND student_id = p_student_id
-    AND kind = 'leader_proposal' AND status = 'pending';
-  IF NOT FOUND THEN
+  IF previous.confirmation_id IS NULL THEN
     RETURN '[]'::jsonb;
   END IF;
   RETURN jsonb_build_array(store_confirmation_status(previous, 'superseded', p_op_id, p_time));
+END;
+$$;
+
+CREATE FUNCTION ppt.supersede_task_proposals(p_task ppt.tasks, p_op_id text, p_time timestamptz)
+RETURNS jsonb
+LANGUAGE plpgsql
+SET search_path = pg_catalog, ppt, pg_temp
+AS $$
+DECLARE
+  proposal confirmations;
+  changes jsonb := '[]';
+BEGIN
+  FOR proposal IN
+    SELECT * FROM confirmations
+    WHERE class_id = p_task.class_id AND task_id = p_task.task_id AND kind = 'leader_proposal' AND status = 'pending'
+    ORDER BY student_id COLLATE "C"
+  LOOP
+    changes := changes || jsonb_build_array(store_confirmation_status(proposal, 'superseded', p_op_id, p_time));
+  END LOOP;
+  RETURN changes;
 END;
 $$;
 

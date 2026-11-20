@@ -289,11 +289,10 @@ describeDatabase('OP-14 繳交狀態', () => {
     }
   })
 
-  test.each(['only_if_no_proposal', 'legacy_unresolved'])('未實作分支 %s 拋例外且整筆不留資料', async (key) => {
+  test.each(['legacy_unresolved'])('未實作分支 %s 拋例外且整筆不留資料', async (key) => {
     const { client } = db()
     const target = await fixtureWithTask(client)
     const op = setStatus(target, 'on_time')
-    if (key === 'only_if_no_proposal') op.payload.only_if_no_proposal = false
     if (key === 'legacy_unresolved') await client.query(`
       INSERT INTO ppt.effects (class_id, student_id, effect_id, event, subject_kind, subject_key, status, origin, lineage_id)
       VALUES ($1,$2,'legacy-test',NULL,'task',$3,'legacy_unresolved','legacy','legacy-test')

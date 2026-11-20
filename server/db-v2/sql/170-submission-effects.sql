@@ -9,11 +9,6 @@ DECLARE
   class_key text := p_op->>'class_id';
   payload jsonb := p_op->'payload';
 BEGIN
-  IF payload ? 'only_if_no_proposal' THEN
-    -- PPT-PENDING: only_if_no_proposal
-    PERFORM pending_operation('only_if_no_proposal');
-  END IF;
-
   IF EXISTS (
     SELECT 1 FROM effects
     WHERE class_id = class_key AND student_id = payload->>'student_id'
