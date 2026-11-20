@@ -1,5 +1,6 @@
 import { correctionCycleMembers, correctionMatches, correctionTargets } from "./corrections.js"
 import { createHash } from 'node:crypto'
+import { openingAdjustmentEnabled, requireDecisions, resolveCurrentSemester, selectedSemester, validateDatedSemester } from './decisions.js'
 
 export const TABLES = ['migration_batches', 'migration_sources', 'legacy_ids', 'classes', 'students', 'accounts', 'transactions', 'inventory_items', 'comments', 'exempt_rules', 'logs', 'tasks', 'submissions', 'settings_entries', 'products', 'jobs', 'job_assignments', 'daily_duties', 'seats', 'announcements', 'rules', 'groups', 'semesters']
 export const pointer = v => String(v).replaceAll('~', '~0').replaceAll('/', '~1')
@@ -17,41 +18,15 @@ const isObject = v => v !== null && typeof v === 'object' && !Array.isArray(v)
 const numeric = v => typeof v === 'number' && Number.isFinite(v)
 const store = r => typeof r === 'string' && (r.startsWith('購買') || r.startsWith('使用道具'))
 export const statusOf = v => v === true ? 'on_time' : v === false || v === undefined ? 'pending' : ['on_time', 'late', 'missing', 'leave', 'exempt', 'makeup'].includes(v) ? v : 'unknown'
-export function semesterAt(date) {
-  const timestamp = taipeiTimestamp(date)
-  if (timestamp === null) return null
-  const local = new Date(timestamp + 8 * 3600000).toISOString()
-  const y = Number(local.slice(0, 4)), m = Number(local.slice(5, 7))
-  return `${y - 1911 - (m < 8 ? 1 : 0)}-${m === 1 || m >= 8 ? 1 : 2}`
+export { semesterAt } from './decisions.js'
+export const CONVERTER_VERSION = 'v2-1A-r3'
+
+export function migrationBatchId(classKey, source, decisions) {
+  return digest([CONVERTER_VERSION, classKey, source, decisions])
 }
 
-function taipeiTimestamp(date) {
-  if (typeof date !== 'string') return null
-  if (!/^\d{4}-\d{2}-\d{2}(T.*)?$/.test(date)) return null
-  const day = date.slice(0, 10)
-  const calendarDate = new Date(`${day}T00:00:00Z`)
-  if (!Number.isFinite(calendarDate.getTime())) return null
-  if (calendarDate.toISOString().slice(0, 10) !== day) return null
-  let zoned = date
-  if (date.length === 10) zoned = `${date}T00:00:00+08:00`
-  else if (!/(Z|[+-]\d{2}:?\d{2})$/i.test(date)) zoned = `${date}+08:00`
-  const timestamp = Date.parse(zoned)
-  return Number.isFinite(timestamp) ? timestamp : null
-}
-
-export function semesterBasis(declared, cutoverDate) {
-  if (declared !== undefined && declared !== null && declared !== '') return 'declared'
-  if (cutoverDate !== undefined) return 'cutover_date'
-  return 'updated_at'
-}
-
-export function migrationBatchId(classKey, source, cutoverDate) {
-  const identity = ['v2-1A', classKey, source]
-  if (cutoverDate !== undefined) identity.push({ cutoverDate })
-  return digest(identity)
-}
-
-export function convert(input, { cutoverDate } = {}) {
+export function convert(input, { decisions = {} } = {}) {
+  requireDecisions(decisions)
   const source = structuredClone(input ?? null)
   const rows = Object.fromEntries(TABLES.map(t => [t, []])), errors = [], notices = [], adjustments = []
   const error = (code, path, value = null) => errors.push({ code, path, value: structuredClone(value) })
@@ -69,7 +44,7 @@ export function convert(input, { cutoverDate } = {}) {
   const classKey = source?.classId ?? data.classId ?? null
   if (typeof classKey !== 'string' || !classKey) error('INVALID_CLASS_ID', '/classId', classKey)
   if (source?.classId !== data.classId) error('CLASS_ID_CONFLICT', '/data/classId', data.classId)
-  const classId = digest(['class', classKey]), batchId = migrationBatchId(classKey, source, cutoverDate)
+  const classId = digest(['class', classKey]), batchId = migrationBatchId(classKey, source, decisions)
   const add = (table, path, raw, fields = {}, legacy = null) => {
     const row = { id: digest([classKey, table, path, legacy]), batch_id: batchId, class_id: classId, legacy_id: legacy, source_path: path, raw: raw === undefined ? null : structuredClone(raw), ...fields }
     rows[table].push(row)
@@ -92,20 +67,15 @@ export function convert(input, { cutoverDate } = {}) {
     return found[0].id
   }
   add('migration_batches', '', null, {
-    id: batchId, source_hash: digest(source), converter_version: 'v2-1A', import_rules_enabled: false,
-    semester_basis: semesterBasis(settings.currentSemester, cutoverDate),
-    cutover_date: typeof cutoverDate === 'string' ? cutoverDate : null,
+    id: batchId, source_hash: digest(source), converter_version: CONVERTER_VERSION, import_rules_enabled: false,
+    decisions: structuredClone(decisions),
+    cutover_date: typeof decisions.cutoverDate === 'string' ? decisions.cutoverDate : null,
   })
   add('migration_sources', '', source)
   check(source, '', 'classId className data')
   check(data, '/data', 'classId className teacher students logs settings updatedAt')
   check(settings, '/data/settings', 'currentSemester taskTypes groupAliases announcements jobs behaviorRules shop currency ruleCategories jobAssignments automation seatingChart semesterPeriods dailyDuty dutyJobId storeItems currencyRates')
-  const declared = settings.currentSemester
-  const basisDate = cutoverDate === undefined ? data.updatedAt : cutoverDate
-  if (cutoverDate !== undefined && !semesterAt(cutoverDate)) error('INVALID_CUTOVER_DATE', '/cutoverDate', cutoverDate)
-  const currentSemester = declared === undefined || declared === null || declared === '' ? semesterAt(basisDate) : typeof declared === 'string' && /^\d+-[12]$/.test(declared) ? declared : null
-  if (declared && !currentSemester) error('INVALID_CURRENT_SEMESTER', '/data/settings/currentSemester', declared)
-  if (!currentSemester) error('UNKNOWN_CURRENT_SEMESTER', '/data/updatedAt', data.updatedAt)
+  const currentSemester = resolveCurrentSemester(settings.currentSemester, data.updatedAt, decisions, error)
   add('classes', '/data', data, { id: classId, name: data.className ?? source?.className ?? null, teacher: data.teacher ?? null, current_semester: currentSemester }, classKey)
   const students = arr(data.students, '/data/students')
   const studentRows = students.map((s, i) => {
@@ -134,8 +104,8 @@ export function convert(input, { cutoverDate } = {}) {
       if (t.reason !== undefined && typeof t.reason !== 'string') error('INVALID_REASON', `${path}/reason`, t.reason)
       if (t.type !== undefined && t.type !== 'correction') error('UNKNOWN_TRANSACTION_TYPE', `${path}/type`, t.type)
       if (t.voided !== undefined && typeof t.voided !== 'boolean') error('UNKNOWN_VOIDED', `${path}/voided`, t.voided)
-      if (!semesterAt(t.date)) error('UNKNOWN_TRANSACTION_SEMESTER', path)
-      return add('transactions', path, t, { student_id: sid, amount: numeric(t.amount) ? t.amount : null, reason: t.reason ?? null, occurred_at: t.date ?? null, balance_after: t.balance ?? null, voided: Boolean(t.voided), transaction_type: t.type ?? 'legacy', corrected_transaction_id: null, semester: semesterAt(t.date), legacy_semantics: true, exclude_from_total: Boolean(t.excludeFromTotal) }, t.id ?? null)
+      validateDatedSemester('TRANSACTION', t.date, decisions, path, error)
+      return add('transactions', path, t, { student_id: sid, amount: numeric(t.amount) ? t.amount : null, reason: t.reason ?? null, occurred_at: t.date ?? null, balance_after: t.balance ?? null, voided: Boolean(t.voided), transaction_type: t.type ?? 'legacy', corrected_transaction_id: null, semester: selectedSemester(t.date, decisions), legacy_semantics: true, exclude_from_total: Boolean(t.excludeFromTotal) }, t.id ?? null)
     })
     index(tr, `${p}/bank/transactions`)
     const edges = correctionTargets(txs)
@@ -167,21 +137,22 @@ export function convert(input, { cutoverDate } = {}) {
     if (!numeric(balance)) error('INVALID_BALANCE', `${p}/bank/balance`, balance)
     if (!numeric(total)) error('INVALID_TOTAL_EARNED', `${p}/bank/totalEarned`, total)
     add('accounts', `${p}/bank`, s.bank, { student_id: sid, balance: numeric(balance) ? balance : null, total_earned: numeric(total) ? total : null, total_earned_source: bank.totalEarned === undefined ? 'legacy_recomputed' : 'legacy_stored', ledger_sum: ledger, earned_recomputed: earned })
-    if (balance !== ledger) notice('BALANCE_DRIFT', `${p}/bank`, { stored: balance, computed: ledger })
-    if (total !== earned) notice('TOTAL_EARNED_DRIFT', `${p}/bank`, { stored: total, computed: earned })
+    const drift = openingAdjustmentEnabled(decisions) ? notice : error
+    if (balance !== ledger) drift('BALANCE_DRIFT', `${p}/bank`, { stored: balance, computed: ledger })
+    if (total !== earned) drift('TOTAL_EARNED_DRIFT', `${p}/bank`, { stored: total, computed: earned })
     addOpeningAdjustment()
     function addOpeningAdjustment() {
+      if (!openingAdjustmentEnabled(decisions)) return
       if (!numeric(balance) || !numeric(ledger) || balance === ledger) return
       const path = `${p}/bank/migration_opening_adjustment`
       const amount = balance - ledger
-      const date = basisDate ?? null
+      const date = decisions.cutoverDate
       const adjustment = { path, amount, date, reason: '轉換期初調整' }
-      if (!semesterAt(date)) error('UNKNOWN_TRANSACTION_SEMESTER', path)
       adjustments.push(adjustment)
       add('transactions', path, null, {
         student_id: sid, amount, reason: adjustment.reason, occurred_at: date,
         balance_after: balance, voided: false, transaction_type: 'migration_opening_adjustment',
-        corrected_transaction_id: null, semester: semesterAt(date), legacy_semantics: false,
+        corrected_transaction_id: null, semester: selectedSemester(date, decisions), legacy_semantics: false,
         exclude_from_total: true,
       })
     }
@@ -208,9 +179,9 @@ export function convert(input, { cutoverDate } = {}) {
     const tasks = arr(log.tasks, `${p}/tasks`).map((t, j) => {
       check(t, `${p}/tasks/${j}`, 'id title type createdAt dueDate')
       enumeration(t.type, [...arr(settings.taskTypes, '/data/settings/taskTypes'), '作業', '訂正', '攜帶物品', '考試', '通知單', '回條'], 'UNKNOWN_TASK_TYPE', `${p}/tasks/${j}/type`)
-      if (!semesterAt(t.createdAt ?? log.date)) error('UNKNOWN_TASK_SEMESTER', `${p}/tasks/${j}`)
+      validateDatedSemester('TASK', t.createdAt ?? log.date, decisions, `${p}/tasks/${j}`, error)
       error('UNKNOWN_ASSIGNMENT_LIST', `${p}/tasks/${j}`)
-      return add('tasks', `${p}/tasks/${j}`, t, { log_id: lr.id, title: t.title ?? null, task_type: t.type ?? null, published_on: t.createdAt ?? log.date ?? null, due_on: t.dueDate ?? log.date ?? null, semester: semesterAt(t.createdAt ?? log.date), correction_state: t.type === '訂正' ? 'legacy_unlinked' : null, original_task_id: null, teacher_confirmed: null, assignees_known: false }, t.id ?? null)
+      return add('tasks', `${p}/tasks/${j}`, t, { log_id: lr.id, title: t.title ?? null, task_type: t.type ?? null, published_on: t.createdAt ?? log.date ?? null, due_on: t.dueDate ?? log.date ?? null, semester: selectedSemester(t.createdAt ?? log.date, decisions), correction_state: t.type === '訂正' ? 'legacy_unlinked' : null, original_task_id: null, teacher_confirmed: null, assignees_known: false }, t.id ?? null)
     })
     const tm = index(tasks, `${p}/tasks`)
     Object.entries(obj(log.status, `${p}/status`)).forEach(([legacySid, values]) => {
@@ -257,5 +228,5 @@ export function convert(input, { cutoverDate } = {}) {
   for (const key of ['base', 'tier1', 'tier2']) if (settings.currency?.[key] !== undefined) check(settings.currency[key], `/data/settings/currency/${key}`, 'name icon rate')
   arr(settings.ruleCategories, '/data/settings/ruleCategories').forEach((v, i) => check(v, `/data/settings/ruleCategories/${i}`, 'id name icon'))
   rows.migration_batches[0].validation_errors = structuredClone(errors)
-  return { rows, errors, report: { converter_version: 'v2-1A', source_hash: digest(source), notices, adjustments, row_counts: Object.fromEntries(Object.entries(rows).map(([t, list]) => [t, list.length])), error_count: errors.length, ready_for_import: errors.length === 0, rules_triggered: 0 } }
+  return { rows, errors, report: { converter_version: CONVERTER_VERSION, source_hash: digest(source), notices, adjustments, row_counts: Object.fromEntries(Object.entries(rows).map(([t, list]) => [t, list.length])), error_count: errors.length, ready_for_import: errors.length === 0, rules_triggered: 0 } }
 }

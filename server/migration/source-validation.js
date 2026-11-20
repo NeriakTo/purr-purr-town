@@ -1,11 +1,13 @@
-import { pointer, semesterAt, canonicalJson } from './convert.js'
+import { pointer, canonicalJson } from './convert.js'
+import { openingAdjustmentEnabled, requireDecisions, resolveCurrentSemester, validateDatedSemester } from './decisions.js'
 import { correctionCycleMembers, correctionTargets, correctionMatches } from './corrections.js'
 
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value)
 const numeric = value => typeof value === 'number' && Number.isFinite(value)
 
 // 直接走訪來源，不呼叫 convert，也不讀取轉換結果的列或錯誤。
-export function validateSource(source, earnedFromLegacy, { notices = [], adjustments = [], cutoverDate } = {}) {
+export function validateSource(source, earnedFromLegacy, { notices = [], adjustments = [], decisions = {} } = {}) {
+  requireDecisions(decisions)
   source = source ?? null
   const errors = []
   function error(code, path, value = null) {
@@ -73,12 +75,7 @@ export function validateSource(source, earnedFromLegacy, { notices = [], adjustm
   fields(source, '', 'classId className data')
   fields(data, '/data', 'classId className teacher students logs settings updatedAt')
   fields(settings, '/data/settings', 'currentSemester taskTypes groupAliases announcements jobs behaviorRules shop currency ruleCategories jobAssignments automation seatingChart semesterPeriods dailyDuty dutyJobId storeItems currencyRates')
-  const declared = settings.currentSemester
-  const basisDate = cutoverDate === undefined ? data.updatedAt : cutoverDate
-  if (cutoverDate !== undefined && !semesterAt(cutoverDate)) error('INVALID_CUTOVER_DATE', '/cutoverDate', cutoverDate)
-  const current = declared === undefined || declared === null || declared === '' ? semesterAt(basisDate) : typeof declared === 'string' && /^\d+-[12]$/.test(declared) ? declared : null
-  if (declared && !current) error('INVALID_CURRENT_SEMESTER', '/data/settings/currentSemester', declared)
-  if (!current) error('UNKNOWN_CURRENT_SEMESTER', '/data/updatedAt', data.updatedAt)
+  resolveCurrentSemester(settings.currentSemester, data.updatedAt, decisions, error)
   const students = array(data.students, '/data/students', true)
   students.forEach((s, i) => {
     fields(s, `/data/students/${i}`, 'id uuid name number seatNumber group gender avatar inactive bank inventory comments taskExemptRules')
@@ -118,7 +115,7 @@ export function validateSource(source, earnedFromLegacy, { notices = [], adjustm
       if (t.reason !== undefined && typeof t.reason !== 'string') error('INVALID_REASON', `${p}/reason`, t.reason)
       if (t.type !== undefined && t.type !== 'correction') error('UNKNOWN_TRANSACTION_TYPE', `${p}/type`, t.type)
       if (t.voided !== undefined && typeof t.voided !== 'boolean') error('UNKNOWN_VOIDED', `${p}/voided`, t.voided)
-      if (!semesterAt(t.date)) error('UNKNOWN_TRANSACTION_SEMESTER', p)
+      validateDatedSemester('TRANSACTION', t.date, decisions, p, error)
     })
     index(txs, `${path}/bank/transactions`)
     const edges = correctionTargets(txs)
@@ -144,17 +141,18 @@ export function validateSource(source, earnedFromLegacy, { notices = [], adjustm
     const total = bank.totalEarned === undefined ? earned : bank.totalEarned
     if (!numeric(balance)) error('INVALID_BALANCE', `${path}/bank/balance`, balance)
     if (!numeric(total)) error('INVALID_TOTAL_EARNED', `${path}/bank/totalEarned`, total)
-    if (balance !== ledger) notice('BALANCE_DRIFT', `${path}/bank`, { stored: balance, computed: ledger })
-    if (total !== earned) notice('TOTAL_EARNED_DRIFT', `${path}/bank`, { stored: total, computed: earned })
+    const drift = openingAdjustmentEnabled(decisions) ? notice : error
+    if (balance !== ledger) drift('BALANCE_DRIFT', `${path}/bank`, { stored: balance, computed: ledger })
+    if (total !== earned) drift('TOTAL_EARNED_DRIFT', `${path}/bank`, { stored: total, computed: earned })
     calculateOpeningAdjustment()
     function calculateOpeningAdjustment() {
+      if (!openingAdjustmentEnabled(decisions)) return
       if (!numeric(balance) || !numeric(ledger) || balance === ledger) return
       const adjustmentPath = `${path}/bank/migration_opening_adjustment`
-      if (!semesterAt(basisDate)) error('UNKNOWN_TRANSACTION_SEMESTER', adjustmentPath)
       adjustments.push({
         path: adjustmentPath,
         amount: balance - ledger,
-        date: basisDate ?? null,
+        date: decisions.cutoverDate,
         reason: '轉換期初調整',
       })
     }
@@ -182,7 +180,7 @@ export function validateSource(source, earnedFromLegacy, { notices = [], adjustm
       const tp = `${p}/tasks/${j}`
       fields(t, tp, 'id title type createdAt dueDate')
       enumeration(t.type, [...array(settings.taskTypes, '/data/settings/taskTypes'), '作業', '訂正', '攜帶物品', '考試', '通知單', '回條'], 'UNKNOWN_TASK_TYPE', `${tp}/type`)
-      if (!semesterAt(t.createdAt ?? log.date)) error('UNKNOWN_TASK_SEMESTER', tp)
+      validateDatedSemester('TASK', t.createdAt ?? log.date, decisions, tp, error)
       error('UNKNOWN_ASSIGNMENT_LIST', tp)
     })
     const tm = index(tasks, `${p}/tasks`)

@@ -18,45 +18,45 @@ function assertAligned(source) {
   expect(result.ready_for_import).toBe(false)
 }
 describe('第二輪正式轉換', () => {
-  it('B7 已設定學期但調整缺基準日仍擋匯入', () => {
+  it('B7 已設定學期但未傳切換決定，餘額差異仍擋匯入', () => {
     const source = sourceWith([student()])
     source.data.settings.currentSemester = '115-1'
     source.data.students[0].bank.balance = 3
     delete source.data.updatedAt
     const converted = convert(source)
-    expect(converted.errors).toContainEqual({ code: 'UNKNOWN_TRANSACTION_SEMESTER', path: '/data/students/0/bank/migration_opening_adjustment', value: null })
+    expect(converted.errors).toContainEqual({ code: 'BALANCE_DRIFT', path: '/data/students/0/bank', value: { stored: 3, computed: 0 } })
     assertAligned(source)
   })
   it('B7 明傳切換日決定空學期與調整日期並記錄批次', () => {
     const source = sourceWith([student()])
     source.data.students[0].bank.balance = 3
-    const options = { cutoverDate: '2027-02-01' }
+    const options = { decisions: { cutoverDate: '2027-02-01', openingAdjustment: true, semesterRule: 'month' } }
     const converted = convert(source, options)
     expect(converted.rows.classes[0].current_semester).toBe('115-2')
-    expect(converted.rows.migration_batches[0]).toMatchObject({ semester_basis: 'cutover_date', cutover_date: options.cutoverDate })
-    expect(converted.rows.transactions[0]).toMatchObject({ occurred_at: options.cutoverDate, semester: '115-2' })
+    expect(converted.rows.migration_batches[0]).toMatchObject({ decisions: options.decisions, cutover_date: options.decisions.cutoverDate })
+    expect(converted.rows.transactions[0]).toMatchObject({ occurred_at: options.decisions.cutoverDate, semester: '115-2' })
     expect(reconcile(source, converted, options).differences).toEqual([])
     expect(reconcile(source, converted, options).ready_for_import).toBe(true)
     expect(convert(source, options)).toEqual(converted)
-    expect(convert(source).rows.migration_batches[0]).toMatchObject({ semester_basis: 'updated_at', cutover_date: null })
+    expect(convert(source).rows.migration_batches[0]).toMatchObject({ decisions: {}, cutover_date: null })
     expect(convert(source).rows.migration_batches[0].id).not.toBe(converted.rows.migration_batches[0].id)
-    expect(reconcile(source, converted).matches).toBe(false)
+    expect(reconcile(source, converted).matches).toBe(true)
   })
   it('B7 已指定學期優先，切換日仍控制調整日期', () => {
     const source = sourceWith([student()])
     source.data.settings.currentSemester = '114-1'
     source.data.students[0].bank.balance = 3
-    const options = { cutoverDate: '2027-02-01' }
+    const options = { decisions: { cutoverDate: '2027-02-01', openingAdjustment: true, semesterRule: 'month' } }
     const converted = convert(source, options)
     expect(converted.rows.classes[0].current_semester).toBe('114-1')
-    expect(converted.rows.migration_batches[0].semester_basis).toBe('declared')
-    expect(converted.rows.transactions[0].occurred_at).toBe(options.cutoverDate)
+    expect(converted.rows.migration_batches[0].decisions).toEqual(options.decisions)
+    expect(converted.rows.transactions[0].occurred_at).toBe(options.decisions.cutoverDate)
     expect(reconcile(source, converted, options).differences).toEqual([])
   })
   it('B7 非法切換日明列錯誤，不退回匯出日', () => {
     const source = sourceWith([student()])
     source.data.students[0].bank.balance = 3
-    const options = { cutoverDate: 'bad' }
+    const options = { decisions: { cutoverDate: 'bad' } }
     const converted = convert(source, options)
     expect(converted.rows.classes[0].current_semester).toBeNull()
     expect(converted.errors.map(e => e.code)).toContain('INVALID_CUTOVER_DATE')
@@ -69,7 +69,7 @@ describe('第二輪正式轉換', () => {
     const semester = getCurrentSemester(new Date(2026, month - 1, 15, 12))
     const source = sourceWith([student([{ id: 't', amount: 0, date }])])
     source.data.logs = [{ date, tasks: [{ id: 'fallback' }, { id: 'own', createdAt: '2025-08-15' }] }]
-    const converted = convert(source)
+    const converted = convert(source, { decisions: { semesterRule: 'month' } })
     expect(semesterAt(date)).toBe(semester)
     expect(converted.rows.transactions[0].semester).toBe(semester)
     expect(converted.rows.tasks.map(t => t.semester)).toEqual([semester, '114-1'])
@@ -94,7 +94,8 @@ describe('第二輪正式轉換', () => {
     const source = sourceWith([student([{ id: 't', amount: 5, balance: 8 }])])
     source.data.students[0].bank.balance = 20
     source.data.students[0].bank.totalEarned = 50
-    const converted = convert(source)
+    const options = { decisions: { cutoverDate: '2026-11-15', openingAdjustment: true } }
+    const converted = convert(source, options)
     expect(converted.errors.map(e => e.code)).not.toContain('BALANCE_DRIFT')
     expect(converted.report.notices.map(e => e.code)).toEqual(expect.arrayContaining(['BALANCE_DRIFT', 'TOTAL_EARNED_DRIFT', 'TRANSACTION_BALANCE_DRIFT']))
     expect(converted.rows.accounts[0]).toMatchObject({ balance: 20, total_earned: 50, ledger_sum: 5, earned_recomputed: 5 })
@@ -102,12 +103,12 @@ describe('第二輪正式轉換', () => {
     expect(adjustment).toMatchObject({ amount: 15, reason: '轉換期初調整', occurred_at: '2026-11-15', exclude_from_total: true, legacy_semantics: false })
     expect(legacyEarned(converted.rows.transactions.map(t => ({ id: t.id, type: t.transaction_type, amount: t.amount })))).toBe(calcEarnedFromTransactions(source.data.students[0].bank.transactions))
     expect(reconcile(source, converted).differences).toEqual([])
-    expect(convert(source)).toEqual(converted)
+    expect(convert(source, options)).toEqual(converted)
   })
   it.each(['missing', 'extra', 'amount'])('B5 獨立驗證抓出期初調整 %s', mutation => {
     const source = sourceWith([student()])
     source.data.students[0].bank.balance = -7
-    const converted = convert(source)
+    const converted = convert(source, { decisions: { cutoverDate: '2026-11-15', openingAdjustment: true } })
     const adjustment = converted.rows.transactions.find(t => t.transaction_type === 'migration_opening_adjustment')
     expect(adjustment?.amount).toBe(-7)
     if (mutation === 'missing') converted.rows.transactions.pop()

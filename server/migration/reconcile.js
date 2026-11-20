@@ -1,7 +1,8 @@
 import { validateSource, orderedErrors } from "./source-validation.js"
 import { correctionCycleMembers, correctionTargets } from "./corrections.js"
 import { isDeepStrictEqual } from 'node:util'
-import { digest, pointer, semesterAt, semesterBasis, migrationBatchId, TABLES } from './convert.js'
+import { CONVERTER_VERSION, digest, pointer, migrationBatchId, TABLES } from './convert.js'
+import { decisionInputError, resolveCurrentSemester, selectedSemester } from './decisions.js'
 
 const list = v => Array.isArray(v) ? v : []
 const entries = v => v && typeof v === 'object' && !Array.isArray(v) ? Object.entries(v) : []
@@ -56,11 +57,16 @@ export function legacyEarned(transactions, { startDate, endDate } = {}) {
   return dated.filter(t => !t.voided && !isStore(t) && !(t.type === 'correction' && t.correctedTxId && isStore(map[t.correctedTxId]))).reduce((n, t) => n + (t.amount || 0), 0)
 }
 
-export function reconcile(source, converted, { cutoverDate } = {}) {
+export function reconcile(source, converted, { decisions: expectedDecisions } = {}) {
   source = source ?? null
   const periodSkipped = [], notices = [], adjustments = []
   const differences = [], students = [], rows = converted?.rows || {}, expected = new Map()
   const diff = (path, expected, actual) => { if (!isDeepStrictEqual(expected, actual)) differences.push({ path, expected, actual }) }
+  const storedDecisions = list(rows.migration_batches)[0]?.decisions
+  const issue = decisionInputError(storedDecisions)
+  if (issue) diff('migration_batches/decisions/input', '有效的轉換決定', issue)
+  const decisions = issue ? {} : storedDecisions
+  if (expectedDecisions !== undefined) diff('migration_batches/decisions', expectedDecisions, storedDecisions)
   const one = (table, path) => list(rows[table]).find(r => r.source_path === path)
   const expectRow = (table, path, raw, fields = {}) => {
     if (!expected.has(table)) expected.set(table, [])
@@ -77,21 +83,18 @@ export function reconcile(source, converted, { cutoverDate } = {}) {
     return row
   }
   const data = source?.data || {}, settings = data.settings || {}, classKey = source?.classId ?? data.classId ?? null
-  const classId = digest(['class', classKey]), batchId = migrationBatchId(classKey, source, cutoverDate)
-  const sourceErrors = validateSource(source, legacyEarned, { notices, adjustments, cutoverDate })
+  const classId = digest(['class', classKey]), batchId = migrationBatchId(classKey, source, decisions)
+  const sourceErrors = validateSource(source, legacyEarned, { notices, adjustments, decisions })
   diff("report/notices", orderedErrors(notices), orderedErrors(converted?.report?.notices))
   diff("report/adjustments", adjustments, converted?.report?.adjustments)
   diff("errors", orderedErrors(sourceErrors), orderedErrors(converted?.errors))
   expectRow('migration_batches', '', null, {
     id: batchId, source_hash: digest(source), import_rules_enabled: false,
-    converter_version: 'v2-1A', validation_errors: sourceErrors,
-    semester_basis: semesterBasis(settings.currentSemester, cutoverDate),
-    cutover_date: typeof cutoverDate === 'string' ? cutoverDate : null,
+    converter_version: CONVERTER_VERSION, validation_errors: sourceErrors,
+    cutover_date: typeof decisions.cutoverDate === 'string' ? decisions.cutoverDate : null,
   })
   expectRow('migration_sources', '', source)
-  const declared = settings.currentSemester
-  const basisDate = cutoverDate === undefined ? data.updatedAt : cutoverDate
-  const currentSemester = declared === undefined || declared === null || declared === '' ? semesterAt(basisDate) : typeof declared === 'string' && /^\d+-[12]$/.test(declared) ? declared : null
+  const currentSemester = resolveCurrentSemester(settings.currentSemester, data.updatedAt, decisions)
   expectRow('classes', '/data', data, { id: classId, name: data.className ?? source?.className ?? null, teacher: data.teacher ?? null, current_semester: currentSemester })
   const lookup = (table, legacy) => {
     const found = list(rows[table]).filter(r => r.legacy_id !== null && String(r.legacy_id) === String(legacy))
@@ -114,7 +117,7 @@ export function reconcile(source, converted, { cutoverDate } = {}) {
     txs.forEach((t, j) => {
       const targetIndex = correctionEdges.get(j)
       const targetRow = targetIndex === null ? null : one("transactions", `${p}/bank/transactions/${targetIndex}`)
-      expectRow('transactions', `${p}/bank/transactions/${j}`, t, { student_id: sr?.id, legacy_id: t.id ?? null, amount: numeric(t.amount) ? t.amount : null, reason: t.reason ?? null, occurred_at: t.date ?? null, balance_after: t.balance ?? null, voided: Boolean(t.voided), transaction_type: t.type ?? 'legacy', corrected_transaction_id: t.correctedTxId === undefined || cycleMembers.has(j) ? null : targetRow?.id ?? null, semester: semesterAt(t.date), legacy_semantics: true, exclude_from_total: Boolean(t.excludeFromTotal) })
+      expectRow('transactions', `${p}/bank/transactions/${j}`, t, { student_id: sr?.id, legacy_id: t.id ?? null, amount: numeric(t.amount) ? t.amount : null, reason: t.reason ?? null, occurred_at: t.date ?? null, balance_after: t.balance ?? null, voided: Boolean(t.voided), transaction_type: t.type ?? 'legacy', corrected_transaction_id: t.correctedTxId === undefined || cycleMembers.has(j) ? null : targetRow?.id ?? null, semester: selectedSemester(t.date, decisions), legacy_semantics: true, exclude_from_total: Boolean(t.excludeFromTotal) })
     })
     expectOpeningAdjustment()
     function expectOpeningAdjustment() {
@@ -123,7 +126,7 @@ export function reconcile(source, converted, { cutoverDate } = {}) {
         student_id: sr?.id, amount: adjustment.amount, reason: adjustment.reason,
         occurred_at: adjustment.date, balance_after: balance, voided: false,
         transaction_type: 'migration_opening_adjustment', corrected_transaction_id: null,
-        semester: semesterAt(adjustment.date), legacy_semantics: false, exclude_from_total: true,
+        semester: selectedSemester(adjustment.date, decisions), legacy_semantics: false, exclude_from_total: true,
       })
     }
     diff(`${p}/converted_ledger_sum`, adjustment ? balance : ledger, actualTxs.every(t => numeric(t.amount)) ? actualTxs.reduce((n, t) => n + t.amount, 0) : null)
@@ -151,7 +154,7 @@ export function reconcile(source, converted, { cutoverDate } = {}) {
   })
   recordList(data.logs).forEach((log, i) => {
     const p = `/data/logs/${i}`, lr = expectRow('logs', p, log)
-    recordList(log.tasks).forEach((t, j) => expectRow('tasks', `${p}/tasks/${j}`, t, { legacy_id: t.id ?? null, log_id: lr?.id, title: t.title ?? null, task_type: t.type ?? null, published_on: t.createdAt ?? log.date ?? null, due_on: t.dueDate ?? log.date ?? null, semester: semesterAt(t.createdAt ?? log.date), correction_state: t.type === '訂正' ? 'legacy_unlinked' : null, original_task_id: null, teacher_confirmed: null, assignees_known: false }))
+    recordList(log.tasks).forEach((t, j) => expectRow('tasks', `${p}/tasks/${j}`, t, { legacy_id: t.id ?? null, log_id: lr?.id, title: t.title ?? null, task_type: t.type ?? null, published_on: t.createdAt ?? log.date ?? null, due_on: t.dueDate ?? log.date ?? null, semester: selectedSemester(t.createdAt ?? log.date, decisions), correction_state: t.type === '訂正' ? 'legacy_unlinked' : null, original_task_id: null, teacher_confirmed: null, assignees_known: false }))
     entries(log.status).forEach(([sid, values]) => {
       const vals = Object.fromEntries(entries(values))
       const keys = [...new Set([...recordList(log.tasks).filter(t => t.id != null).map(t => String(t.id)), ...entries(vals).map(([key]) => key)])]

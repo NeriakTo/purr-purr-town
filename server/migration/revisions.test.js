@@ -91,8 +91,8 @@ it("R5 每一筆既有來源錯誤少報都獨立識別", () => {
   source.data.settings.jobAssignments.absent = ["absent"]
   source.data.students[0].bank.transactions[0].balance = 999
   const baseline = convert(source)
-  expect(baseline.errors.map(e => e.code)).toEqual(expect.arrayContaining(["ORPHAN_PRODUCT", "ORPHAN_JOB", "ORPHAN_STUDENT", "ORPHAN_TASK", "UNKNOWN_STATUS", "UNKNOWN_FIELD"]))
-  expect(baseline.report.notices.map(e => e.code)).toEqual(expect.arrayContaining(["TOTAL_EARNED_DRIFT", "TRANSACTION_BALANCE_DRIFT"]))
+  expect(baseline.errors.map(e => e.code)).toEqual(expect.arrayContaining(["ORPHAN_PRODUCT", "ORPHAN_JOB", "ORPHAN_STUDENT", "ORPHAN_TASK", "UNKNOWN_STATUS", "UNKNOWN_FIELD", "TOTAL_EARNED_DRIFT"]))
+  expect(baseline.report.notices.map(e => e.code)).toEqual(expect.arrayContaining(["TRANSACTION_BALANCE_DRIFT"]))
   for (let i = 0; i < baseline.errors.length; i++) {
     const out = structuredClone(baseline)
     out.errors.splice(i, 1)
