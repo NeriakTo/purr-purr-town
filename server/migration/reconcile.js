@@ -5,7 +5,7 @@ import {
   accountFields, legacyTransactionFacts, openingAdjustmentFields, openingAdjustmentRaw, sumNumeric, transactionFields,
 } from './ledger.js'
 import { CONVERTER_VERSION, digest, pointer, migrationBatchId, TABLES } from './convert.js'
-import { decisionInputError, resolveCurrentSemester, selectedSemester } from './decisions.js'
+import { decisionInputError, resolveCurrentSemester, selectedSemester, taipeiDay } from './decisions.js'
 
 const list = v => Array.isArray(v) ? v : []
 const entries = v => v && typeof v === 'object' && !Array.isArray(v) ? Object.entries(v) : []
@@ -57,6 +57,81 @@ export function legacyEarned(transactions, { startDate, endDate } = {}) {
   const isStore = t => typeof t?.reason === 'string' && /^(購買|使用道具)/.test(t.reason)
   const map = Object.fromEntries(dated.map(t => [t.id, t]))
   return dated.filter(t => !t.voided && !isStore(t) && !(t.type === 'correction' && t.correctedTxId && isStore(map[t.correctedTxId]))).reduce((n, t) => n + (t.amount || 0), 0)
+}
+
+function checkAccountTotals(path, account, transactions, diff) {
+  const amountSum = sumNumeric(transactions.map(transaction => transaction.amount))
+  const earnedSum = sumNumeric(transactions.map(transaction => transaction.earned_delta))
+  diff(`${path}/amount_sum_vs_balance`, account?.balance, amountSum)
+  diff(`${path}/earned_delta_sum_vs_total`, account?.total_earned, earnedSum)
+}
+
+function reachableRoot(correction, byId) {
+  const visited = new Set()
+  let row = correction
+  while (row?.kind === 'correction') {
+    if (visited.has(row.id)) return null
+    visited.add(row.id)
+    row = byId.get(row.corrected_transaction_id)
+  }
+  if (['legacy_general', 'shop_purchase', 'item_use'].includes(row?.kind)) return row
+  return null
+}
+
+function checkTransactionInvariants(path, transactions, diff) {
+  const byId = new Map(transactions.map(row => [row.id, row]))
+  let adjustmentCount = 0
+  for (const row of transactions) {
+    const rowPath = row.source_path
+    diff(`${rowPath}/chain_broken_kind`, row.kind === 'legacy_orphan_correction', row.chain_broken)
+    if (row.kind === 'migration_opening_adjustment') {
+      adjustmentCount += 1
+      diff(`${rowPath}/opening_adjustment_effective_at`, null, row.effective_at)
+    }
+    if (row.kind === 'correction') {
+      const root = reachableRoot(row, byId)
+      diff(`${rowPath}/correction_root`, true, root !== null && root.id === row.root_transaction_id)
+      if (root) {
+        diff(`${rowPath}/root_effective_at`, root.effective_at, row.effective_at)
+        diff(`${rowPath}/root_semester`, root.semester, row.semester)
+      }
+    }
+  }
+  diff(`${path}/opening_adjustment_count`, Math.min(adjustmentCount, 1), adjustmentCount)
+}
+
+function inPeriod(day, { startDate, endDate }) {
+  if (day === null) return false
+  if (startDate && day < startDate) return false
+  return !endDate || day <= endDate
+}
+
+function periodTotal(transactions, bounds) {
+  const values = transactions.filter(row => inPeriod(row.day, bounds)).map(row => row.earnedDelta)
+  return sumNumeric(values)
+}
+
+function comparePeriods(path, periodSettings, { source, sourceFacts, converted, validAmounts, skipLegacy }, diff) {
+  const periods = []
+  const comparison = []
+  const legacyProjection = skipLegacy ? [] : projectTransactions(converted)
+  const sourceDays = sourceFacts.map(fact => ({ day: taipeiDay(fact.effectiveAt), earnedDelta: fact.earnedDelta }))
+  const convertedDays = converted.map(row => ({ day: taipeiDay(row.effective_at), earnedDelta: row.earned_delta }))
+  for (const [period, bounds] of entries(periodSettings)) {
+    const options = { startDate: bounds?.start || undefined, endDate: bounds?.end || undefined }
+    let legacy = null
+    if (!skipLegacy) {
+      legacy = validAmounts ? legacyEarned(source, options) : null
+      const projected = validAmounts ? legacyEarned(legacyProjection, options) : null
+      diff(`${path}/period/${period}`, legacy, projected)
+      periods.push([period, legacy])
+    }
+    const current = periodTotal(convertedDays, options)
+    diff(`${path}/new_period/${period}`, periodTotal(sourceDays, options), current)
+    const difference = numeric(legacy) && numeric(current) ? current - legacy : null
+    comparison.push([period, { legacy, current, difference }])
+  }
+  return { periods: Object.fromEntries(periods), comparison: Object.fromEntries(comparison) }
 }
 
 export function reconcile(source, converted, { decisions: expectedDecisions } = {}) {
@@ -114,7 +189,7 @@ export function reconcile(source, converted, { decisions: expectedDecisions } = 
     const balance = account.balance
     const total = account.total_earned
     const accountPath = `${p}/bank`
-    expectRow('accounts', accountPath, s.bank, {
+    const actualAccount = expectRow('accounts', accountPath, s.bank, {
       ...account, student_id: sr?.id,
       balance: numeric(balance) ? balance : null,
       total_earned: numeric(total) ? total : null,
@@ -134,7 +209,8 @@ export function reconcile(source, converted, { decisions: expectedDecisions } = 
       const fields = openingAdjustmentFields(adjustment, decisions.cutoverDate, sr?.id)
       expectRow('transactions', accountPath, openingAdjustmentRaw(account), fields)
     }
-    diff(`${p}/converted_ledger_sum`, adjustment ? balance : account.ledger_sum, sumNumeric(actualTxs.map(t => t.amount)))
+    if (decisions.openingAdjustment === true) checkAccountTotals(p, actualAccount, actualTxs, diff)
+    checkTransactionInvariants(p, actualTxs, diff)
     recordList(s.inventory).forEach((item, j) => expectRow('inventory_items', `${p}/inventory/${j}`, item, { student_id: sr?.id, product_id: lookup('products', item.itemId), legacy_index: j, purchase_transaction_id: null, consumed: false }))
     const inv = list(rows.inventory_items).filter(r => r.student_id === sr?.id)
     diff(`${p}/inventory_count`, recordList(s.inventory).length, inv.length)
@@ -145,17 +221,12 @@ export function reconcile(source, converted, { decisions: expectedDecisions } = 
       if (Array.isArray(s.taskExemptRules)) s.taskExemptRules.forEach((v, j) => expectRow('exempt_rules', `${p}/taskExemptRules/${j}`, v, { student_id: sr?.id }))
       else expectRow('exempt_rules', `${p}/taskExemptRules`, s.taskExemptRules, { student_id: sr?.id })
     }
-    const periods = {}
     const skipReasons = periodSkipReasons(sourceErrors, p)
     for (const reason of skipReasons) periodSkipped.push({ path: p, reason })
-    for (const [period, bounds] of entries(settings.semesterPeriods)) {
-      if (skipReasons.length) continue
-      const options = { startDate: bounds?.start || undefined, endDate: bounds?.end || undefined }
-      const projected = projectTransactions(actualTxs)
-      periods[period] = valid ? legacyEarned(txs, options) : null
-      diff(`${p}/period/${period}`, periods[period], valid ? legacyEarned(projected, options) : null)
-    }
-    students.push({ legacy_id: s.id || s.uuid || null, balance, total_earned: total, transaction_count: txs.length, correction_edges: txs.filter(t => t.correctedTxId !== undefined).map(t => [t.id, t.correctedTxId]), inventory_count: recordList(s.inventory).length, usage_count: usages, comment_semesters: entries(s.comments).map(([sem]) => sem), periods })
+    const { periods, comparison } = comparePeriods(p, settings.semesterPeriods, {
+      source: txs, sourceFacts: facts, converted: actualTxs, validAmounts: valid, skipLegacy: skipReasons.length > 0,
+    }, diff)
+    students.push({ legacy_id: s.id || s.uuid || null, balance, total_earned: total, transaction_count: txs.length, correction_edges: txs.filter(t => t.correctedTxId !== undefined).map(t => [t.id, t.correctedTxId]), inventory_count: recordList(s.inventory).length, usage_count: usages, comment_semesters: entries(s.comments).map(([sem]) => sem), periods, period_comparison: comparison })
   })
   recordList(data.logs).forEach((log, i) => {
     const p = `/data/logs/${i}`, lr = expectRow('logs', p, log)

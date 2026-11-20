@@ -199,3 +199,117 @@ describe('7.4 G 作業與來源檢查', () => {
     expect(reconcile(source, output).ready_for_import).toBe(false)
   })
 })
+
+function auditSource() {
+  const source = sourceWith([
+    { id: 'root', amount: 100, date: '2026-07-31T15:59:59Z', voided: true },
+    { id: 'fix', type: 'correction', correctedTxId: 'root', amount: -20, date: '2026-08-01' },
+    { id: 'buy', amount: -30, reason: '購買：假卡', date: '2026-07-31', voided: true },
+    { id: 'buy-fix', type: 'correction', correctedTxId: 'buy', amount: 10, date: '2026-08-15' },
+  ], { balance: 64, totalEarned: 90 })
+  source.data.settings.semesterPeriods = {
+    midterm: { start: '2026-07-01', end: '2026-07-31' },
+    final: { start: '2026-08-01', end: '2026-12-31' },
+    all: { start: null, end: null },
+  }
+  return source
+}
+
+const studentPath = '/data/students/0'
+const rootPath = studentPath + '/bank/transactions/0'
+const correctionPath = studentPath + '/bank/transactions/1'
+
+function verifyAuditTampering(path, mutate) {
+  const source = auditSource()
+  const converted = convert(source, { decisions })
+  const audit = reconcile(source, converted)
+  expect(audit.differences).toEqual([])
+  expect(audit.ready_for_import).toBe(true)
+  mutate(converted.rows)
+  const tampered = reconcile(source, converted)
+  expect(tampered.differences.map(item => item.path)).toContain(path)
+  expect(tampered.ready_for_import).toBe(false)
+}
+
+describe('7.4 G 對帳七項檢查', () => {
+  it('1 交易金額合計必須等於輸出的帳戶餘額', () => {
+    verifyAuditTampering(studentPath + '/amount_sum_vs_balance', rows => { rows.accounts[0].balance = 60 })
+  })
+
+  it('2 累計增減合計必須等於輸出的帳戶累計', () => {
+    verifyAuditTampering(studentPath + '/earned_delta_sum_vs_total', rows => { rows.accounts[0].total_earned = 80 })
+  })
+
+  it('1、2 未選期初調整時由來源錯誤回報差額，各自略過等式檢查', () => {
+    const source = auditSource()
+    const converted = convert(source, { decisions: { semesterRule: 'month' } })
+    const audit = reconcile(source, converted)
+    expect(audit.source_errors.map(error => error.code)).toEqual(['BALANCE_DRIFT', 'TOTAL_EARNED_DRIFT'])
+    expect(audit.differences).toEqual([])
+  })
+
+  it.each(['missing', 'other-root', 'unreachable', 'non-root'])('3 更正根非空、有根種類且前一筆關係可達 %s', mutation => {
+    verifyAuditTampering(correctionPath + '/correction_root', rows => {
+      const correction = rows.transactions[1]
+      if (mutation === 'missing') correction.root_transaction_id = null
+      if (mutation === 'other-root') correction.root_transaction_id = rows.transactions[2].id
+      if (mutation === 'unreachable') correction.corrected_transaction_id = null
+      if (mutation === 'non-root') rows.transactions[0].kind = 'legacy_orphan_correction'
+    })
+  })
+
+  it.each(['effective_at', 'semester'])('4 更正的 %s 必須跟根交易相同', key => {
+    verifyAuditTampering(correctionPath + '/root_' + key, rows => { rows.transactions[1][key] = null })
+  })
+
+  it.each([true, false])('5 斷鏈旗標與孤立種類雙向一致 %s', broken => {
+    verifyAuditTampering(rootPath + '/chain_broken_kind', rows => {
+      const root = rows.transactions[0]
+      if (broken) root.chain_broken = true
+      else root.kind = 'legacy_orphan_correction'
+    })
+  })
+
+  it('6 每人最多一筆期初調整', () => {
+    verifyAuditTampering(studentPath + '/opening_adjustment_count', rows => {
+      rows.transactions.push(structuredClone(rows.transactions.at(-1)))
+    })
+  })
+
+  it('6 期初調整沒有期間歸屬日', () => {
+    verifyAuditTampering(studentPath + '/bank/opening_adjustment_effective_at', rows => {
+      rows.transactions.at(-1).effective_at = '2026-11-15'
+    })
+  })
+
+  it('4 日期異常的更正仍擋匯入，空歸屬日和有效根日期列出差異', () => {
+    const source = auditSource()
+    source.data.students[0].bank.transactions[1].date = 'bad'
+    const converted = convert(source, { decisions })
+    expect(converted.errors.map(error => error.code)).toContain('INVALID_TRANSACTION_DATE')
+    expect(converted.rows.transactions[1].effective_at).toBeNull()
+    expect(reconcile(source, converted).differences).toContainEqual({
+      path: correctionPath + '/root_effective_at', expected: '2026-07-31T15:59:59Z', actual: null,
+    })
+  })
+
+  it('7 並列舊、新期間統計與逐生差額，改歸屬日會抓到新統計差異', () => {
+    const source = auditSource()
+    source.data.students.push({
+      id: 's2', bank: { balance: 7, totalEarned: 7, transactions: [{ id: 'other', amount: 7, date: '2026-07-07' }] },
+    })
+    const converted = convert(source, { decisions })
+    const audit = reconcile(source, converted)
+    expect(audit.differences).toEqual([])
+    expect(audit.students[1].period_comparison.midterm).toEqual({ legacy: 7, current: 7, difference: 0 })
+    expect(audit.students[0].period_comparison).toEqual({
+      midterm: { legacy: 0, current: 80, difference: 80 },
+      final: { legacy: -10, current: 0, difference: 10 },
+      all: { legacy: -20, current: 80, difference: 100 },
+    })
+    converted.rows.transactions[1].effective_at = '2026-08-01'
+    expect(reconcile(source, converted).differences).toContainEqual({
+      path: studentPath + '/new_period/midterm', expected: 80, actual: 100,
+    })
+  })
+})

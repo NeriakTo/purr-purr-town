@@ -1,9 +1,14 @@
 export function semesterAt(date) {
+  const day = taipeiDay(date)
+  if (day === null) return null
+  const y = Number(day.slice(0, 4)), m = Number(day.slice(5, 7))
+  return `${y - 1911 - (m < 8 ? 1 : 0)}-${m === 1 || m >= 8 ? 1 : 2}`
+}
+
+export function taipeiDay(date) {
   const timestamp = taipeiTimestamp(date)
   if (timestamp === null) return null
-  const local = new Date(timestamp + 8 * 3600000).toISOString()
-  const y = Number(local.slice(0, 4)), m = Number(local.slice(5, 7))
-  return `${y - 1911 - (m < 8 ? 1 : 0)}-${m === 1 || m >= 8 ? 1 : 2}`
+  return new Date(timestamp + 8 * 3600000).toISOString().slice(0, 10)
 }
 
 export function taipeiTimestamp(date) {
