@@ -35,3 +35,11 @@ export function createTask(classId, fields = {}) {
 export function updateTask(classId, taskId, fields, expectVersion = { rev: 1 }) {
   return operation(classId, 'task.update', { task_id: taskId, ...fields }, expectVersion)
 }
+
+export function voidTask(classId, taskId, reverseEffects, rev = 1) {
+  return operation(classId, 'task.void', { task_id: taskId, reverse_effects: reverseEffects }, { rev })
+}
+
+export function restoreTask(classId, taskId, rev = 2) {
+  return operation(classId, 'task.restore', { task_id: taskId }, { rev })
+}

@@ -11,7 +11,9 @@ AS $$
     ('"rule.save"'::jsonb, ARRAY['teacher'], 'required'),
     ('"rule.retire"'::jsonb, ARRAY['teacher'], 'required'),
     ('"task.create"'::jsonb, ARRAY['teacher'], 'forbidden'),
-    ('"task.update"'::jsonb, ARRAY['teacher'], 'required')
+    ('"task.update"'::jsonb, ARRAY['teacher'], 'required'),
+    ('"task.void"'::jsonb, ARRAY['teacher'], 'required'),
+    ('"task.restore"'::jsonb, ARRAY['teacher'], 'required')
   ) AS definition(type, roles, expect_mode)
   WHERE definition.type = p_type;
 $$;

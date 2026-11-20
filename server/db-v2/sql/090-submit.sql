@@ -47,6 +47,10 @@ BEGIN
       PERFORM validate_task_create(p_op->'payload');
     WHEN 'task.update' THEN
       PERFORM validate_task_update(p_op->'payload');
+    WHEN 'task.void' THEN
+      PERFORM validate_task_lifecycle(p_op->'payload', true);
+    WHEN 'task.restore' THEN
+      PERFORM validate_task_lifecycle(p_op->'payload', false);
     ELSE
       RAISE EXCEPTION '已知操作缺少輸入與目標檢查';
   END CASE;
@@ -67,6 +71,8 @@ BEGIN
     WHEN 'rule.retire' THEN RETURN apply_rule_operation(p_op, p_time);
     WHEN 'task.create' THEN RETURN apply_task_create(p_op);
     WHEN 'task.update' THEN RETURN apply_task_update(p_op);
+    WHEN 'task.void' THEN RETURN apply_task_lifecycle(p_op, p_time);
+    WHEN 'task.restore' THEN RETURN apply_task_lifecycle(p_op, p_time);
     ELSE RAISE EXCEPTION '已知操作缺少寫入函式';
   END CASE;
 END;
