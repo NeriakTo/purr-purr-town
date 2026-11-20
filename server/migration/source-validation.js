@@ -1,4 +1,5 @@
 import { pointer, canonicalJson } from './convert.js'
+import { validateTransactionDate } from './ledger.js'
 import { openingAdjustmentEnabled, requireDecisions, resolveCurrentSemester, validateDatedSemester } from './decisions.js'
 import { correctionCycleMembers, correctionTargets, correctionMatches } from './corrections.js'
 
@@ -115,7 +116,7 @@ export function validateSource(source, earnedFromLegacy, { notices = [], adjustm
       if (t.reason !== undefined && typeof t.reason !== 'string') error('INVALID_REASON', `${p}/reason`, t.reason)
       if (t.type !== undefined && t.type !== 'correction') error('UNKNOWN_TRANSACTION_TYPE', `${p}/type`, t.type)
       if (t.voided !== undefined && typeof t.voided !== 'boolean') error('UNKNOWN_VOIDED', `${p}/voided`, t.voided)
-      validateDatedSemester('TRANSACTION', t.date, decisions, p, error)
+      validateTransactionDate(t.date, decisions, p, error)
     })
     index(txs, `${path}/bank/transactions`)
     const edges = correctionTargets(txs)

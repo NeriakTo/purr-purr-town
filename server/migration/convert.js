@@ -1,5 +1,6 @@
 import { correctionCycleMembers, correctionMatches, correctionTargets } from "./corrections.js"
 import { createHash } from 'node:crypto'
+import { legacyTransactionFacts, transactionFields, validateTransactionDate } from './ledger.js'
 import { openingAdjustmentEnabled, requireDecisions, resolveCurrentSemester, selectedSemester, validateDatedSemester } from './decisions.js'
 
 export const TABLES = ['migration_batches', 'migration_sources', 'legacy_ids', 'classes', 'students', 'accounts', 'transactions', 'inventory_items', 'comments', 'exempt_rules', 'logs', 'tasks', 'submissions', 'settings_entries', 'products', 'jobs', 'job_assignments', 'daily_duties', 'seats', 'announcements', 'rules', 'groups', 'semesters']
@@ -104,12 +105,13 @@ export function convert(input, { decisions = {} } = {}) {
       if (t.reason !== undefined && typeof t.reason !== 'string') error('INVALID_REASON', `${path}/reason`, t.reason)
       if (t.type !== undefined && t.type !== 'correction') error('UNKNOWN_TRANSACTION_TYPE', `${path}/type`, t.type)
       if (t.voided !== undefined && typeof t.voided !== 'boolean') error('UNKNOWN_VOIDED', `${path}/voided`, t.voided)
-      validateDatedSemester('TRANSACTION', t.date, decisions, path, error)
-      return add('transactions', path, t, { student_id: sid, amount: numeric(t.amount) ? t.amount : null, reason: t.reason ?? null, occurred_at: t.date ?? null, balance_after: t.balance ?? null, voided: Boolean(t.voided), transaction_type: t.type ?? 'legacy', corrected_transaction_id: null, semester: selectedSemester(t.date, decisions), legacy_semantics: true, exclude_from_total: Boolean(t.excludeFromTotal) }, t.id ?? null)
+      validateTransactionDate(t.date, decisions, path, error)
+      return add('transactions', path, t, { student_id: sid, amount: numeric(t.amount) ? t.amount : null, reason: t.reason ?? null, occurred_at: t.date ?? null, balance_after: t.balance ?? null, voided: Boolean(t.voided), transaction_type: t.type ?? 'legacy', corrected_transaction_id: null, legacy_semantics: true }, t.id ?? null)
     })
     index(tr, `${p}/bank/transactions`)
     const edges = correctionTargets(txs)
     const cycles = correctionCycleMembers(edges)
+    const facts = legacyTransactionFacts(txs, edges, cycles)
     tr.forEach((r, j) => {
       const target = txs[j].correctedTxId
       const matches = correctionMatches(txs, target)
@@ -120,6 +122,7 @@ export function convert(input, { decisions = {} } = {}) {
       if (cycles.has(j)) error("CORRECTION_CYCLE", r.source_path, target)
       const targetIndex = edges.get(j)
       r.corrected_transaction_id = cycles.has(j) || targetIndex === null ? null : tr[targetIndex].id
+      Object.assign(r, transactionFields(facts[j], index => tr[index].id, decisions))
     })
     const valid = txs.every(t => numeric(t.amount))
     const ledger = valid ? txs.reduce((sum, t) => sum + t.amount, 0) : null
@@ -153,7 +156,8 @@ export function convert(input, { decisions = {} } = {}) {
         student_id: sid, amount, reason: adjustment.reason, occurred_at: date,
         balance_after: balance, voided: false, transaction_type: 'migration_opening_adjustment',
         corrected_transaction_id: null, semester: selectedSemester(date, decisions), legacy_semantics: false,
-        exclude_from_total: true,
+        kind: 'migration_opening_adjustment', root_transaction_id: null, chain_broken: false,
+        earned_delta: 0, effective_at: null, origin: 'migration', op_id: null,
       })
     }
     arr(s.inventory, `${p}/inventory`).forEach((item, j) => {

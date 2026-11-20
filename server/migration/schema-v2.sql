@@ -89,7 +89,7 @@ CREATE TABLE migration_v2.accounts (
 
 CREATE TABLE migration_v2.transactions (
   id text PRIMARY KEY,
-  batch_id text NOT NULL,
+  batch_id text,
   class_id text NOT NULL,
   legacy_id jsonb,
   source_path text NOT NULL,
@@ -103,7 +103,17 @@ CREATE TABLE migration_v2.transactions (
   transaction_type text,
   corrected_transaction_id text REFERENCES migration_v2.transactions(id) DEFERRABLE INITIALLY DEFERRED,
   semester text,
-  exclude_from_total boolean NOT NULL,
+  kind text NOT NULL,
+  root_transaction_id text REFERENCES migration_v2.transactions(id) DEFERRABLE INITIALLY DEFERRED,
+  chain_broken boolean NOT NULL,
+  earned_delta numeric,
+  effective_at text,
+  origin text NOT NULL,
+  op_id text,
+  CHECK (
+    (origin = 'op' AND op_id IS NOT NULL AND batch_id IS NULL)
+    OR (origin = 'migration' AND op_id IS NULL AND batch_id IS NOT NULL)
+  ),
   legacy_semantics boolean NOT NULL,
   UNIQUE (batch_id, source_path)
 );

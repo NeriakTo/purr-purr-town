@@ -1,6 +1,7 @@
 import { validateSource, orderedErrors } from "./source-validation.js"
 import { correctionCycleMembers, correctionTargets } from "./corrections.js"
 import { isDeepStrictEqual } from 'node:util'
+import { legacyTransactionFacts, transactionFields } from './ledger.js'
 import { CONVERTER_VERSION, digest, pointer, migrationBatchId, TABLES } from './convert.js'
 import { decisionInputError, resolveCurrentSemester, selectedSemester } from './decisions.js'
 
@@ -114,10 +115,14 @@ export function reconcile(source, converted, { decisions: expectedDecisions } = 
     diff(`${p}/transaction_count`, txs.length + (adjustment ? 1 : 0), actualTxs.length)
     const correctionEdges = correctionTargets(txs)
     const cycleMembers = correctionCycleMembers(correctionEdges)
+    const facts = legacyTransactionFacts(txs, correctionEdges, cycleMembers)
+    function transactionIdAt(index) {
+      return one('transactions', `${p}/bank/transactions/${index}`)?.id ?? null
+    }
     txs.forEach((t, j) => {
       const targetIndex = correctionEdges.get(j)
       const targetRow = targetIndex === null ? null : one("transactions", `${p}/bank/transactions/${targetIndex}`)
-      expectRow('transactions', `${p}/bank/transactions/${j}`, t, { student_id: sr?.id, legacy_id: t.id ?? null, amount: numeric(t.amount) ? t.amount : null, reason: t.reason ?? null, occurred_at: t.date ?? null, balance_after: t.balance ?? null, voided: Boolean(t.voided), transaction_type: t.type ?? 'legacy', corrected_transaction_id: t.correctedTxId === undefined || cycleMembers.has(j) ? null : targetRow?.id ?? null, semester: selectedSemester(t.date, decisions), legacy_semantics: true, exclude_from_total: Boolean(t.excludeFromTotal) })
+      expectRow('transactions', `${p}/bank/transactions/${j}`, t, { student_id: sr?.id, legacy_id: t.id ?? null, amount: numeric(t.amount) ? t.amount : null, reason: t.reason ?? null, occurred_at: t.date ?? null, balance_after: t.balance ?? null, voided: Boolean(t.voided), transaction_type: t.type ?? 'legacy', corrected_transaction_id: t.correctedTxId === undefined || cycleMembers.has(j) ? null : targetRow?.id ?? null, legacy_semantics: true, ...transactionFields(facts[j], transactionIdAt, decisions) })
     })
     expectOpeningAdjustment()
     function expectOpeningAdjustment() {
@@ -126,7 +131,9 @@ export function reconcile(source, converted, { decisions: expectedDecisions } = 
         student_id: sr?.id, amount: adjustment.amount, reason: adjustment.reason,
         occurred_at: adjustment.date, balance_after: balance, voided: false,
         transaction_type: 'migration_opening_adjustment', corrected_transaction_id: null,
-        semester: selectedSemester(adjustment.date, decisions), legacy_semantics: false, exclude_from_total: true,
+        semester: selectedSemester(adjustment.date, decisions), legacy_semantics: false,
+        kind: 'migration_opening_adjustment', root_transaction_id: null, chain_broken: false,
+        earned_delta: 0, effective_at: null, origin: 'migration', op_id: null,
       })
     }
     diff(`${p}/converted_ledger_sum`, adjustment ? balance : ledger, actualTxs.every(t => numeric(t.amount)) ? actualTxs.reduce((n, t) => n + t.amount, 0) : null)

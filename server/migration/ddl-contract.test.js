@@ -88,3 +88,7 @@ it('R10 能抓出輸出少欄、多欄、型別錯誤及 CHECK 違反', () => {
     expect(ddlIssues(sql, copy)).toContain(issue)
   }
 })
+
+it('7.4 B 交易來源檢查要求操作編號或轉換批次', () => {
+  expect(sql).toMatch(/CHECK \(\s*\(origin = 'op' AND op_id IS NOT NULL AND batch_id IS NULL\)\s*OR \(origin = 'migration' AND op_id IS NULL AND batch_id IS NOT NULL\)\s*\)/)
+})

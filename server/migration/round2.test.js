@@ -100,7 +100,7 @@ describe('第二輪正式轉換', () => {
     expect(converted.report.notices.map(e => e.code)).toEqual(expect.arrayContaining(['BALANCE_DRIFT', 'TOTAL_EARNED_DRIFT', 'TRANSACTION_BALANCE_DRIFT']))
     expect(converted.rows.accounts[0]).toMatchObject({ balance: 20, total_earned: 50, ledger_sum: 5, earned_recomputed: 5 })
     const adjustment = converted.rows.transactions.find(t => t.transaction_type === 'migration_opening_adjustment')
-    expect(adjustment).toMatchObject({ amount: 15, reason: '轉換期初調整', occurred_at: '2026-11-15', exclude_from_total: true, legacy_semantics: false })
+    expect(adjustment).toMatchObject({ amount: 15, reason: '轉換期初調整', occurred_at: '2026-11-15', earned_delta: 0, legacy_semantics: false })
     expect(legacyEarned(converted.rows.transactions.map(t => ({ id: t.id, type: t.transaction_type, amount: t.amount })))).toBe(calcEarnedFromTransactions(source.data.students[0].bank.transactions))
     expect(reconcile(source, converted).differences).toEqual([])
     expect(convert(source, options)).toEqual(converted)
