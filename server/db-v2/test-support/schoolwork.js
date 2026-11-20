@@ -24,3 +24,14 @@ export async function commitOperation(client, op) {
   expect(receipt).toMatchObject({ status: 'committed', code: 'OK' })
   return receipt
 }
+
+export function createTask(classId, fields = {}) {
+  return operation(classId, 'task.create', {
+    task_id: randomUUID(), title: '測試作業', task_type: '作業',
+    published_on: '2026-11-21', due_on: '2026-11-22', ...fields,
+  })
+}
+
+export function updateTask(classId, taskId, fields, expectVersion = { rev: 1 }) {
+  return operation(classId, 'task.update', { task_id: taskId, ...fields }, expectVersion)
+}

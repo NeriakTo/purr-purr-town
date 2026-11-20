@@ -43,6 +43,10 @@ BEGIN
       PERFORM validate_rule_save(p_op->'payload');
     WHEN 'rule.retire' THEN
       PERFORM validate_rule_retire(p_op->'payload');
+    WHEN 'task.create' THEN
+      PERFORM validate_task_create(p_op->'payload');
+    WHEN 'task.update' THEN
+      PERFORM validate_task_update(p_op->'payload');
     ELSE
       RAISE EXCEPTION '已知操作缺少輸入與目標檢查';
   END CASE;
@@ -61,6 +65,8 @@ BEGIN
     WHEN 'submission.set_status' THEN RETURN apply_submission_status(p_op, p_time);
     WHEN 'rule.save' THEN RETURN apply_rule_operation(p_op, p_time);
     WHEN 'rule.retire' THEN RETURN apply_rule_operation(p_op, p_time);
+    WHEN 'task.create' THEN RETURN apply_task_create(p_op);
+    WHEN 'task.update' THEN RETURN apply_task_update(p_op);
     ELSE RAISE EXCEPTION '已知操作缺少寫入函式';
   END CASE;
 END;

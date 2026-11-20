@@ -9,7 +9,9 @@ AS $$
     ('"shop.purchase"'::jsonb, ARRAY['teacher'], 'forbidden'),
     ('"submission.set_status"'::jsonb, ARRAY['teacher', 'agent'], 'required'),
     ('"rule.save"'::jsonb, ARRAY['teacher'], 'required'),
-    ('"rule.retire"'::jsonb, ARRAY['teacher'], 'required')
+    ('"rule.retire"'::jsonb, ARRAY['teacher'], 'required'),
+    ('"task.create"'::jsonb, ARRAY['teacher'], 'forbidden'),
+    ('"task.update"'::jsonb, ARRAY['teacher'], 'required')
   ) AS definition(type, roles, expect_mode)
   WHERE definition.type = p_type;
 $$;

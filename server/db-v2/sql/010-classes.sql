@@ -23,6 +23,7 @@ CREATE TABLE ppt.students (
   seat_number integer,
   name text NOT NULL,
   group_key text,
+  exempt_rules jsonb NOT NULL DEFAULT '[]' CHECK (jsonb_typeof(exempt_rules) = 'array'),
   enrollment_status text NOT NULL DEFAULT 'enrolled'
     CHECK (enrollment_status IN ('enrolled', 'home_study', 'transferred', 'archived')),
   rev integer NOT NULL DEFAULT 1 CHECK (rev >= 1),
