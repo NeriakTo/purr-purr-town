@@ -28,21 +28,17 @@ BEGIN
 END;
 $$;
 
-CREATE FUNCTION ppt.require_resolved_task_effects(p_task ppt.tasks)
-RETURNS void
-LANGUAGE plpgsql
+CREATE FUNCTION ppt.unresolved_task_legacy_effects(p_task ppt.tasks)
+RETURNS jsonb
+LANGUAGE sql
 SET search_path = pg_catalog, ppt, pg_temp
 AS $$
-BEGIN
-  IF EXISTS (
-    SELECT 1 FROM effects
-    WHERE class_id = p_task.class_id AND subject_kind = 'task' AND subject_key = p_task.task_id
-      AND status = 'legacy_unresolved'
-  ) THEN
-    -- PPT-PENDING: task_void_legacy_effects
-    PERFORM pending_operation('task_void_legacy_effects');
-  END IF;
-END;
+  SELECT coalesce(jsonb_agg(jsonb_build_object(
+    'effect_id', effect_id, 'student_id', student_id, 'subject_kind', subject_kind, 'subject_key', subject_key
+  ) ORDER BY student_id COLLATE "C", effect_id COLLATE "C"), '[]'::jsonb)
+  FROM effects
+  WHERE class_id = p_task.class_id AND subject_kind = 'task' AND subject_key = p_task.task_id
+    AND status = 'legacy_unresolved';
 $$;
 
 CREATE FUNCTION ppt.task_effects_to_reverse(p_task ppt.tasks)
@@ -106,21 +102,25 @@ DECLARE
   unchanged boolean := previous.voided = voiding;
   reverse_effects boolean := voiding AND (payload->>'reverse_effects')::boolean;
   new_rev integer := previous.rev;
+  unresolved jsonb;
   outcome operation_outcome := (operation_result(p_noop => unchanged), '[]'::jsonb, '[]'::jsonb);
 BEGIN
   PERFORM require_task_lifecycle_version(p_op, previous, voiding);
 
   IF NOT unchanged THEN
-    IF reverse_effects THEN
-      PERFORM require_resolved_task_effects(previous);
-    END IF;
-
     UPDATE tasks SET voided = voiding, rev = rev + 1, last_op_id = op_key
     WHERE class_id = previous.class_id AND task_id = previous.task_id
     RETURNING rev INTO STRICT new_rev;
 
     IF reverse_effects THEN
       outcome := reverse_task_effects(previous, op_key, p_time);
+      unresolved := unresolved_task_legacy_effects(previous);
+      outcome.result := outcome.result || jsonb_build_object('unresolved_legacy_effects', unresolved);
+      IF jsonb_array_length(unresolved) > 0 THEN
+        outcome.warnings := outcome.warnings || jsonb_build_array(jsonb_build_object(
+          'code', 'LEGACY_EFFECT_SKIPPED', 'count', jsonb_array_length(unresolved)
+        ));
+      END IF;
     END IF;
     IF voiding THEN
       outcome.changes := outcome.changes || supersede_task_proposals(previous, op_key, p_time);
