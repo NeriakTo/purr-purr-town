@@ -130,6 +130,14 @@ const cases = [
     expect((await submit(client, { ...adjustment(target), type: 'tx.reverse', payload })).code).toBe('OK')
     return { ...adjustment(target), type: 'tx.correct', payload: { ...payload, new_amount: 5 } }
   }],
+  ['ITEM_ALREADY_USED', async (client, target) => {
+    expect((await submit(client, adjustment(target, 10))).code).toBe('OK')
+    const buy = purchase(target)
+    expect((await submit(client, buy)).code).toBe('OK')
+    const use = { ...adjustment(target), type: 'inventory.use', payload: { item_id: buy.payload.item_id } }
+    expect((await submit(client, use)).code).toBe('OK')
+    return { ...use, op_id: randomUUID() }
+  }],
 ]
 
 describeDatabase('錯誤碼逐碼驗收', () => {
