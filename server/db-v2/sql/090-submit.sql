@@ -64,6 +64,20 @@ BEGIN
       PERFORM require_proposal_target(p_op, p_actor);
     WHEN 'confirmation.confirm', 'confirmation.reject' THEN
       PERFORM validate_confirmation_payload(p_op->'payload');
+    WHEN 'correction.require' THEN
+      PERFORM check_correction_round_creation(p_op, p_actor);
+    WHEN 'correction.mark_returned' THEN
+      PERFORM check_correction_round_return(p_op, p_actor);
+    WHEN 'correction.confirm' THEN
+      PERFORM check_correction_round_confirm(p_op, p_actor);
+    WHEN 'correction.redo' THEN
+      PERFORM check_correction_round_redo(p_op, p_actor);
+    WHEN 'correction.cancel' THEN
+      PERFORM check_correction_round_cancel(p_op, p_actor);
+    WHEN 'correction.set_due' THEN
+      PERFORM check_correction_round_due(p_op, p_actor);
+    WHEN 'schedule.correction_overdue' THEN
+      PERFORM validate_correction_overdue(p_op->'payload');
     WHEN 'rule.save' THEN
       PERFORM validate_rule_save(p_op->'payload');
     WHEN 'rule.retire' THEN
@@ -101,6 +115,13 @@ BEGIN
     WHEN 'submission.set_status' THEN RETURN apply_submission_status(p_op, p_time);
     WHEN 'submission.propose' THEN RETURN apply_submission_proposal(p_op, p_time);
     WHEN 'confirmation.confirm', 'confirmation.reject' THEN RETURN apply_confirmation_operation(p_op, p_actor, p_time);
+    WHEN 'correction.require' THEN RETURN apply_correction_round_creation(p_op);
+    WHEN 'correction.mark_returned' THEN RETURN apply_correction_round_return(p_op);
+    WHEN 'correction.confirm' THEN RETURN apply_correction_round_confirm(p_op, p_time);
+    WHEN 'correction.redo' THEN RETURN apply_correction_round_redo(p_op);
+    WHEN 'correction.cancel' THEN RETURN apply_correction_round_cancel(p_op, p_time);
+    WHEN 'correction.set_due' THEN RETURN apply_correction_round_due(p_op);
+    WHEN 'schedule.correction_overdue' THEN RETURN apply_correction_overdue(p_op, p_time);
     WHEN 'rule.save' THEN RETURN apply_rule_operation(p_op, p_time);
     WHEN 'rule.retire' THEN RETURN apply_rule_operation(p_op, p_time);
     WHEN 'task.create' THEN RETURN apply_task_create(p_op);
@@ -192,8 +213,9 @@ BEGIN
     RETURN retry_receipt(op_id, 'BAD_ENVELOPE');
   END IF;
 
+  PERFORM require_submit_actor(actor);
   -- PPT-PENDING: class_create
-  access_error := lock_teacher_operation_class(class_id, op_id, actor);
+  access_error := lock_operation_class(class_id, op_id, actor);
   IF access_error IS NOT NULL THEN
     RETURN retry_receipt(op_id, access_error);
   END IF;

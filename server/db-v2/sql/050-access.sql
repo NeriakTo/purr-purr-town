@@ -16,14 +16,38 @@ LANGUAGE plpgsql
 SET search_path = pg_catalog, ppt, pg_temp
 AS $$
 BEGIN
-  IF p_actor->>'kind' IN ('scheduler', 'system') THEN
-    -- PPT-PENDING: actor_scheduler_system
-    PERFORM pending_operation('actor_scheduler_system');
+  IF p_actor->>'kind' = 'system' THEN
+    -- PPT-PENDING: actor_system
+    PERFORM pending_operation('actor_system');
   END IF;
   IF p_actor->>'kind' IS DISTINCT FROM 'teacher'
     OR jsonb_typeof(p_actor->'id') IS DISTINCT FROM 'string'
     OR p_actor->>'id' = '' THEN
     RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = '此入口需要有效的老師身分';
+  END IF;
+END;
+$$;
+
+CREATE FUNCTION ppt.scheduler_actor()
+RETURNS jsonb
+LANGUAGE sql
+SET search_path = pg_catalog, ppt, pg_temp
+AS $$
+  SELECT jsonb_build_object('kind', 'scheduler', 'id', 'scheduler');
+$$;
+
+CREATE FUNCTION ppt.require_submit_actor(p_actor jsonb)
+RETURNS void
+LANGUAGE plpgsql
+SET search_path = pg_catalog, ppt, pg_temp
+AS $$
+BEGIN
+  IF p_actor->>'kind' = 'scheduler' THEN
+    IF p_actor IS DISTINCT FROM scheduler_actor() THEN
+      RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = '此入口需要有效的排程身分';
+    END IF;
+  ELSE
+    PERFORM require_teacher_actor(p_actor);
   END IF;
 END;
 $$;
@@ -47,20 +71,28 @@ AS $$
   SELECT coalesce(p_op_id COLLATE "C" ~ '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$', false);
 $$;
 
+CREATE FUNCTION ppt.valid_v5_op_id(p_op_id text)
+RETURNS boolean
+LANGUAGE sql
+SET search_path = pg_catalog, ppt, pg_temp
+AS $$
+  SELECT coalesce(p_op_id COLLATE "C" ~ '^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$', false);
+$$;
+
 CREATE FUNCTION ppt.can_access_class(p_class_id text, p_actor jsonb)
 RETURNS boolean
 LANGUAGE sql
 VOLATILE
 SET search_path = pg_catalog, ppt, pg_temp
 AS $$
-  SELECT CASE p_actor->>'kind'
-    WHEN 'teacher' THEN EXISTS (
+  SELECT CASE
+    WHEN p_actor->>'kind' = 'teacher' THEN EXISTS (
       SELECT 1 FROM class_ownership
       WHERE class_id = p_class_id AND teacher_id = p_actor->>'id'
     )
-    WHEN 'agent' THEN EXISTS (
+    WHEN p_actor->>'kind' IN ('agent', 'scheduler') THEN EXISTS (
       SELECT 1 FROM class_authorizations
-      WHERE class_id = p_class_id AND actor_kind = 'agent'
+      WHERE class_id = p_class_id AND actor_kind = p_actor->>'kind'
     )
     ELSE false
   END;
@@ -80,19 +112,19 @@ BEGIN
 END;
 $$;
 
-CREATE FUNCTION ppt.lock_teacher_operation_class(p_class_id text, p_op_id text, p_actor jsonb)
+-- The entry point has validated the actor before calling this function.
+CREATE FUNCTION ppt.lock_operation_class(p_class_id text, p_op_id text, p_actor jsonb)
 RETURNS ppt.operation_code
 LANGUAGE plpgsql
 SET search_path = pg_catalog, ppt, pg_temp
 AS $$
 BEGIN
-  PERFORM require_teacher_actor(p_actor);
-
   -- Step 1: check access without locking.
   IF NOT can_access_class(p_class_id, p_actor) THEN
     RETURN 'CLASS_FORBIDDEN';
   END IF;
-  IF NOT valid_v4_op_id(p_op_id) THEN
+  IF NOT (CASE WHEN p_actor->>'kind' = 'scheduler'
+    THEN valid_v5_op_id(p_op_id) ELSE valid_v4_op_id(p_op_id) END) THEN
     RETURN 'INVALID_OP_ID';
   END IF;
 
