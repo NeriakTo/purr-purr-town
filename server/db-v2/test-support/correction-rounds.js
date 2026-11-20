@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { expect } from 'vitest'
 import { agentSubmit, authorizeAgent } from './agent.js'
-import { addClass, adjustment } from './operations.js'
+import { addClass, adjustment, teacher } from './operations.js'
 import { commitOperation, operation } from './schoolwork.js'
 import { assignTask, balanceOf } from './submission-flow.js'
 
@@ -93,4 +93,26 @@ export async function expectCorrectionState(client, target, rev, basis, status, 
   `, [target.classId, target.studentId, target.correctionId])
   expect(rows).toEqual(effects.map(([event, amount]) => ({ event, amount })))
   expect(await balanceOf(client, target)).toBe(balance)
+}
+
+export async function setupOpenRoundConflict(client) {
+  const target = await createRound(client, await setupCorrectionTask(client))
+  const original = await commitOperation(client, changeRound(target, 'cancel', { rev: 1 }, { reverse_effects: false }))
+  const next = await createRound(client, target, { note: '重算第二題' })
+  const { created, correctionId } = next
+  return {
+    target,
+    original,
+    current: {
+      correction_id: correctionId, rev: 1, basis_rev: 1,
+      value: { status: 'required', round: 2, due_on: null, overdue_on: null },
+      last_op_id: created.op_id, actor: teacher, committed_at: created.committed_at,
+    },
+  }
+}
+
+export async function setCorrectionDueOperation(client, target) {
+  const round = await createRound(client, await assignTask(client, target))
+  const dueOn = await taipeiDayOffset(client, -1)
+  return changeRound(round, 'set_due', { rev: 1 }, { due_on: dueOn })
 }

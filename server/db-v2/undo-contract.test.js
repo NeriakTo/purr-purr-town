@@ -2,6 +2,7 @@ import { expect, test } from 'vitest'
 import { agentSubmit, authorizeAgent } from './test-support/agent.js'
 import { classSnapshot } from './test-support/checks.js'
 import { confirm, propose } from './test-support/confirmations.js'
+import { setCorrectionDueOperation, setupOpenRoundConflict } from './test-support/correction-rounds.js'
 import { useItem as inventoryUse } from './test-support/inventory.js'
 import { addClass, adjustment, classSequence, operationCount, submit, teacher } from './test-support/operations.js'
 import { retireProduct, saveProduct } from './test-support/products.js'
@@ -113,6 +114,7 @@ const nonUndoable = [
   ['OP-38', (_client, target) => saveRule(target.classId)],
   ['OP-39', retireRuleOperation],
   ['OP-43', (_client, target) => setSetting(target.classId, 'taskTypes', ['作業'])],
+  ['OP-23', setCorrectionDueOperation],
 ]
 
 describeDatabase('撤銷乙段驗收', () => {
@@ -121,6 +123,7 @@ describeDatabase('撤銷乙段驗收', () => {
   test.each([
     ['basis_changed', basisConflict], ['effect_already_active', effectConflict],
     ['tx_changed_later', correctionConflict], ['item_state_changed', itemConflict],
+    ['open_round_exists', setupOpenRoundConflict],
   ])('03:412 %s 預檢拒絕只留一列且不佔用撤銷', async (reason, arrange) => {
     const { client } = db()
     const { target: { classId }, original, current } = await arrange(client)
