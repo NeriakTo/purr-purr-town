@@ -95,7 +95,7 @@ BEGIN
   LOOP
     previous := load_correction_round(p_target.class_id, entry->'key'->>'correction_id');
     updated := restore_correction_round(previous, entry, p_op_id);
-    changes := changes || jsonb_build_array(correction_round_change(previous, updated, 'status'));
+    changes := changes || jsonb_build_array(correction_round_change(previous, updated, 'status', p_op_id));
   END LOOP;
 
   effect_outcome := undo_event_effects(p_target.class_id, updated.student_id, p_target.receipt->'result', p_op_id, p_time);

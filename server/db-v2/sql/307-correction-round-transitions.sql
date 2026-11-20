@@ -63,17 +63,19 @@ SET search_path = pg_catalog, ppt, pg_temp
 AS $$
 DECLARE
   payload jsonb := p_op->'payload';
+  op_key text := p_op->>'op_id';
   previous corrections := load_correction_round(p_op->>'class_id', payload->>'correction_id');
   closed corrections;
   next_round corrections;
 BEGIN
-  closed := store_correction_round_status(previous, 'redo', p_op->>'op_id');
+  closed := store_correction_round_status(previous, 'redo', op_key);
   next_round := insert_correction_round(
     previous.class_id, previous.task_id, previous.student_id, payload->>'next_correction_id',
-    (payload->>'next_due_on')::date, NULL, p_op->>'op_id'
+    (payload->>'next_due_on')::date, NULL, op_key
   );
   RETURN (operation_result(), jsonb_build_array(
-    correction_round_change(previous, closed, 'status'), correction_round_change(NULL, next_round, NULL)
+    correction_round_change(previous, closed, 'status', op_key),
+    correction_round_change(NULL, next_round, NULL, op_key)
   ), '[]'::jsonb);
 END;
 $$;
@@ -95,15 +97,16 @@ SET search_path = pg_catalog, ppt, pg_temp
 AS $$
 DECLARE
   payload jsonb := p_op->'payload';
+  op_key text := p_op->>'op_id';
   previous corrections := load_correction_round(p_op->>'class_id', payload->>'correction_id');
   due date := (payload->>'due_on')::date;
   updated corrections := previous;
   unchanged boolean := previous.due_on IS NOT DISTINCT FROM due;
 BEGIN
   IF NOT unchanged THEN
-    updated := store_correction_round_due(previous, due, p_op->>'op_id');
+    updated := store_correction_round_due(previous, due, op_key);
   END IF;
   RETURN (operation_result(p_noop => unchanged),
-    jsonb_build_array(correction_round_change(previous, updated, 'due_on')), '[]'::jsonb);
+    jsonb_build_array(correction_round_change(previous, updated, 'due_on', op_key)), '[]'::jsonb);
 END;
 $$;

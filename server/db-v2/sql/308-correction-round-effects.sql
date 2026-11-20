@@ -7,7 +7,7 @@ DECLARE
   previous corrections := load_correction_round(p_op->>'class_id', p_op->'payload'->>'correction_id');
   op_key text := p_op->>'op_id';
   updated corrections := store_correction_round_status(previous, 'confirmed', op_key);
-  changes jsonb := jsonb_build_array(correction_round_change(previous, updated, 'status'));
+  changes jsonb := jsonb_build_array(correction_round_change(previous, updated, 'status', op_key));
   reward effect_write;
 BEGIN
   reward := add_event_effect(
@@ -59,7 +59,7 @@ DECLARE
   previous corrections := load_correction_round(p_op->>'class_id', p_op->'payload'->>'correction_id');
   op_key text := p_op->>'op_id';
   updated corrections := store_correction_round_status(previous, 'cancelled', op_key);
-  changes jsonb := jsonb_build_array(correction_round_change(previous, updated, 'status'));
+  changes jsonb := jsonb_build_array(correction_round_change(previous, updated, 'status', op_key));
   reversal submission_effect_outcome;
 BEGIN
   IF NOT (p_op->'payload'->>'reverse_effects')::boolean THEN

@@ -238,6 +238,7 @@ describeDatabase('訂正確認、退回、取消與改期限', () => {
     expect(same.class_seq).toBe(changed.class_seq + 1)
     expect(same.changes).toMatchObject([{
       entity: 'correction', rev: 2, basis_rev: 2, prev_rev: 2, prev_basis_rev: 2,
+      last_op_id: same.op_id,
       prev_value: { due_on: dueOn }, value: { due_on: dueOn },
     }])
     expect(await classSnapshot(client, target.classId, { ignoreClassSequence: true })).toBe(snapshot)

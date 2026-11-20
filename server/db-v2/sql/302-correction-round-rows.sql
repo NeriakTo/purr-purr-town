@@ -37,14 +37,14 @@ AS $$
 $$;
 
 CREATE FUNCTION ppt.correction_round_change(
-  p_before ppt.corrections, p_after ppt.corrections, p_field text
+  p_before ppt.corrections, p_after ppt.corrections, p_field text, p_op_id text
 )
 RETURNS jsonb
 LANGUAGE sql
 SET search_path = pg_catalog, ppt, pg_temp
 AS $$
   SELECT entity_change(
-    'correction', correction_round_key(p_after), coalesce(p_before.rev, 0), p_after.rev, p_after.last_op_id,
+    'correction', correction_round_key(p_after), coalesce(p_before.rev, 0), p_after.rev, p_op_id,
     CASE WHEN p_before.rev IS NOT NULL THEN jsonb_build_object(p_field, to_jsonb(p_before)->p_field) END,
     CASE WHEN p_before.rev IS NULL THEN
       correction_round_value(p_after)
