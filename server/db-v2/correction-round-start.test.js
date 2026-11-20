@@ -58,7 +58,8 @@ describeDatabase('訂正建立與交回', () => {
   })
 
   test.each([
-    ['省略', {}], ['JSON null', { due_on: null, note: null }], ['純空白', { note: ' \t\n ' }],
+    ['省略', {}], ['JSON null', { due_on: null, note: null }],
+    ['純空白', { note: ' \t\n\u00a0\u202f\u3000 ' }],
   ])('OP-18 的選填輸入（%s）存成空值', async (_name, fields) => {
     const { client } = database()
     const target = await createRound(client, await setupCorrectionTask(client), fields)
