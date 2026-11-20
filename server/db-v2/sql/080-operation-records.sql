@@ -39,6 +39,14 @@ AS $$
      AND p_existing.actor_id = p_actor->>'id';
 $$;
 
+CREATE FUNCTION ppt.replay_receipt(p_receipt jsonb)
+RETURNS jsonb
+LANGUAGE sql
+SET search_path = pg_catalog, ppt, pg_temp
+AS $$
+  SELECT jsonb_set(p_receipt, '{replayed}', 'true');
+$$;
+
 CREATE FUNCTION ppt.resolve_operation_conflict(p_op jsonb, p_actor jsonb, p_hash bytea)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -48,13 +56,13 @@ DECLARE
   existing operations%ROWTYPE;
 BEGIN
   SELECT * INTO STRICT existing FROM operations WHERE op_id = p_op->>'op_id';
-  IF NOT same_operation_actor(existing, p_op->>'class_id', p_actor)
-    OR existing.content_hash IS DISTINCT FROM p_hash THEN
+  IF NOT same_operation_actor(existing, p_op->>'class_id', p_actor) THEN
     RETURN retry_receipt(existing.op_id, 'OP_ID_REUSED');
   END IF;
-  -- PPT-PENDING: operation_replay
-  PERFORM pending_operation('operation_replay');
-  RETURN NULL;
+  IF existing.status = 'cancelled' OR existing.content_hash = p_hash THEN
+    RETURN replay_receipt(existing.receipt);
+  END IF;
+  RETURN retry_receipt(existing.op_id, 'OP_ID_REUSED');
 END;
 $$;
 
