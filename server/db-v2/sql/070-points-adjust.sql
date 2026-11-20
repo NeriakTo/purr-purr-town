@@ -1,4 +1,4 @@
-CREATE FUNCTION ppt.validate_points_adjust(p_payload jsonb, p_has_expect boolean)
+CREATE FUNCTION ppt.validate_points_adjust(p_payload jsonb)
 RETURNS void
 LANGUAGE plpgsql
 SET search_path = pg_catalog, ppt, pg_temp
@@ -6,10 +6,8 @@ AS $$
 DECLARE
   amount numeric;
 BEGIN
-  IF p_has_expect
-    OR jsonb_typeof(p_payload) IS DISTINCT FROM 'object'
-    OR jsonb_typeof(p_payload->'student_id') IS DISTINCT FROM 'string'
-    OR p_payload->>'student_id' = ''
+  IF NOT is_json_object(p_payload)
+    OR NOT has_nonempty_string(p_payload, 'student_id')
     OR jsonb_typeof(p_payload->'amount') IS DISTINCT FROM 'number'
     OR (p_payload ? 'reason' AND jsonb_typeof(p_payload->'reason') <> 'string') THEN
     PERFORM reject_operation('INVALID_PAYLOAD');
@@ -18,7 +16,7 @@ BEGIN
   amount := (p_payload->>'amount')::numeric;
   IF amount = 0 OR abs(amount) > 100000 OR amount <> trunc(amount)
     OR char_length(p_payload->>'reason') > 100
-    OR p_payload - ARRAY['student_id', 'amount', 'reason'] <> '{}'::jsonb THEN
+    OR NOT has_only_keys(p_payload, ARRAY['student_id', 'amount', 'reason']) THEN
     PERFORM reject_operation('INVALID_PAYLOAD');
   END IF;
 END;

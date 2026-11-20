@@ -3,12 +3,14 @@ RETURNS void
 LANGUAGE plpgsql
 SET search_path = pg_catalog, ppt, pg_temp
 AS $$
+DECLARE
+  allowed_roles text[];
 BEGIN
-  IF p_type IS NULL OR p_type NOT IN ('"points.adjust"'::jsonb, '"shop.purchase"'::jsonb, '"submission.set_status"'::jsonb) THEN
+  SELECT roles INTO allowed_roles FROM operation_definition(p_type);
+  IF NOT FOUND THEN
     PERFORM reject_operation('UNKNOWN_OP_TYPE');
   END IF;
-  IF p_actor->>'kind' IS DISTINCT FROM 'teacher'
-    AND NOT (p_actor->>'kind' IS NOT DISTINCT FROM 'agent' AND p_type = '"submission.set_status"'::jsonb) THEN
+  IF NOT coalesce(p_actor->>'kind' = ANY(allowed_roles), false) THEN
     PERFORM reject_operation('FORBIDDEN_ROLE');
   END IF;
 END;
@@ -27,14 +29,15 @@ BEGIN
     PERFORM reject_operation('CLASS_ARCHIVED');
   END IF;
 
+  PERFORM validate_operation_expect(p_op);
   CASE p_op->>'type'
     WHEN 'points.adjust' THEN
-      PERFORM validate_points_adjust(p_op->'payload', p_op ? 'expect');
+      PERFORM validate_points_adjust(p_op->'payload');
       PERFORM require_active_student(p_op->>'class_id', p_op->'payload'->>'student_id');
     WHEN 'shop.purchase' THEN
-      PERFORM validate_shop_purchase(p_op->'payload', p_op ? 'expect');
+      PERFORM validate_shop_purchase(p_op->'payload');
     WHEN 'submission.set_status' THEN
-      PERFORM validate_submission_status(p_op->'payload', p_op->'expect');
+      PERFORM validate_submission_status(p_op->'payload');
       PERFORM require_submission_targets(p_op, p_actor);
     ELSE
       RAISE EXCEPTION '已知操作缺少輸入與目標檢查';

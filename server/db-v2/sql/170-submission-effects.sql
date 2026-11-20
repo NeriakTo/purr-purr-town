@@ -31,16 +31,6 @@ BEGIN
 END;
 $$;
 
-CREATE FUNCTION ppt.merge_account_change(p_first jsonb, p_latest jsonb)
-RETURNS jsonb
-LANGUAGE sql
-SET search_path = pg_catalog, ppt, pg_temp
-AS $$
-  SELECT CASE WHEN p_first IS NULL THEN p_latest ELSE
-    p_latest || jsonb_build_object('prev_rev', p_first->'prev_rev', 'prev_value', p_first->'prev_value')
-  END;
-$$;
-
 CREATE FUNCTION ppt.apply_submission_effects(p_submission ppt.submissions, p_op_id text, p_time timestamptz)
 RETURNS ppt.submission_effect_outcome
 LANGUAGE plpgsql

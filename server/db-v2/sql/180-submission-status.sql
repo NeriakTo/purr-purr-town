@@ -1,21 +1,18 @@
-CREATE FUNCTION ppt.validate_submission_status(p_payload jsonb, p_expect jsonb)
+CREATE FUNCTION ppt.validate_submission_status(p_payload jsonb)
 RETURNS void
 LANGUAGE plpgsql
 SET search_path = pg_catalog, ppt, pg_temp
 AS $$
 BEGIN
-  IF jsonb_typeof(p_payload) IS DISTINCT FROM 'object'
-    OR jsonb_typeof(p_payload->'task_id') IS DISTINCT FROM 'string'
-    OR p_payload->>'task_id' = ''
-    OR jsonb_typeof(p_payload->'student_id') IS DISTINCT FROM 'string'
-    OR p_payload->>'student_id' = ''
+  IF NOT is_json_object(p_payload)
+    OR NOT has_nonempty_string(p_payload, 'task_id')
+    OR NOT has_nonempty_string(p_payload, 'student_id')
     OR p_payload->>'status' IS NULL
     OR p_payload->>'status' NOT IN ('pending', 'on_time', 'late', 'missing', 'leave', 'exempt', 'makeup')
     OR (p_payload ? 'only_if_no_proposal' AND jsonb_typeof(p_payload->'only_if_no_proposal') <> 'boolean')
-    OR p_payload - ARRAY['task_id', 'student_id', 'status', 'only_if_no_proposal'] <> '{}'::jsonb THEN
+    OR NOT has_only_keys(p_payload, ARRAY['task_id', 'student_id', 'status', 'only_if_no_proposal']) THEN
     PERFORM reject_operation('INVALID_PAYLOAD');
   END IF;
-  PERFORM validate_version_condition(p_expect);
 END;
 $$;
 
@@ -78,11 +75,11 @@ RETURNS jsonb
 LANGUAGE sql
 SET search_path = pg_catalog, ppt, pg_temp
 AS $$
-  SELECT jsonb_build_object(
-    'entity', 'submission', 'key', p_key, 'last_op_id', p_op_id,
-    'prev_rev', coalesce(p_before.rev, 0), 'rev', p_after.rev,
-    'prev_basis_rev', coalesce(p_before.basis_rev, 0), 'basis_rev', p_after.basis_rev,
-    'prev_value', submission_value(p_before), 'value', submission_value(p_after)
+  SELECT entity_change(
+    'submission', p_key, coalesce(p_before.rev, 0), p_after.rev, p_op_id,
+    submission_value(p_before), submission_value(p_after)
+  ) || jsonb_build_object(
+    'prev_basis_rev', coalesce(p_before.basis_rev, 0), 'basis_rev', p_after.basis_rev
   );
 $$;
 
@@ -104,12 +101,10 @@ DECLARE
 BEGIN
   SELECT * INTO previous FROM submissions
   WHERE class_id = class_key AND task_id = payload->>'task_id' AND student_id = payload->>'student_id';
-  IF NOT matches_version_condition(
-    class_key, p_op->'expect', 'submission', entity_key, previous.rev, NOT coalesce(previous.assignment_active, false)
-  ) THEN
-    PERFORM reject_operation('STALE_STATE',
-      current_entity_revision(class_key, previous.last_op_id, previous.rev, submission_value(previous)));
-  END IF;
+  PERFORM require_version_condition(
+    p_op, 'submission', entity_key, previous.rev, previous.last_op_id,
+    submission_value(previous), NOT coalesce(previous.assignment_active, false)
+  );
 
   PERFORM check_pending_submission_branches(p_op);
   IF previous.assignment_active AND previous.status = new_status THEN
