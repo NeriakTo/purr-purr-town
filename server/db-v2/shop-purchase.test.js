@@ -21,7 +21,7 @@ describeDatabase('OP-31 購買', () => {
     const { client, connect } = db()
     const fixture = await addClass(client, { students: ['enrolled', 'enrolled'] })
     const [left, right] = await Promise.all([connect(), connect()])
-    await Promise.all(fixture.studentIds.map(studentId => fund(client, fixture.classId, studentId)))
+    for (const studentId of fixture.studentIds) await fund(client, fixture.classId, studentId)
     for (let trial = 0; trial < 50; trial += 1) {
       const productId = await addProduct(client, fixture.classId)
       const receipts = await Promise.all([left, right].map((worker, index) =>

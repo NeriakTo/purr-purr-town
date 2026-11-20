@@ -170,7 +170,8 @@ describeDatabase('小野批次提交', () => {
       await removeEffectFailure(client)
     }
     expect(batch.receipts.map(receipt => receipt.code)).toEqual(['OK', 'STALE_STATE', 'OK'])
-    const states = await Promise.all(targets.map(target => submissionRow(client, target)))
+    const states = []
+    for (const target of targets) states.push(await submissionRow(client, target))
     expect(states.map(state => [state.status, state.rev, state.last_op_id]))
       .toEqual([['missing', 2, ops[0].op_id], ['pending', 1, null], ['missing', 2, ops[2].op_id]])
     const effects = await taskEffects(client, classId)
