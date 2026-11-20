@@ -5,7 +5,7 @@ import {
   accountFields, legacyTransactionFacts, openingAdjustmentFields, openingAdjustmentRaw, sumNumeric, transactionFields,
 } from './ledger.js'
 import { CONVERTER_VERSION, digest, pointer, migrationBatchId, TABLES } from './convert.js'
-import { decisionInputError, resolveCurrentSemester, selectedSemester, taipeiDay } from './decisions.js'
+import { decisionInputError, hasFormalImportDecisions, resolveCurrentSemester, selectedSemester, taipeiDay } from './decisions.js'
 
 const list = v => Array.isArray(v) ? v : []
 const entries = v => v && typeof v === 'object' && !Array.isArray(v) ? Object.entries(v) : []
@@ -284,5 +284,16 @@ export function reconcile(source, converted, { decisions: expectedDecisions, imp
     if (mappings.length === 1) diff(`legacy_ids/${r.id}`, { id: digest(['map', r.id]), batch_id: batchId, class_id: classId, legacy_id: r.legacy_id, source_path: r.source_path, raw: null, table_name: table, target_id: r.id }, mappings[0])
   }
   if (importedSubmissions !== undefined) checkImportedSubmissions(importedSubmissions, list(rows.submissions), diff)
-  return { matches: differences.length === 0, differences, students, notices, opening_adjustments: openingAdjustments, period_skipped: periodSkipped, source_errors: sourceErrors, ready_for_import: differences.length === 0 && sourceErrors.length === 0 }
+  const matches = differences.length === 0
+  const sourceIsValid = sourceErrors.length === 0
+  return {
+    matches,
+    differences,
+    students,
+    notices,
+    opening_adjustments: openingAdjustments,
+    period_skipped: periodSkipped,
+    source_errors: sourceErrors,
+    ready_for_import: matches && sourceIsValid && hasFormalImportDecisions(decisions),
+  }
 }

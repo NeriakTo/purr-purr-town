@@ -4,7 +4,7 @@ import {
   accountFields, legacyTransactionFacts, openingAdjustmentFields, openingAdjustmentFor,
   openingAdjustmentRaw, reportAccountDrift, transactionFields, validateTransactionDate,
 } from './ledger.js'
-import { openingAdjustmentEnabled, requireDecisions, resolveCurrentSemester, selectedSemester, validateTaskDate } from './decisions.js'
+import { hasFormalImportDecisions, openingAdjustmentEnabled, requireDecisions, resolveCurrentSemester, selectedSemester, validateTaskDate } from './decisions.js'
 
 export const TABLES = ['migration_batches', 'migration_sources', 'legacy_ids', 'classes', 'students', 'accounts', 'transactions', 'inventory_items', 'comments', 'exempt_rules', 'logs', 'tasks', 'submissions', 'settings_entries', 'products', 'jobs', 'job_assignments', 'daily_duties', 'seats', 'announcements', 'rules', 'groups', 'semesters']
 export const pointer = v => String(v).replaceAll('~', '~0').replaceAll('/', '~1')
@@ -229,5 +229,18 @@ export function convert(input, { decisions = {} } = {}) {
   for (const key of ['base', 'tier1', 'tier2']) if (settings.currency?.[key] !== undefined) check(settings.currency[key], `/data/settings/currency/${key}`, 'name icon rate')
   arr(settings.ruleCategories, '/data/settings/ruleCategories').forEach((v, i) => check(v, `/data/settings/ruleCategories/${i}`, 'id name icon'))
   rows.migration_batches[0].validation_errors = structuredClone(errors)
-  return { rows, errors, report: { converter_version: CONVERTER_VERSION, source_hash: digest(source), notices, opening_adjustments: openingAdjustments, row_counts: Object.fromEntries(Object.entries(rows).map(([t, list]) => [t, list.length])), error_count: errors.length, ready_for_import: errors.length === 0, rules_triggered: 0 } }
+  return {
+    rows,
+    errors,
+    report: {
+      converter_version: CONVERTER_VERSION,
+      source_hash: digest(source),
+      notices,
+      opening_adjustments: openingAdjustments,
+      row_counts: Object.fromEntries(Object.entries(rows).map(([table, records]) => [table, records.length])),
+      error_count: errors.length,
+      ready_for_import: errors.length === 0 && hasFormalImportDecisions(decisions),
+      rules_triggered: 0,
+    },
+  }
 }

@@ -339,3 +339,16 @@ describe('7.4 I 匯入繳交版本', () => {
       .toContain('imported_submissions/source_paths')
   })
 })
+
+it('7.4 A 乾淨的試轉也須明傳三項決定才能標記可匯入', () => {
+  const source = sourceWith()
+  for (const selected of [{}, { cutoverDate: decisions.cutoverDate, semesterRule: 'month' }, decisions]) {
+    const converted = convert(source, { decisions: selected })
+    const audit = reconcile(source, converted)
+    expect(converted.errors).toEqual([])
+    expect(audit.differences).toEqual([])
+    const expected = selected === decisions
+    expect(converted.report.ready_for_import).toBe(expected)
+    expect(audit.ready_for_import).toBe(expected)
+  }
+})

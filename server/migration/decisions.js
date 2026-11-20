@@ -70,3 +70,8 @@ export function validateTaskDate(date, decisions, path, error) {
 export function openingAdjustmentEnabled(decisions) {
   return decisions.openingAdjustment === true && validCutoverDate(decisions.cutoverDate)
 }
+
+export function hasFormalImportDecisions(decisions) {
+  if (decisions.semesterRule !== 'month') return false
+  return openingAdjustmentEnabled(decisions)
+}
