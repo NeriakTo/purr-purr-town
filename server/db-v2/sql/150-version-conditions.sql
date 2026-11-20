@@ -72,3 +72,20 @@ AS $$
   FROM (VALUES (p_class_id, p_last_op_id)) AS target(class_id, op_id)
   LEFT JOIN operations AS op ON op.class_id = target.class_id AND op.op_id = target.op_id;
 $$;
+
+CREATE FUNCTION ppt.require_version_condition(
+  p_op jsonb, p_entity text, p_key jsonb, p_rev integer, p_last_op_id text,
+  p_value jsonb, p_allow_zero boolean DEFAULT false
+)
+RETURNS void
+LANGUAGE plpgsql
+SET search_path = pg_catalog, ppt, pg_temp
+AS $$
+DECLARE
+  class_key text := p_op->>'class_id';
+BEGIN
+  IF NOT matches_version_condition(class_key, p_op->'expect', p_entity, p_key, p_rev, p_allow_zero) THEN
+    PERFORM reject_operation('STALE_STATE', current_entity_revision(class_key, p_last_op_id, p_rev, p_value));
+  END IF;
+END;
+$$;

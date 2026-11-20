@@ -1,18 +1,15 @@
-CREATE FUNCTION ppt.validate_shop_purchase(p_payload jsonb, p_has_expect boolean)
+CREATE FUNCTION ppt.validate_shop_purchase(p_payload jsonb)
 RETURNS void
 LANGUAGE plpgsql
 SET search_path = pg_catalog, ppt, pg_temp
 AS $$
 BEGIN
-  IF p_has_expect
-    OR jsonb_typeof(p_payload) IS DISTINCT FROM 'object'
-    OR jsonb_typeof(p_payload->'student_id') IS DISTINCT FROM 'string'
-    OR p_payload->>'student_id' = ''
-    OR jsonb_typeof(p_payload->'product_id') IS DISTINCT FROM 'string'
-    OR p_payload->>'product_id' = ''
+  IF NOT is_json_object(p_payload)
+    OR NOT has_nonempty_string(p_payload, 'student_id')
+    OR NOT has_nonempty_string(p_payload, 'product_id')
     OR NOT valid_v4_op_id(p_payload->>'item_id')
     OR jsonb_typeof(p_payload->'expect_price_points') IS DISTINCT FROM 'number'
-    OR p_payload - ARRAY['student_id', 'product_id', 'item_id', 'expect_price_points'] <> '{}'::jsonb THEN
+    OR NOT has_only_keys(p_payload, ARRAY['student_id', 'product_id', 'item_id', 'expect_price_points']) THEN
     PERFORM reject_operation('INVALID_PAYLOAD');
   END IF;
   IF (p_payload->>'expect_price_points')::numeric < 0 THEN
@@ -87,10 +84,9 @@ BEGIN
     p_product.class_id, p_op->'payload'->>'item_id', p_op->'payload'->>'student_id',
     p_product.product_id, p_product.name, p_product.icon, p_transaction_id, p_op->>'op_id'
   ) RETURNING * INTO item;
-  RETURN jsonb_build_object(
-    'entity', 'inventory_item', 'key', jsonb_build_object('item_id', item.item_id),
-    'prev_rev', 0, 'rev', item.rev, 'last_op_id', item.last_op_id,
-    'prev_value', NULL, 'value', to_jsonb(item) - ARRAY['class_id', 'item_id', 'rev', 'last_op_id']
+  RETURN entity_change(
+    'inventory_item', jsonb_build_object('item_id', item.item_id),
+    0, item.rev, item.last_op_id, NULL, to_jsonb(item) - ARRAY['class_id', 'item_id', 'rev', 'last_op_id']
   );
 END;
 $$;
@@ -103,10 +99,10 @@ AS $$
   UPDATE products
   SET stock = stock - 1, rev = rev + 1, last_op_id = p_op_id
   WHERE class_id = p_product.class_id AND product_id = p_product.product_id
-  RETURNING jsonb_build_object(
-    'entity', 'product', 'key', jsonb_build_object('product_id', product_id),
-    'prev_rev', p_product.rev, 'rev', rev, 'last_op_id', last_op_id,
-    'prev_value', jsonb_build_object('stock', p_product.stock), 'value', jsonb_build_object('stock', stock)
+  RETURNING entity_change(
+    'product', jsonb_build_object('product_id', product_id),
+    p_product.rev, rev, last_op_id,
+    jsonb_build_object('stock', p_product.stock), jsonb_build_object('stock', stock)
   );
 $$;
 

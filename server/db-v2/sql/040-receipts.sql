@@ -69,3 +69,27 @@ BEGIN
   RAISE EXCEPTION USING ERRCODE = '0A000', MESSAGE = '操作分支尚未實作', DETAIL = p_key;
 END;
 $$;
+
+CREATE FUNCTION ppt.entity_change(
+  p_entity text, p_key jsonb, p_prev_rev integer, p_rev integer, p_op_id text,
+  p_prev_value jsonb, p_value jsonb
+)
+RETURNS jsonb
+LANGUAGE sql
+SET search_path = pg_catalog, ppt, pg_temp
+AS $$
+  SELECT jsonb_build_object(
+    'entity', p_entity, 'key', p_key, 'prev_rev', p_prev_rev, 'rev', p_rev,
+    'last_op_id', p_op_id, 'prev_value', p_prev_value, 'value', p_value
+  );
+$$;
+
+CREATE FUNCTION ppt.merge_account_change(p_first jsonb, p_latest jsonb)
+RETURNS jsonb
+LANGUAGE sql
+SET search_path = pg_catalog, ppt, pg_temp
+AS $$
+  SELECT CASE WHEN p_first IS NULL THEN p_latest ELSE
+    p_latest || jsonb_build_object('prev_rev', p_first->'prev_rev', 'prev_value', p_first->'prev_value')
+  END;
+$$;

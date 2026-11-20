@@ -7,6 +7,7 @@ CREATE TABLE ppt.tasks (
   task_id text NOT NULL,
   title text NOT NULL,
   task_type text NOT NULL,
+  page_text text,
   published_on date NOT NULL,
   due_on date NOT NULL,
   semester text NOT NULL,

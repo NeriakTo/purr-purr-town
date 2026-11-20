@@ -39,11 +39,11 @@ BEGIN
   WHERE class_id = p_class_id AND student_id = p_student_id
   RETURNING * INTO STRICT after_update;
 
-  RETURN jsonb_build_object(
-    'entity', 'account', 'key', jsonb_build_object('student_id', p_student_id),
-    'prev_rev', before_update.rev, 'rev', after_update.rev, 'last_op_id', p_op_id,
-    'prev_value', jsonb_build_object('balance', before_update.balance, 'total_earned', before_update.total_earned),
-    'value', jsonb_build_object('balance', after_update.balance, 'total_earned', after_update.total_earned)
+  RETURN entity_change(
+    'account', jsonb_build_object('student_id', p_student_id),
+    before_update.rev, after_update.rev, p_op_id,
+    jsonb_build_object('balance', before_update.balance, 'total_earned', before_update.total_earned),
+    jsonb_build_object('balance', after_update.balance, 'total_earned', after_update.total_earned)
   );
 END;
 $$;

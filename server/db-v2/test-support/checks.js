@@ -18,7 +18,7 @@ export async function assertAccountTotals(client) {
   expect(rows).toEqual([])
 }
 
-export async function classSnapshot(client, classId) {
+export async function classSnapshot(client, classId, { ignoreClassSequence = false } = {}) {
   const { rows: tables } = await client.query(`
     SELECT tablename, format('%I.%I', schemaname, tablename) AS qualified
     FROM pg_catalog.pg_tables
@@ -27,11 +27,12 @@ export async function classSnapshot(client, classId) {
   `)
   const snapshot = createHash('sha256')
   for (const { tablename, qualified } of tables) {
+    const value = ignoreClassSequence && tablename === 'classes' ? "to_jsonb(t) - 'class_seq'" : 'to_jsonb(t)'
     const { rows } = await client.query(`
-      SELECT to_jsonb(t)::text AS value
+      SELECT (${value})::text AS value
       FROM ${qualified} AS t
       WHERE class_id = $1
-      ORDER BY (to_jsonb(t)::text) COLLATE "C"
+      ORDER BY (${value})::text COLLATE "C"
     `, [classId])
     snapshot.update(JSON.stringify([tablename, rows]))
   }

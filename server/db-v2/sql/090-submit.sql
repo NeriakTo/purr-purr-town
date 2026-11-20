@@ -3,12 +3,14 @@ RETURNS void
 LANGUAGE plpgsql
 SET search_path = pg_catalog, ppt, pg_temp
 AS $$
+DECLARE
+  allowed_roles text[];
 BEGIN
-  IF p_type IS NULL OR p_type NOT IN ('"points.adjust"'::jsonb, '"shop.purchase"'::jsonb, '"submission.set_status"'::jsonb) THEN
+  SELECT roles INTO allowed_roles FROM operation_definition(p_type);
+  IF NOT FOUND THEN
     PERFORM reject_operation('UNKNOWN_OP_TYPE');
   END IF;
-  IF p_actor->>'kind' IS DISTINCT FROM 'teacher'
-    AND NOT (p_actor->>'kind' IS NOT DISTINCT FROM 'agent' AND p_type = '"submission.set_status"'::jsonb) THEN
+  IF NOT coalesce(p_actor->>'kind' = ANY(allowed_roles), false) THEN
     PERFORM reject_operation('FORBIDDEN_ROLE');
   END IF;
 END;
@@ -27,22 +29,42 @@ BEGIN
     PERFORM reject_operation('CLASS_ARCHIVED');
   END IF;
 
+  PERFORM validate_operation_expect(p_op);
   CASE p_op->>'type'
     WHEN 'points.adjust' THEN
-      PERFORM validate_points_adjust(p_op->'payload', p_op ? 'expect');
+      PERFORM validate_points_adjust(p_op->'payload');
       PERFORM require_active_student(p_op->>'class_id', p_op->'payload'->>'student_id');
     WHEN 'shop.purchase' THEN
-      PERFORM validate_shop_purchase(p_op->'payload', p_op ? 'expect');
+      PERFORM validate_shop_purchase(p_op->'payload');
     WHEN 'submission.set_status' THEN
-      PERFORM validate_submission_status(p_op->'payload', p_op->'expect');
-      PERFORM require_submission_targets(p_op, p_actor);
+      PERFORM validate_submission_status(p_op->'payload');
+      PERFORM require_submission_targets(
+        p_op->>'class_id', p_op->'payload'->>'task_id', p_op->'payload'->>'student_id', p_actor
+      );
+    WHEN 'submission.propose' THEN
+      PERFORM validate_submission_proposal(p_op->'payload');
+      PERFORM require_proposal_target(p_op, p_actor);
+    WHEN 'confirmation.confirm', 'confirmation.reject' THEN
+      PERFORM validate_confirmation_payload(p_op->'payload');
+    WHEN 'rule.save' THEN
+      PERFORM validate_rule_save(p_op->'payload');
+    WHEN 'rule.retire' THEN
+      PERFORM validate_rule_retire(p_op->'payload');
+    WHEN 'task.create' THEN
+      PERFORM validate_task_create(p_op->'payload');
+    WHEN 'task.update' THEN
+      PERFORM validate_task_update(p_op->'payload');
+    WHEN 'task.void' THEN
+      PERFORM validate_task_lifecycle(p_op->'payload', true);
+    WHEN 'task.restore' THEN
+      PERFORM validate_task_lifecycle(p_op->'payload', false);
     ELSE
       RAISE EXCEPTION '已知操作缺少輸入與目標檢查';
   END CASE;
 END;
 $$;
 
-CREATE FUNCTION ppt.apply_operation(p_op jsonb, p_time timestamptz)
+CREATE FUNCTION ppt.apply_operation(p_op jsonb, p_actor jsonb, p_time timestamptz)
 RETURNS ppt.operation_outcome
 LANGUAGE plpgsql
 SET search_path = pg_catalog, ppt, pg_temp
@@ -52,6 +74,14 @@ BEGIN
     WHEN 'points.adjust' THEN RETURN apply_points_adjust(p_op, p_time);
     WHEN 'shop.purchase' THEN RETURN apply_shop_purchase(p_op, p_time);
     WHEN 'submission.set_status' THEN RETURN apply_submission_status(p_op, p_time);
+    WHEN 'submission.propose' THEN RETURN apply_submission_proposal(p_op, p_time);
+    WHEN 'confirmation.confirm', 'confirmation.reject' THEN RETURN apply_confirmation_operation(p_op, p_actor, p_time);
+    WHEN 'rule.save' THEN RETURN apply_rule_operation(p_op, p_time);
+    WHEN 'rule.retire' THEN RETURN apply_rule_operation(p_op, p_time);
+    WHEN 'task.create' THEN RETURN apply_task_create(p_op);
+    WHEN 'task.update' THEN RETURN apply_task_update(p_op);
+    WHEN 'task.void' THEN RETURN apply_task_lifecycle(p_op, p_time);
+    WHEN 'task.restore' THEN RETURN apply_task_lifecycle(p_op, p_time);
     ELSE RAISE EXCEPTION '已知操作缺少寫入函式';
   END CASE;
 END;
@@ -83,7 +113,7 @@ BEGIN
   PERFORM check_operation_input_and_target(p_op, p_actor);
 
   -- Step 6: apply and advance the sequence within this subtransaction.
-  outcome := apply_operation(p_op, p_time);
+  outcome := apply_operation(p_op, p_actor, p_time);
   seq := advance_class_sequence(p_op->>'class_id');
   RETURN operation_receipt(
     p_op->>'op_id', 'committed', 'OK', seq, p_time,

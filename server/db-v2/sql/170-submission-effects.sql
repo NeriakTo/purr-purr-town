@@ -1,44 +1,21 @@
-CREATE TYPE ppt.submission_effect_outcome AS (result jsonb, account_change jsonb);
+CREATE TYPE ppt.submission_effect_outcome AS (result jsonb, account_change jsonb, warnings jsonb);
 
-CREATE FUNCTION ppt.check_pending_submission_branches(p_op jsonb)
+CREATE FUNCTION ppt.require_resolved_submission_effects(p_class_id text, p_task_id text, p_student_id text)
 RETURNS void
 LANGUAGE plpgsql
 SET search_path = pg_catalog, ppt, pg_temp
 AS $$
-DECLARE
-  class_key text := p_op->>'class_id';
-  payload jsonb := p_op->'payload';
 BEGIN
-  IF payload ? 'only_if_no_proposal' THEN
-    -- PPT-PENDING: only_if_no_proposal
-    PERFORM pending_operation('only_if_no_proposal');
-  END IF;
-
   IF EXISTS (
     SELECT 1 FROM effects
-    WHERE class_id = class_key AND student_id = payload->>'student_id'
-      AND subject_kind = 'task' AND subject_key = payload->>'task_id'
+    WHERE class_id = p_class_id AND student_id = p_student_id
+      AND subject_kind = 'task' AND subject_key = p_task_id
       AND status = 'legacy_unresolved'
   ) THEN
     -- PPT-PENDING: legacy_unresolved
     PERFORM pending_operation('legacy_unresolved');
   END IF;
-
-  IF (current_event_rule(class_key, 'daily_quest.complete')).amount <> 0 THEN
-    -- PPT-PENDING: daily_quest
-    PERFORM pending_operation('daily_quest');
-  END IF;
 END;
-$$;
-
-CREATE FUNCTION ppt.merge_account_change(p_first jsonb, p_latest jsonb)
-RETURNS jsonb
-LANGUAGE sql
-SET search_path = pg_catalog, ppt, pg_temp
-AS $$
-  SELECT CASE WHEN p_first IS NULL THEN p_latest ELSE
-    p_latest || jsonb_build_object('prev_rev', p_first->'prev_rev', 'prev_value', p_first->'prev_value')
-  END;
 $$;
 
 CREATE FUNCTION ppt.apply_submission_effects(p_submission ppt.submissions, p_op_id text, p_time timestamptz)
@@ -57,7 +34,7 @@ DECLARE
   kept_effect boolean := false;
 BEGIN
   IF p_submission.status = 'makeup' THEN
-    RETURN (operation_result(), NULL)::submission_effect_outcome;
+    RETURN (operation_result(), NULL, '[]'::jsonb)::submission_effect_outcome;
   END IF;
 
   wanted := CASE p_submission.status
@@ -93,6 +70,6 @@ BEGIN
     END IF;
   END IF;
 
-  RETURN (operation_result(transaction_ids, added, reversed), account_change)::submission_effect_outcome;
+  RETURN (operation_result(transaction_ids, added, reversed), account_change, '[]'::jsonb)::submission_effect_outcome;
 END;
 $$;
