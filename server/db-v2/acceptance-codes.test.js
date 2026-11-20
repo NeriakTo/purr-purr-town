@@ -138,6 +138,38 @@ const cases = [
     expect((await submit(client, use)).code).toBe('OK')
     return { ...use, op_id: randomUUID() }
   }],
+  ['NOT_UNDOABLE', async (client, target) => {
+    const adjusted = await submit(client, adjustment(target, 10))
+    expect(adjusted.code).toBe('OK')
+    const reversed = await submit(client, {
+      ...adjustment(target), type: 'tx.reverse',
+      payload: { transaction_id: adjusted.result.transactions[0], expect_effective_amount: 10 },
+    })
+    expect(reversed.code).toBe('OK')
+    return { ...adjustment(target), type: 'op.undo', payload: { target_op_id: reversed.op_id } }
+  }],
+  ['ALREADY_UNDONE', async (client, target) => {
+    const original = await submit(client, adjustment(target, 10))
+    expect(original.code).toBe('OK')
+    const undone = { ...adjustment(target), type: 'op.undo', payload: { target_op_id: original.op_id } }
+    expect((await submit(client, undone)).code).toBe('OK')
+    return { ...undone, op_id: randomUUID() }
+  }],
+  ['UNDO_CONFLICT', async (client, target) => {
+    const taskId = randomUUID()
+    const created = await submit(client, {
+      ...adjustment(target), type: 'task.create',
+      payload: {
+        task_id: taskId, title: '測試作業', task_type: '作業', published_on: '2026-11-21', due_on: '2026-11-22',
+      },
+    })
+    expect(created.code).toBe('OK')
+    const assigned = { ...target, taskId }
+    const missing = await submit(client, setStatus(assigned, 'missing'))
+    expect(missing.code).toBe('OK')
+    expect((await submit(client, setStatus(assigned, 'on_time', { rev: 2 }))).code).toBe('OK')
+    return { ...adjustment(target), type: 'op.undo', payload: { target_op_id: missing.op_id } }
+  }],
 ]
 
 describeDatabase('錯誤碼逐碼驗收', () => {
