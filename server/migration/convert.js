@@ -1,10 +1,15 @@
 import { correctionCycleMembers, correctionMatches, correctionTargets } from "./corrections.js"
 import { createHash } from 'node:crypto'
+import {
+  accountFields, legacyTransactionFacts, openingAdjustmentFields, openingAdjustmentFor,
+  openingAdjustmentRaw, reportAccountDrift, transactionFields, validateTransactionDate,
+} from './ledger.js'
+import { hasFormalImportDecisions, openingAdjustmentEnabled, requireDecisions, resolveCurrentSemester, selectedSemester, validateTaskDate } from './decisions.js'
 
 export const TABLES = ['migration_batches', 'migration_sources', 'legacy_ids', 'classes', 'students', 'accounts', 'transactions', 'inventory_items', 'comments', 'exempt_rules', 'logs', 'tasks', 'submissions', 'settings_entries', 'products', 'jobs', 'job_assignments', 'daily_duties', 'seats', 'announcements', 'rules', 'groups', 'semesters']
 export const pointer = v => String(v).replaceAll('~', '~0').replaceAll('/', '~1')
 export function canonicalJson(value) {
-  return JSON.stringify(value, function sortedKeys(key, item) {
+  return JSON.stringify(value === undefined ? null : value, function sortedKeys(key, item) {
     if (item === null || typeof item !== 'object' || Array.isArray(item)) return item
     return Object.fromEntries(Object.keys(item).sort().map(name => [name, item[name]]))
   })
@@ -17,17 +22,19 @@ const isObject = v => v !== null && typeof v === 'object' && !Array.isArray(v)
 const numeric = v => typeof v === 'number' && Number.isFinite(v)
 const store = r => typeof r === 'string' && (r.startsWith('購買') || r.startsWith('使用道具'))
 export const statusOf = v => v === true ? 'on_time' : v === false || v === undefined ? 'pending' : ['on_time', 'late', 'missing', 'leave', 'exempt', 'makeup'].includes(v) ? v : 'unknown'
-export function semesterAt(date) {
-  if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}(T.*)?$/.test(date) || !Number.isFinite(Date.parse(date))) return null
-  const local = new Date(Date.parse(date.length === 10 ? `${date}T00:00:00+08:00` : date) + 8 * 3600000).toISOString()
-  const y = Number(local.slice(0, 4)), m = Number(local.slice(5, 7))
-  return `${y - 1911 - (m < 8 ? 1 : 0)}-${m === 1 || m >= 8 ? 1 : 2}`
+export { semesterAt } from './decisions.js'
+export const CONVERTER_VERSION = 'v2-1A-r3'
+
+export function migrationBatchId(classKey, source, decisions) {
+  return digest([CONVERTER_VERSION, classKey, source, decisions])
 }
 
-export function convert(input) {
+export function convert(input, { decisions = {} } = {}) {
+  requireDecisions(decisions)
   const source = structuredClone(input ?? null)
-  const rows = Object.fromEntries(TABLES.map(t => [t, []])), errors = []
+  const rows = Object.fromEntries(TABLES.map(t => [t, []])), errors = [], notices = [], openingAdjustments = []
   const error = (code, path, value = null) => errors.push({ code, path, value: structuredClone(value) })
+  const notice = (code, path, value = null) => notices.push({ code, path, value: structuredClone(value) })
   const arr = (v, p) => {
     if (v === undefined) return []
     if (!Array.isArray(v)) { error('INVALID_ARRAY', p, v); return [] }
@@ -41,7 +48,7 @@ export function convert(input) {
   const classKey = source?.classId ?? data.classId ?? null
   if (typeof classKey !== 'string' || !classKey) error('INVALID_CLASS_ID', '/classId', classKey)
   if (source?.classId !== data.classId) error('CLASS_ID_CONFLICT', '/data/classId', data.classId)
-  const classId = digest(['class', classKey]), batchId = digest(['v2-1A', classKey, source])
+  const classId = digest(['class', classKey]), batchId = migrationBatchId(classKey, source, decisions)
   const add = (table, path, raw, fields = {}, legacy = null) => {
     const row = { id: digest([classKey, table, path, legacy]), batch_id: batchId, class_id: classId, legacy_id: legacy, source_path: path, raw: raw === undefined ? null : structuredClone(raw), ...fields }
     rows[table].push(row)
@@ -63,15 +70,16 @@ export function convert(input) {
     if (found.length !== 1) { error(found.length ? 'AMBIGUOUS_REFERENCE' : code, path, legacy); return null }
     return found[0].id
   }
-  add('migration_batches', '', null, { id: batchId, source_hash: digest(source), converter_version: 'v2-1A', import_rules_enabled: false })
+  add('migration_batches', '', null, {
+    id: batchId, source_hash: digest(source), converter_version: CONVERTER_VERSION, import_rules_enabled: false,
+    decisions: structuredClone(decisions),
+    cutover_date: typeof decisions.cutoverDate === 'string' ? decisions.cutoverDate : null,
+  })
   add('migration_sources', '', source)
   check(source, '', 'classId className data')
   check(data, '/data', 'classId className teacher students logs settings updatedAt')
   check(settings, '/data/settings', 'currentSemester taskTypes groupAliases announcements jobs behaviorRules shop currency ruleCategories jobAssignments automation seatingChart semesterPeriods dailyDuty dutyJobId storeItems currencyRates')
-  const declared = settings.currentSemester
-  const currentSemester = declared === undefined || declared === null || declared === '' ? semesterAt(data.updatedAt) : typeof declared === 'string' && /^\d+-[12]$/.test(declared) ? declared : null
-  if (declared && !currentSemester) error('INVALID_CURRENT_SEMESTER', '/data/settings/currentSemester', declared)
-  if (!currentSemester) error('UNKNOWN_CURRENT_SEMESTER', '/data/updatedAt', data.updatedAt)
+  const currentSemester = resolveCurrentSemester(settings.currentSemester, data.updatedAt, decisions, error)
   add('classes', '/data', data, { id: classId, name: data.className ?? source?.className ?? null, teacher: data.teacher ?? null, current_semester: currentSemester }, classKey)
   const students = arr(data.students, '/data/students')
   const studentRows = students.map((s, i) => {
@@ -100,12 +108,13 @@ export function convert(input) {
       if (t.reason !== undefined && typeof t.reason !== 'string') error('INVALID_REASON', `${path}/reason`, t.reason)
       if (t.type !== undefined && t.type !== 'correction') error('UNKNOWN_TRANSACTION_TYPE', `${path}/type`, t.type)
       if (t.voided !== undefined && typeof t.voided !== 'boolean') error('UNKNOWN_VOIDED', `${path}/voided`, t.voided)
-      error('UNKNOWN_TRANSACTION_SEMESTER', path)
-      return add('transactions', path, t, { student_id: sid, amount: numeric(t.amount) ? t.amount : null, reason: t.reason ?? null, occurred_at: t.date ?? null, balance_after: t.balance ?? null, voided: Boolean(t.voided), transaction_type: t.type ?? 'legacy', corrected_transaction_id: null, semester: null, legacy_semantics: true }, t.id ?? null)
+      validateTransactionDate(t.date, decisions, path, error)
+      return add('transactions', path, t, { student_id: sid, amount: numeric(t.amount) ? t.amount : null, reason: t.reason ?? null, occurred_at: t.date ?? null, balance_after: t.balance ?? null, voided: Boolean(t.voided), transaction_type: t.type ?? 'legacy', corrected_transaction_id: null, legacy_semantics: true }, t.id ?? null)
     })
     index(tr, `${p}/bank/transactions`)
     const edges = correctionTargets(txs)
     const cycles = correctionCycleMembers(edges)
+    const facts = legacyTransactionFacts(txs, edges, cycles)
     tr.forEach((r, j) => {
       const target = txs[j].correctedTxId
       const matches = correctionMatches(txs, target)
@@ -116,21 +125,38 @@ export function convert(input) {
       if (cycles.has(j)) error("CORRECTION_CYCLE", r.source_path, target)
       const targetIndex = edges.get(j)
       r.corrected_transaction_id = cycles.has(j) || targetIndex === null ? null : tr[targetIndex].id
+      Object.assign(r, transactionFields(facts[j], index => tr[index].id, decisions))
     })
     const valid = txs.every(t => numeric(t.amount))
-    const ledger = valid ? txs.reduce((sum, t) => sum + t.amount, 0) : null
     if (valid) {
       let running = 0
-      txs.forEach((t, j) => { running += t.amount; if (t.balance !== undefined && t.balance !== running) error('TRANSACTION_BALANCE_DRIFT', `${p}/bank/transactions/${j}/balance`, { stored: t.balance, computed_from_zero: running }) })
+      txs.forEach(function checkRunningBalance(t, j) {
+        running += t.amount
+        if (t.balance === undefined || t.balance === running) return
+        notice('TRANSACTION_BALANCE_DRIFT', `${p}/bank/transactions/${j}/balance`, { stored: t.balance, computed_from_zero: running })
+      })
     }
     const txMap = Object.fromEntries(txs.map(t => [t.id, t]))
     const earned = valid ? txs.filter(t => !t.voided && !store(t.reason) && !(t.type === 'correction' && t.correctedTxId && store(txMap[t.correctedTxId]?.reason))).reduce((sum, t) => sum + t.amount, 0) : null
-    const balance = bank.balance === undefined ? 0 : bank.balance, total = bank.totalEarned === undefined ? earned : bank.totalEarned
-    if (!numeric(balance)) error('INVALID_BALANCE', `${p}/bank/balance`, balance)
-    if (!numeric(total)) error('INVALID_TOTAL_EARNED', `${p}/bank/totalEarned`, total)
-    add('accounts', `${p}/bank`, s.bank, { student_id: sid, balance: numeric(balance) ? balance : null, total_earned: numeric(total) ? total : null, total_earned_source: bank.totalEarned === undefined ? 'legacy_recomputed' : 'legacy_stored', ledger_sum: ledger, earned_recomputed: earned })
-    if (balance !== ledger) error('BALANCE_DRIFT', `${p}/bank`, { stored: balance, computed: ledger })
-    if (total !== earned) error('TOTAL_EARNED_DRIFT', `${p}/bank`, { stored: total, computed: earned })
+    const accountPath = `${p}/bank`
+    const account = accountFields(bank, txs, facts, earned)
+    if (!numeric(account.balance)) error('INVALID_BALANCE', `${accountPath}/balance`, account.balance)
+    if (!numeric(account.total_earned)) error('INVALID_TOTAL_EARNED', `${accountPath}/totalEarned`, account.total_earned)
+    add('accounts', accountPath, s.bank, {
+      ...account, student_id: sid,
+      balance: numeric(account.balance) ? account.balance : null,
+      total_earned: numeric(account.total_earned) ? account.total_earned : null,
+    })
+    const adjustmentEnabled = openingAdjustmentEnabled(decisions)
+    reportAccountDrift(accountPath, account, adjustmentEnabled, error, notice)
+    if (adjustmentEnabled) {
+      const adjustment = openingAdjustmentFor(accountPath, account)
+      if (adjustment) {
+        openingAdjustments.push(adjustment)
+        const fields = openingAdjustmentFields(adjustment, decisions.cutoverDate, sid)
+        add('transactions', accountPath, openingAdjustmentRaw(account), fields)
+      }
+    }
     arr(s.inventory, `${p}/inventory`).forEach((item, j) => {
       check(item, `${p}/inventory/${j}`, 'itemId name icon purchasedAt')
       add('inventory_items', `${p}/inventory/${j}`, item, { student_id: sid, product_id: ref(pm, item.itemId, 'ORPHAN_PRODUCT', `${p}/inventory/${j}/itemId`), legacy_index: j, purchase_transaction_id: null, consumed: false }, item.itemId ?? null)
@@ -154,9 +180,9 @@ export function convert(input) {
     const tasks = arr(log.tasks, `${p}/tasks`).map((t, j) => {
       check(t, `${p}/tasks/${j}`, 'id title type createdAt dueDate')
       enumeration(t.type, [...arr(settings.taskTypes, '/data/settings/taskTypes'), '作業', '訂正', '攜帶物品', '考試', '通知單', '回條'], 'UNKNOWN_TASK_TYPE', `${p}/tasks/${j}/type`)
-      error('UNKNOWN_TASK_SEMESTER', `${p}/tasks/${j}`)
-      error('UNKNOWN_ASSIGNMENT_LIST', `${p}/tasks/${j}`)
-      return add('tasks', `${p}/tasks/${j}`, t, { log_id: lr.id, title: t.title ?? null, task_type: t.type ?? null, published_on: t.createdAt ?? log.date ?? null, due_on: t.dueDate ?? log.date ?? null, semester: null, correction_state: t.type === '訂正' ? 'legacy_unlinked' : null, original_task_id: null, teacher_confirmed: null, assignees_known: false }, t.id ?? null)
+      validateTaskDate(t.createdAt ?? log.date, decisions, `${p}/tasks/${j}`, error)
+      notice('UNKNOWN_ASSIGNMENT_LIST', `${p}/tasks/${j}`)
+      return add('tasks', `${p}/tasks/${j}`, t, { log_id: lr.id, title: t.title ?? null, task_type: t.type ?? null, published_on: t.createdAt ?? log.date ?? null, due_on: t.dueDate ?? log.date ?? null, semester: selectedSemester(t.createdAt ?? log.date, decisions), correction_state: t.type === '訂正' ? 'legacy_unlinked' : null, original_task_id: null, teacher_confirmed: null, assignees_known: false }, t.id ?? null)
     })
     const tm = index(tasks, `${p}/tasks`)
     Object.entries(obj(log.status, `${p}/status`)).forEach(([legacySid, values]) => {
@@ -203,5 +229,18 @@ export function convert(input) {
   for (const key of ['base', 'tier1', 'tier2']) if (settings.currency?.[key] !== undefined) check(settings.currency[key], `/data/settings/currency/${key}`, 'name icon rate')
   arr(settings.ruleCategories, '/data/settings/ruleCategories').forEach((v, i) => check(v, `/data/settings/ruleCategories/${i}`, 'id name icon'))
   rows.migration_batches[0].validation_errors = structuredClone(errors)
-  return { rows, errors, report: { converter_version: 'v2-1A', source_hash: digest(source), row_counts: Object.fromEntries(Object.entries(rows).map(([t, list]) => [t, list.length])), error_count: errors.length, ready_for_import: errors.length === 0, rules_triggered: 0 } }
+  return {
+    rows,
+    errors,
+    report: {
+      converter_version: CONVERTER_VERSION,
+      source_hash: digest(source),
+      notices,
+      opening_adjustments: openingAdjustments,
+      row_counts: Object.fromEntries(Object.entries(rows).map(([table, records]) => [table, records.length])),
+      error_count: errors.length,
+      ready_for_import: errors.length === 0 && hasFormalImportDecisions(decisions),
+      rules_triggered: 0,
+    },
+  }
 }

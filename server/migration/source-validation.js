@@ -1,14 +1,23 @@
-import { pointer, semesterAt, canonicalJson } from './convert.js'
+import { pointer, canonicalJson } from './convert.js'
+import {
+  accountFields, legacyTransactionFacts, openingAdjustmentFor, reportAccountDrift, validateTransactionDate,
+} from './ledger.js'
+import { openingAdjustmentEnabled, requireDecisions, resolveCurrentSemester, validateTaskDate } from './decisions.js'
 import { correctionCycleMembers, correctionTargets, correctionMatches } from './corrections.js'
 
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value)
 const numeric = value => typeof value === 'number' && Number.isFinite(value)
 
 // 直接走訪來源，不呼叫 convert，也不讀取轉換結果的列或錯誤。
-export function validateSource(source, earnedFromLegacy) {
+export function validateSource(source, earnedFromLegacy, { notices = [], openingAdjustments = [], decisions = {} } = {}) {
+  requireDecisions(decisions)
+  source = source ?? null
   const errors = []
   function error(code, path, value = null) {
     errors.push({ code, path, value: structuredClone(value) })
+  }
+  function notice(code, path, value = null) {
+    notices.push({ code, path, value: structuredClone(value) })
   }
   function record(value, path) {
     if (value === undefined) return {}
@@ -69,10 +78,7 @@ export function validateSource(source, earnedFromLegacy) {
   fields(source, '', 'classId className data')
   fields(data, '/data', 'classId className teacher students logs settings updatedAt')
   fields(settings, '/data/settings', 'currentSemester taskTypes groupAliases announcements jobs behaviorRules shop currency ruleCategories jobAssignments automation seatingChart semesterPeriods dailyDuty dutyJobId storeItems currencyRates')
-  const declared = settings.currentSemester
-  const current = declared === undefined || declared === null || declared === '' ? semesterAt(data.updatedAt) : typeof declared === 'string' && /^\d+-[12]$/.test(declared) ? declared : null
-  if (declared && !current) error('INVALID_CURRENT_SEMESTER', '/data/settings/currentSemester', declared)
-  if (!current) error('UNKNOWN_CURRENT_SEMESTER', '/data/updatedAt', data.updatedAt)
+  resolveCurrentSemester(settings.currentSemester, data.updatedAt, decisions, error)
   const students = array(data.students, '/data/students', true)
   students.forEach((s, i) => {
     fields(s, `/data/students/${i}`, 'id uuid name number seatNumber group gender avatar inactive bank inventory comments taskExemptRules')
@@ -112,7 +118,7 @@ export function validateSource(source, earnedFromLegacy) {
       if (t.reason !== undefined && typeof t.reason !== 'string') error('INVALID_REASON', `${p}/reason`, t.reason)
       if (t.type !== undefined && t.type !== 'correction') error('UNKNOWN_TRANSACTION_TYPE', `${p}/type`, t.type)
       if (t.voided !== undefined && typeof t.voided !== 'boolean') error('UNKNOWN_VOIDED', `${p}/voided`, t.voided)
-      error('UNKNOWN_TRANSACTION_SEMESTER', p)
+      validateTransactionDate(t.date, decisions, p, error)
     })
     index(txs, `${path}/bank/transactions`)
     const edges = correctionTargets(txs)
@@ -123,23 +129,28 @@ export function validateSource(source, earnedFromLegacy) {
       if (target !== undefined && matches.length !== 1) error(matches.length ? "AMBIGUOUS_REFERENCE" : "ORPHAN_CORRECTION", `${p}/correctedTxId`, target)
       if (t.type === 'correction' && target === undefined) error('ORPHAN_CORRECTION', p)
     })
-    for (const j of correctionCycleMembers(edges)) error('CORRECTION_CYCLE', `${path}/bank/transactions/${j}`, txs[j].correctedTxId)
+    const cycles = correctionCycleMembers(edges)
+    for (const j of cycles) error('CORRECTION_CYCLE', `${path}/bank/transactions/${j}`, txs[j].correctedTxId)
     const valid = txs.every(t => numeric(t.amount))
-    const ledger = valid ? txs.reduce((sum, t) => sum + t.amount, 0) : null
     const earned = valid ? earnedFromLegacy(txs) : null
     let running = 0
     if (valid) {
       txs.forEach((t, j) => {
         running += t.amount
-        if (t.balance !== undefined && t.balance !== running) error('TRANSACTION_BALANCE_DRIFT', `${path}/bank/transactions/${j}/balance`, { stored: t.balance, computed_from_zero: running })
+        if (t.balance !== undefined && t.balance !== running) notice('TRANSACTION_BALANCE_DRIFT', `${path}/bank/transactions/${j}/balance`, { stored: t.balance, computed_from_zero: running })
       })
     }
-    const balance = bank.balance === undefined ? 0 : bank.balance
-    const total = bank.totalEarned === undefined ? earned : bank.totalEarned
-    if (!numeric(balance)) error('INVALID_BALANCE', `${path}/bank/balance`, balance)
-    if (!numeric(total)) error('INVALID_TOTAL_EARNED', `${path}/bank/totalEarned`, total)
-    if (balance !== ledger) error('BALANCE_DRIFT', `${path}/bank`, { stored: balance, computed: ledger })
-    if (total !== earned) error('TOTAL_EARNED_DRIFT', `${path}/bank`, { stored: total, computed: earned })
+    const facts = legacyTransactionFacts(txs, edges, cycles)
+    const account = accountFields(bank, txs, facts, earned)
+    const accountPath = `${path}/bank`
+    if (!numeric(account.balance)) error('INVALID_BALANCE', `${accountPath}/balance`, account.balance)
+    if (!numeric(account.total_earned)) error('INVALID_TOTAL_EARNED', `${accountPath}/totalEarned`, account.total_earned)
+    const adjustmentEnabled = openingAdjustmentEnabled(decisions)
+    reportAccountDrift(accountPath, account, adjustmentEnabled, error, notice)
+    if (adjustmentEnabled) {
+      const adjustment = openingAdjustmentFor(accountPath, account)
+      if (adjustment) openingAdjustments.push(adjustment)
+    }
     array(s.inventory, `${path}/inventory`, true).forEach((item, j) => {
       fields(item, `${path}/inventory/${j}`, 'itemId name icon purchasedAt')
       reference(pm, item.itemId, 'ORPHAN_PRODUCT', `${path}/inventory/${j}/itemId`)
@@ -164,8 +175,8 @@ export function validateSource(source, earnedFromLegacy) {
       const tp = `${p}/tasks/${j}`
       fields(t, tp, 'id title type createdAt dueDate')
       enumeration(t.type, [...array(settings.taskTypes, '/data/settings/taskTypes'), '作業', '訂正', '攜帶物品', '考試', '通知單', '回條'], 'UNKNOWN_TASK_TYPE', `${tp}/type`)
-      error('UNKNOWN_TASK_SEMESTER', tp)
-      error('UNKNOWN_ASSIGNMENT_LIST', tp)
+      validateTaskDate(t.createdAt ?? log.date, decisions, tp, error)
+      notice('UNKNOWN_ASSIGNMENT_LIST', tp)
     })
     const tm = index(tasks, `${p}/tasks`)
     for (const [sid, values] of Object.entries(record(log.status, `${p}/status`))) {

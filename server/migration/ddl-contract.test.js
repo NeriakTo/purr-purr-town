@@ -59,6 +59,16 @@ it('R10 DDL 與每張表輸出雙向吻合，型別及 CHECK 皆相容', () => {
   expect(ddlIssues(sql, outputs)).toEqual([])
 })
 
+it('B7 DDL 支援切換日、指定學期與轉換產生的調整交易', () => {
+  const source = structuredClone(classA)
+  source.data.students[0].bank.balance = 999
+  const options = { decisions: { cutoverDate: '2027-02-01', openingAdjustment: true, semesterRule: 'month' } }
+  const fallback = convert(source, options)
+  source.data.settings.currentSemester = '114-1'
+  const declared = convert(source, options)
+  expect(ddlIssues(sql, [fallback, declared])).toEqual([])
+})
+
 it('R10 反向檢查能抓出只出現在 DDL 的欄位，明列 DEFAULT 才可省略', () => {
   const extra = sql.replace('source_hash text NOT NULL,', 'source_hash text NOT NULL,\n  unexplained text,')
   expect(ddlIssues(extra, outputs)).toContain('migration_batches.unexplained:missing_output')
@@ -77,4 +87,8 @@ it('R10 能抓出輸出少欄、多欄、型別錯誤及 CHECK 違反', () => {
     mutate(copy[0].rows)
     expect(ddlIssues(sql, copy)).toContain(issue)
   }
+})
+
+it('7.4 B 交易來源檢查要求操作編號或轉換批次', () => {
+  expect(sql).toMatch(/CHECK \(\s*\(origin = 'op' AND op_id IS NOT NULL AND batch_id IS NULL\)\s*OR \(origin = 'migration' AND op_id IS NULL AND batch_id IS NOT NULL\)\s*\)/)
 })

@@ -13,6 +13,8 @@ CREATE TABLE migration_v2.migration_batches (
   source_path text NOT NULL,
   raw jsonb NOT NULL,
   source_hash text NOT NULL,
+  decisions jsonb NOT NULL,
+  cutover_date text,
   converter_version text NOT NULL,
   import_rules_enabled boolean NOT NULL CHECK (import_rules_enabled = false),
   validation_errors jsonb NOT NULL,
@@ -81,13 +83,14 @@ CREATE TABLE migration_v2.accounts (
   total_earned numeric,
   total_earned_source text NOT NULL,
   ledger_sum numeric,
-  earned_recomputed numeric,
+  legacy_earned_recomputed numeric,
+  earned_delta_sum numeric,
   UNIQUE (batch_id, source_path)
 );
 
 CREATE TABLE migration_v2.transactions (
   id text PRIMARY KEY,
-  batch_id text NOT NULL,
+  batch_id text,
   class_id text NOT NULL,
   legacy_id jsonb,
   source_path text NOT NULL,
@@ -101,6 +104,17 @@ CREATE TABLE migration_v2.transactions (
   transaction_type text,
   corrected_transaction_id text REFERENCES migration_v2.transactions(id) DEFERRABLE INITIALLY DEFERRED,
   semester text,
+  kind text NOT NULL,
+  root_transaction_id text REFERENCES migration_v2.transactions(id) DEFERRABLE INITIALLY DEFERRED,
+  chain_broken boolean NOT NULL,
+  earned_delta numeric,
+  effective_at text,
+  origin text NOT NULL,
+  op_id text,
+  CHECK (
+    (origin = 'op' AND op_id IS NOT NULL AND batch_id IS NULL)
+    OR (origin = 'migration' AND op_id IS NULL AND batch_id IS NOT NULL)
+  ),
   legacy_semantics boolean NOT NULL CHECK (legacy_semantics = true),
   UNIQUE (batch_id, source_path)
 );

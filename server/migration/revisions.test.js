@@ -25,8 +25,8 @@ describe('退修回歸', () => {
     const source = snapshot(txs)
     source.data.students[0].bank.totalEarned = totalEarned
     expect(totalEarned).toBe(105)
-    expect(convert(source).rows.accounts[0].earned_recomputed).toBe(calcEarnedFromTransactions(txs))
-    expect(convert(source).rows.accounts[0].earned_recomputed).toBe(totalEarned)
+    expect(convert(source).rows.accounts[0].legacy_earned_recomputed).toBe(calcEarnedFromTransactions(txs))
+    expect(convert(source).rows.accounts[0].legacy_earned_recomputed).toBe(totalEarned)
     expect(readme()).toContain('第二次更正差額會加入累計')
   })
 })
@@ -55,8 +55,8 @@ it("R4 重複交易隔離外鍵但重算沿用最後一筆", () => {
   const out = convert(snapshot(txs))
   expect(out.errors.map(e => e.code)).toEqual(expect.arrayContaining(["DUPLICATE_LEGACY_ID", "AMBIGUOUS_REFERENCE"]))
   expect(out.rows.transactions[2].corrected_transaction_id).toBeNull()
-  expect(out.rows.accounts[0].earned_recomputed).toBe(calcEarnedFromTransactions(txs))
-  expect(out.rows.accounts[0].earned_recomputed).toBe(0)
+  expect(out.rows.accounts[0].legacy_earned_recomputed).toBe(calcEarnedFromTransactions(txs))
+  expect(out.rows.accounts[0].legacy_earned_recomputed).toBe(0)
   expect(readme().includes("重複交易編號的累計重算仍取最後一筆")).toBe(true)
 })
 
@@ -91,7 +91,8 @@ it("R5 每一筆既有來源錯誤少報都獨立識別", () => {
   source.data.settings.jobAssignments.absent = ["absent"]
   source.data.students[0].bank.transactions[0].balance = 999
   const baseline = convert(source)
-  expect(baseline.errors.map(e => e.code)).toEqual(expect.arrayContaining(["ORPHAN_PRODUCT", "ORPHAN_JOB", "ORPHAN_STUDENT", "ORPHAN_TASK", "TOTAL_EARNED_DRIFT", "TRANSACTION_BALANCE_DRIFT", "UNKNOWN_STATUS", "UNKNOWN_FIELD"]))
+  expect(baseline.errors.map(e => e.code)).toEqual(expect.arrayContaining(["ORPHAN_PRODUCT", "ORPHAN_JOB", "ORPHAN_STUDENT", "ORPHAN_TASK", "UNKNOWN_STATUS", "UNKNOWN_FIELD", "TOTAL_EARNED_DRIFT"]))
+  expect(baseline.report.notices.map(e => e.code)).toEqual(expect.arrayContaining(["TRANSACTION_BALANCE_DRIFT"]))
   for (let i = 0; i < baseline.errors.length; i++) {
     const out = structuredClone(baseline)
     out.errors.splice(i, 1)
@@ -186,7 +187,7 @@ it("R11 保留字串金額舊語意但由 INVALID_AMOUNT 擋匯入", () => {
   const source = snapshot(txs)
   const out = convert(source)
   expect(out.errors.filter(e => e.code === "INVALID_AMOUNT")).toHaveLength(2)
-  expect(out.rows.accounts[0].earned_recomputed).toBeNull()
+  expect(out.rows.accounts[0].legacy_earned_recomputed).toBeNull()
   expect(reconcile(source, out).ready_for_import).toBe(false)
   expect(readme().includes("字串金額會串接")).toBe(true)
 })
