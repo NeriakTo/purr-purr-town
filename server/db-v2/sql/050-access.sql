@@ -72,3 +72,27 @@ BEGIN
   RETURN can_access_class(p_class_id, p_actor);
 END;
 $$;
+
+CREATE FUNCTION ppt.lock_teacher_operation_class(p_class_id text, p_op_id text, p_actor jsonb)
+RETURNS ppt.operation_code
+LANGUAGE plpgsql
+SET search_path = pg_catalog, ppt, pg_temp
+AS $$
+BEGIN
+  PERFORM require_teacher_actor(p_actor);
+
+  -- Step 1: check access without locking.
+  IF NOT can_access_class(p_class_id, p_actor) THEN
+    RETURN 'CLASS_FORBIDDEN';
+  END IF;
+  IF NOT valid_v4_op_id(p_op_id) THEN
+    RETURN 'INVALID_OP_ID';
+  END IF;
+
+  -- Step 2: lock the class row, then check access again.
+  IF NOT lock_authorized_class(p_class_id, p_actor) THEN
+    RETURN 'CLASS_FORBIDDEN';
+  END IF;
+  RETURN NULL;
+END;
+$$;

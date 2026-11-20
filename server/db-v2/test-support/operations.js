@@ -37,6 +37,13 @@ export async function submit(client, op, actor = teacher) {
   return receipt
 }
 
+export async function cancel(client, classId, opId, actor = teacher) {
+  const { rows: [{ receipt }] } = await client.query(
+    'SELECT ppt.cancel_operation($1, $2, $3::jsonb) AS receipt', [classId, opId, actor],
+  )
+  return receipt
+}
+
 export async function classSequence(client, classId) {
   const { rows: [{ class_seq: seq }] } = await client.query(
     'SELECT class_seq FROM ppt.classes WHERE class_id = $1', [classId],

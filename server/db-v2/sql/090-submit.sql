@@ -122,25 +122,17 @@ AS $$
 DECLARE
   op_id text := CASE WHEN jsonb_typeof(op->'op_id') = 'string' THEN op->>'op_id' END;
   class_id text := op->>'class_id';
+  access_error operation_code;
 BEGIN
   PERFORM require_read_committed();
   IF NOT valid_operation_envelope(op) THEN
     RETURN retry_receipt(op_id, 'BAD_ENVELOPE');
   END IF;
 
-  PERFORM require_teacher_actor(actor);
-  -- Step 1: check access without locking.
   -- PPT-PENDING: class_create
-  IF NOT can_access_class(class_id, actor) THEN
-    RETURN retry_receipt(op_id, 'CLASS_FORBIDDEN');
-  END IF;
-  IF NOT valid_v4_op_id(op_id) THEN
-    RETURN retry_receipt(op_id, 'INVALID_OP_ID');
-  END IF;
-
-  -- Step 2: lock the class row, then check access again.
-  IF NOT lock_authorized_class(class_id, actor) THEN
-    RETURN retry_receipt(op_id, 'CLASS_FORBIDDEN');
+  access_error := lock_teacher_operation_class(class_id, op_id, actor);
+  IF access_error IS NOT NULL THEN
+    RETURN retry_receipt(op_id, access_error);
   END IF;
   RETURN submit_locked_operation(op, actor);
 END;
