@@ -64,4 +64,3 @@ describeDatabase('放棄操作', () => {
     expect(await operationCount(client)).toBe(count)
   })
 })
-
