@@ -1,4 +1,4 @@
-CREATE TYPE ppt.submission_effect_outcome AS (result jsonb, account_change jsonb);
+CREATE TYPE ppt.submission_effect_outcome AS (result jsonb, account_change jsonb, warnings jsonb);
 
 CREATE FUNCTION ppt.check_pending_submission_branches(p_op jsonb)
 RETURNS void
@@ -24,10 +24,6 @@ BEGIN
     PERFORM pending_operation('legacy_unresolved');
   END IF;
 
-  IF (current_event_rule(class_key, 'daily_quest.complete')).amount <> 0 THEN
-    -- PPT-PENDING: daily_quest
-    PERFORM pending_operation('daily_quest');
-  END IF;
 END;
 $$;
 
@@ -47,7 +43,7 @@ DECLARE
   kept_effect boolean := false;
 BEGIN
   IF p_submission.status = 'makeup' THEN
-    RETURN (operation_result(), NULL)::submission_effect_outcome;
+    RETURN (operation_result(), NULL, '[]'::jsonb)::submission_effect_outcome;
   END IF;
 
   wanted := CASE p_submission.status
@@ -83,6 +79,6 @@ BEGIN
     END IF;
   END IF;
 
-  RETURN (operation_result(transaction_ids, added, reversed), account_change)::submission_effect_outcome;
+  RETURN (operation_result(transaction_ids, added, reversed), account_change, '[]'::jsonb)::submission_effect_outcome;
 END;
 $$;

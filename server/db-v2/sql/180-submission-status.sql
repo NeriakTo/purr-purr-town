@@ -97,6 +97,8 @@ DECLARE
   previous submissions;
   updated submissions;
   outcome submission_effect_outcome;
+  daily submission_effect_outcome;
+  due_date date;
   changes jsonb;
 BEGIN
   SELECT * INTO previous FROM submissions
@@ -116,10 +118,19 @@ BEGIN
 
   updated := store_submission_status(p_op, new_status);
   outcome := apply_submission_effects(updated, op_key, p_time);
+  SELECT due_on INTO STRICT due_date FROM tasks WHERE class_id = class_key AND task_id = updated.task_id;
+  daily := apply_daily_quest(class_key, updated.student_id, due_date, op_key, p_time);
+  IF daily.account_change IS NOT NULL THEN
+    outcome.account_change := merge_account_change(outcome.account_change, daily.account_change);
+  END IF;
   changes := jsonb_build_array(submission_change(previous, updated, entity_key, op_key));
   IF outcome.account_change IS NOT NULL THEN
     changes := changes || jsonb_build_array(outcome.account_change);
   END IF;
-  RETURN (outcome.result, changes, '[]'::jsonb)::operation_outcome;
+  RETURN (operation_result(
+    (outcome.result->'transactions') || (daily.result->'transactions'),
+    (outcome.result->'effects_added') || (daily.result->'effects_added'),
+    (outcome.result->'effects_reversed') || (daily.result->'effects_reversed')
+  ), changes, daily.warnings)::operation_outcome;
 END;
 $$;
