@@ -19,6 +19,7 @@ AS $$
     ('"comment.save"'::jsonb, ARRAY['teacher'], 'required'),
     ('"comment.set_lock"'::jsonb, ARRAY['teacher'], 'required'),
     ('"comment.request_generation"'::jsonb, ARRAY['teacher'], 'required'),
+    ('"comment.apply_generated"'::jsonb, ARRAY['system'], 'forbidden'),
     ('"op.undo"'::jsonb, ARRAY['teacher', 'agent'], 'forbidden'),
     ('"batch.undo"'::jsonb, ARRAY['teacher'], 'forbidden'),
     ('"tx.reverse"'::jsonb, ARRAY['teacher'], 'forbidden'),

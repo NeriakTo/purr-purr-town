@@ -118,14 +118,14 @@ describeDatabase('訂正逾期排程身分', () => {
     expect(await classSequence(client, classId)).toBe(0)
   }, 15000)
 
-  test('無效排程身分與排程放棄回 22023，系統仍為未實作', async () => {
+  test('無效排程身分、排程放棄與無效系統身分都回 22023', async () => {
     const { client } = db()
     const { target: { classId }, op } = await schedulerFixture(client)
     const count = await operationCount(client)
     await expect(submit(client, op, { kind: 'scheduler', id: 'fixture' })).rejects.toMatchObject({ code: '22023' })
     await expect(cancel(client, classId, op.op_id, scheduler)).rejects.toMatchObject({ code: '22023' })
     await expect(submit(client, op, { kind: 'system', id: 'fixture' }))
-      .rejects.toMatchObject({ code: '0A000', detail: 'actor_system' })
+      .rejects.toMatchObject({ code: '22023' })
     expect(await operationCount(client)).toBe(count)
   })
 

@@ -100,11 +100,20 @@ BEGIN
 END;
 $$;
 
+CREATE FUNCTION ppt.operation_uuid_namespace()
+RETURNS text
+LANGUAGE sql
+IMMUTABLE
+SET search_path = pg_catalog, ppt, pg_temp
+AS $$
+  SELECT '7d0f4c53-9a1e-4b7a-8f35-2c6e1b90a4d8'::text;
+$$;
+
 CREATE FUNCTION ppt.batch_undo_op_id(p_batch_undo_id text, p_target_id text)
 RETURNS text
 LANGUAGE sql
 IMMUTABLE STRICT
 SET search_path = pg_catalog, ppt, pg_temp
 AS $$
-  SELECT uuid_v5('7d0f4c53-9a1e-4b7a-8f35-2c6e1b90a4d8', 'batch.undo:' || p_batch_undo_id || ':' || p_target_id);
+  SELECT uuid_v5(operation_uuid_namespace(), 'batch.undo:' || p_batch_undo_id || ':' || p_target_id);
 $$;
