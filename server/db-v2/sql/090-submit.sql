@@ -37,6 +37,10 @@ BEGIN
       PERFORM check_student_add(p_op);
     WHEN 'student.update_profile', 'student.set_enrollment', 'student.set_exempt_rules' THEN
       PERFORM check_student_change(p_op);
+    WHEN 'group.assign_students' THEN
+      PERFORM check_group_assignment(p_op);
+    WHEN 'group.save' THEN
+      PERFORM check_group_save(p_op);
     WHEN 'op.undo' THEN
       PERFORM validate_undo_payload(p_op->'payload');
       PERFORM check_undo_operation(p_op, p_actor);
@@ -132,6 +136,8 @@ BEGIN
     WHEN 'student.add' THEN RETURN apply_student_add(p_op);
     WHEN 'student.update_profile', 'student.set_enrollment', 'student.set_exempt_rules' THEN
       RETURN apply_student_change(p_op);
+    WHEN 'group.assign_students' THEN RETURN apply_group_assignment(p_op);
+    WHEN 'group.save' THEN RETURN apply_group_save(p_op);
     WHEN 'op.undo' THEN RETURN apply_undo_operation(p_op, p_time);
     WHEN 'batch.undo' THEN RETURN apply_batch_undo_operation(p_op, p_actor, p_time);
     WHEN 'points.adjust' THEN RETURN apply_points_adjust(p_op, p_time);

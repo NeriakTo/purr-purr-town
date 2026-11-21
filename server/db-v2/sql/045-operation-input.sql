@@ -11,6 +11,8 @@ AS $$
     ('"student.update_profile"'::jsonb, ARRAY['teacher'], 'required'),
     ('"student.set_enrollment"'::jsonb, ARRAY['teacher'], 'required'),
     ('"student.set_exempt_rules"'::jsonb, ARRAY['teacher'], 'required'),
+    ('"group.assign_students"'::jsonb, ARRAY['teacher'], 'per_item'),
+    ('"group.save"'::jsonb, ARRAY['teacher'], 'required'),
     ('"op.undo"'::jsonb, ARRAY['teacher', 'agent'], 'forbidden'),
     ('"batch.undo"'::jsonb, ARRAY['teacher'], 'forbidden'),
     ('"tx.reverse"'::jsonb, ARRAY['teacher'], 'forbidden'),
