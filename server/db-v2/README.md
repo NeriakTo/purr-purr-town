@@ -575,7 +575,7 @@ OP-01 的來源班存取拒絕回 `CLASS_FORBIDDEN`，不登記操作。其餘�
 |---|---|
 | `ppt_owner` | 擁有 `ppt`、`ppt_agent` 與其中的表、型別和函式。以此身分安裝 SQL，三個寫入入口也以此身分執行。 |
 | `ppt_web` | 有 `ppt` 的 USAGE 和全部表的 SELECT。老師、排程與系統透過網站後端共用此角色，寫入只經 `ppt.submit_operation` 和 `ppt.cancel_operation`。 |
-| `ppt_agent` | 有 `ppt_agent` 的 USAGE，只能執行 `ppt_agent.agent_submit`。底層 `ppt` 的 schema、表與函式均不開放。專用檢視表及其 SELECT 在第 3 包加入。 |
+| `ppt_agent` | 有 `ppt_agent` 的 USAGE，可執行 `ppt_agent.agent_submit` 與 `ppt_agent.mask_student_names`，可 SELECT 下列十七個檢視表。底層 `ppt` 的 schema、表與函式均不開放。 |
 | `ppt_backup` | 有兩個 schema 的 USAGE 和 `ppt` 全部表的 SELECT。`ppt_agent` 內無物件讀取權，兩個 schema 均無寫入權和入口執行權。 |
 
 三個連線角色均無資料表或欄位的寫入授權，也無表的 REFERENCES、TRIGGER 權限。PUBLIC 對兩個 schema 均無權限，也無其中函式的執行權。`ppt_owner` 日後建立的函式預設不開放給 PUBLIC，新建表也不會自動授予三個連線角色。
@@ -589,7 +589,7 @@ OP-01 的來源班存取拒絕回 `CLASS_FORBIDDEN`，不登記操作。其餘�
 
 小野的收據省略老師編號與別人輸入的自由文字。資料庫在保存收據前，將各層名為 `actor` 的物件縮成只含 `kind` 的物件。`last_op_id`、`prior_op_id` 等操作編號保留。老師確認暫緩批次時，成員仍以小野身分執行，重送會讀到已遮過的收據。
 
-暫緩收據保留 `result.confirmation_id` 與 `result.held_reason`。`HELD_QUEUE_FULL` 與 `CALL_ID_REUSED` 仍回 `call_id`、`status: retry`、`code`。這三種收據都省略 `current`。第 3 包的檢視表讓小野從 `ppt_agent.confirmations` 查待確認筆數、從 `ppt_agent.agent_calls` 查原呼叫內容，並從 `ppt_agent.held_batches` 查自己的暫緩批次。
+暫緩收據保留 `result.confirmation_id` 與 `result.held_reason`。`HELD_QUEUE_FULL` 與 `CALL_ID_REUSED` 仍回 `call_id`、`status: retry`、`code`。這三種收據都省略 `current`。小野從 `ppt_agent.confirmations` 查待確認筆數、從 `ppt_agent.agent_calls` 查原呼叫內容，並從 `ppt_agent.held_batches` 查自己的暫緩批次。
 
 OP-01 建班與承接班在建立擁有者資料時一併寫入排程授權。1D 匯入完成後、開啟排程前，由管理連線以 `ppt_owner` 身分執行 [排程授權補登](maintenance/backfill-scheduler-authorizations.sql)（T-613）。這支檔只補缺少的排程授權。啟用小野時，由管理連線以 `ppt_owner` 身分逐班授權。以下兩段 SQL 的 `$1` 都綁定班級編號。
 
@@ -613,6 +613,40 @@ PostgreSQL 的 `pg_advisory_lock` 仍維持 PUBLIC 的預設執行權。小野�
 測試支架會收回測試庫的 PUBLIC TEMP 權限，並用獨立連線 `SET ROLE` 到受測角色。每條角色連線先驗 `current_user`，再執行查詢或呼叫入口。正式主機工單須以角色實際登入驗證小野的閒置交易與查詢逾時各 30 秒、鎖等待逾時 10 秒、最多 5 條連線，以及備份的預設唯讀。
 
 正式主機工單負責配置登入及連線來源，收回正式庫的 PUBLIC CONNECT 和 TEMP，並按規格 2.1 驗證作業系統執行身分隔離及網站連線設定的存取權。須通過上線驗證後，才能在正式資料庫安裝並開放寫入入口。
+
+### 小野的檢視表
+
+查詢時加上 `ppt_agent.` 前綴，例如 `ppt_agent.students`。十七個檢視表都使用 `security_barrier`，只列在 `ppt.class_authorizations` 有 `actor_kind = 'agent'` 授權列的班級。歸檔班也依授權列判斷，撤回授權後該班的資料不再出現。
+
+| 檢視表 | 可讀資料與額外篩選 |
+|---|---|
+| `classes` | 班級編號、狀態、成立序號，以及依序號取最後一筆成立操作的時間。 |
+| `students` | 學生編號、座號、小組鍵、在學狀態，涵蓋四種在學狀態。 |
+| `groups` | 小組鍵、組名與組長學生編號。小組鍵與 `students` 使用相同的名單遮罩。 |
+| `accounts` | 每位學生的餘額與累計加分。 |
+| `transactions` | 學生、交易種類、金額、累計加分變動、交易與生效時間、學期、相關編號，以及交易當時的規則版本名稱。沒有規則時名稱為空值。 |
+| `rules` | 每條規則的種類、事件、停用狀態與現行版本。 |
+| `rule_versions` | 每條規則的全部版本及其名稱、金額、圖示、分類與生效時間。 |
+| `tasks` | 作業標題、類型、頁碼文字、發布日期、繳交期限、學期與作廢旗標。 |
+| `submissions` | 只列 `assignment_active` 為真的繳交列，附狀態、版本、最後操作編號與該生該作業是否有未裁決的歷史效果。 |
+| `corrections` | 訂正對象、輪次、狀態、日期、備註與版本。 |
+| `jobs` | 職務職稱、薪資、圖示、發薪週期、分類與停用狀態。 |
+| `job_assignees` | 依原指派順序逐人列出職務成員，位置從 1 起，保留已轉出學生。 |
+| `daily_duties` | 依原名單順序逐人列出各日期的值日生，位置從 1 起，保留已轉出學生。 |
+| `confirmations` | 學生提議與小野暫緩兩種待確認項目，附狀態、時間、對象座號及提議狀態或批次編號。 |
+| `held_batches` | 只列小野被暫緩的批次，保留輸入與說明，依提交順序列出新成員的操作編號、現況、結果碼與收據。 |
+| `operations` | 小野自己的操作可讀全文。別人的只列已成立操作，顯示班級與操作編號、操作者種類、操作種類、成立序號、成立時間及單一對象座號。 |
+| `agent_calls` | 小野的呼叫編號、時間、說明、暫緩輸入及依原順序列出的操作編號與新成員旗標。 |
+
+姓名遮罩使用同班四種在學狀態的名單，包含已轉出與封存的學生。姓名會比對完整姓名、三字以上去掉第一字的寫法，以及四字以上取最後兩字的寫法。比對時忽略大小寫及姓名字元間的空白，包括半形空白、全形空白與定位字元。較長的寫法優先，單趟掃描原文，保留比對範圍外的文字與空白。
+
+單一命中換成「N號」。兩位或三位撞名時依座號由小到大排列，以「或」連接。空座號寫為「座號未定」並排在最後。四位以上換成「某位同學」。空值文字仍回空值，空名單保留原文。名單格式不合法或遮罩發生例外時，回固定字串「（遮罩失敗）」。
+
+十種套用遮罩的文字為作業標題、頁碼文字、訂正備註、規則名稱、職務職稱、小組名稱，以及作業類型、分類、圖示和小組鍵。後四種也允許老師輸入任意文字。規則名稱涵蓋現行規則、歷史版本與交易顯示的規則名。分類、圖示涵蓋規則版本與職務，小組鍵涵蓋學生與小組檢視表。
+
+訂正備註只有在同班有一筆已成立、由小野送出、且訂正編號相同的 OP-18 時才保留原文。老師提交及匯入的備註套用姓名遮罩。小野讀回自己寫入的原文時，無法從遮罩結果推知該姓名是否在班上。
+
+遮罩可能漏掉綽號、只寫姓、錯字、兩字姓名的單字簡稱，以及取用的字不符合上述三種寫法的稱呼。完整的一字姓名也會比對，常用字可能連同無關文字被換掉。姓名的末兩字恰好是常用詞時也可能多遮，規則名稱換成座號後有時會較難閱讀。
 
 ## 未實作清單
 
