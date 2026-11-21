@@ -249,10 +249,17 @@ describe.skipIf(!process.env.PPT_TEST_DATABASE_URL)('登入桶與排隊', () => 
     await until(() => order.length === 1, '未進入密碼比對')
     const teacherLogin = attempt({ passcode: correct, headers: relayHeaders })
     await waitForQueue(1)
+    await until(() => polls.length === 1, '老師尚未停在輪詢間隔')
     const late = 'fake-later-wrong-password'
     const next = attempt({ passcode: late, headers: relayHeaders })
     await waitForQueue(2)
+    await until(() => polls.length === 2, '後順位尚未停在輪詢間隔')
     releaseCheck(wrong)
+    expect((await first.response).statusCode).toBe(401)
+    // 故意先喚醒後到的請求，讓順序取決於資料庫的票號。
+    polls.pop()()
+    await until(() => order.length > 1 || polls.length === 2, '後順位未進行輪詢')
+    expect(order).toEqual([wrong])
     const responses = await finish([first, teacherLogin, next])
     expect(responses.map(response => response.statusCode)).toEqual([401, 200, 401])
     expect(order).toEqual([wrong, correct, late])
