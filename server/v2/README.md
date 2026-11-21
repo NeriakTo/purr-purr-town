@@ -1,5 +1,65 @@
 # 新版後端操作介面
 
+三個端點皆使用 `POST` 與 JSON。請求本文上限為 512 KiB。端點先驗證 `Authorization: Bearer <權杖>`，再檢查信封與班級存取權。權杖是 64 個小寫十六進位字元，資料庫以 SHA-256 雜湊查找。到期取 `expires_at` 與 `first_relayed_at + 24 小時` 中較早者。未曾經 GAS 轉送時只用 `expires_at`。操作者固定為工作階段所屬的老師。
+
+## 端點
+
+| 路徑 | 請求 | HTTP 200 回應 |
+| --- | --- | --- |
+| `/api/v2/ops` | `{ "v": 1, "class_id": "…", "batch_id": "…", "ops": […] }` | `{ "server_time": "…", "class_seq": 1, "receipts": […] }` |
+| `/api/v2/ops/cancel` | `{ "class_id": "…", "op_id": "…" }` | `{ "server_time": "…", "receipt": {…} }` |
+| `/api/v2/ops/lookup` | `{ "class_id": "…", "op_ids": ["…"] }` | `{ "server_time": "…", "results": […] }` |
+
+`server_time` 是結尾為 `Z` 的 ISO 8601 UTC 時間。所有請求的 `class_id` 都須為非空字串。
+
+### 提交
+
+`ops` 須有 1 到 50 個物件，字串 `op_id` 不得重複。單筆 `payload` 以 `JSON.stringify` 後的 UTF-8 大小計算，最多 64 KiB。未帶 `op_id` 或不是字串時，由寫入程序回單筆 `INVALID_OP_ID`。頂層 `batch_id` 可省略、為 null 或非空字串。
+
+每筆只取 `op_id`、`type`、`payload`、`expect`、`client_time`、`client_seq`，以及頂層的 `class_id` 和選填的 `batch_id`。`expect` 省略與明帶 null 各依原值送入寫入程序。班級預先檢查不上鎖。只有班級不存在且首筆是 `class.create`、其 `payload.class_id` 和頂層相同時，才放行建班。
+
+每筆依陣列順序開啟獨立的 `READ COMMITTED` 交易，設定本次交易的等鎖與語句逾時，呼叫寫入程序並提交。提交完成才把原樣收據放入回應。頂層 `class_seq` 在最後一筆之後另讀，可能已包含別人的提交，班級不存在時為 null。
+
+單筆遇到暫時型的 `CLASS_FORBIDDEN`、`SERVER_BUSY`、`INTERNAL_ERROR` 時保留該筆與之前的收據。其餘操作不進寫入程序，依原順序回 `{ "op_id": "…", "status": "retry", "code": "NOT_PROCESSED" }`，缺少編號時用 null。定案拒絕、`INVALID_OP_ID`、`OP_ID_REUSED` 及單筆 `BAD_ENVELOPE` 都會繼續處理下一筆。
+
+### 放棄
+
+只接受字串 `op_id`，須有班級存取權。不存在的班與別人的班都回相同的 403。寫入程序與提交共用班級鎖。新編號登記為 `cancelled`，同班且同操作者的既有編號回原收據並設 `replayed: true`。不同班或不同操作者的既有編號回 `OP_ID_REUSED`。無效編號（含 UUID v5）回 `INVALID_OP_ID`。鎖內失去班級存取權也回請求層級的 403。
+
+### 查詢原操作
+
+`op_ids` 接受 1 到 50 個字串。先驗班級存取權，再用 `REPEATABLE READ READ ONLY` 交易讀操作紀錄，無須取得班級鎖。依輸入順序回覆，同一編號出現多次會在各位置回覆。屬於本班、操作者種類為老師且操作者編號和工作階段相同的紀錄，回原樣收據加 `op_type`，放棄登記的種類為 null。其餘各回 `{ "op_id": "…", "status": "unknown" }`。例如可用撤銷衝突的 `current.last_op_id` 查出阻擋操作是 `legacy_effect.resolve`。
+
+## HTTP 狀態與錯誤碼
+
+請求層級的失敗只回 `{ "error": { "code": "…" } }`。提交或放棄帶收據的回應均為 HTTP 200，送出端依收據中的結果碼處置。後端不自動重試，送出端遇暫時錯誤或回應遺失時以同一個編號重送。
+
+| HTTP 狀態 | 請求層級錯誤碼 | 條件 |
+| --- | --- | --- |
+| 400 | `BAD_ENVELOPE` | JSON 或信封不合法、內容型別不符、超出上限 |
+| 401 | `AUTH_REQUIRED` | 缺少有效格式的權杖或找不到工作階段 |
+| 401 | `AUTH_EXPIRED` | 找得到工作階段但已到期 |
+| 403 | `CLASS_FORBIDDEN` | 無班級存取權或班級不存在 |
+| 503 | `SERVER_BUSY` | 取不到連線、交易工作期間連線中斷、SQLSTATE `55P03` 或 `57014` |
+| 500 | `INTERNAL_ERROR` | 其他未預期錯誤或提交失敗 |
+
+提交端點在單筆交易中發生上述資料庫錯誤時，把對應碼放在該筆的 `retry` 收據。若交易的 `COMMIT` 回報失敗，結果可能不明，同編號重送可安全確認。逾時預設為等鎖 5,000 毫秒、語句 30,000 毫秒，可由 `config` 設定。這一包依派工暫定的 HTTP 狀態、信封、建班例外、批次停止條件、逾時、回應外層、欄位取用、工作階段與查詢隔離層級執行。第 2 包才會實作 HTTP 429 `RATE_LIMITED`。
+
+## 網站帳號需要的權限
+
+執行時需要能使用 `ppt` 與 `ppt_web_state` schema。以下是這一包在路由直接使用的物件。
+
+| 動作 | 物件與用途 |
+| --- | --- |
+| 讀取 | `ppt_web_state.sessions` 的 `token_hash`、`teacher_id`、`expires_at`、`first_relayed_at`，用於驗證權杖 |
+| 讀取 | `ppt.classes` 的 `class_id`、`class_seq`，用於建班預先檢查與提交回應 |
+| 讀取 | `ppt.operations` 的 `op_id`、`class_id`、`actor_kind`、`actor_id`、`type`、`receipt`，用於查詢原操作 |
+| 執行授權查詢 | `ppt.can_access_class(text, jsonb)`，用於班級預先檢查 |
+| 執行寫入入口 | `ppt.submit_operation(jsonb, jsonb)` 與 `ppt.cancel_operation(text, text, jsonb)`，由寫入程序負責修改 `ppt` 資料 |
+| 直接寫入 | 本包的路由皆無。後續直接寫入限於 `ppt_web_state`，工作階段簽發等寫入由第 2 包接上 |
+
+`ppt_web_state.sessions` 的建立由獨立安裝程式執行。T-605 負責角色、函式執行和對應物件的授權，網站帳號不應取得 `ppt` 的直接寫入權。
+
 ## 增量讀取的接線
 
 `read-wiring.test.js` 使用 PostgreSQL 16，以一筆實際成立的操作驗每種實體。下表各版本列以 `class_id` 與 `last_op_id = op_id` 接到 `ppt.operations`。查到的序號等於收據與當下的班級序號。
@@ -31,3 +91,9 @@
 | OP-51 整批撤銷 | 回復的帳戶指向內部撤銷，內部撤銷有自己的序號，外層之後才取號。 | OP-51 回復的帳戶連到內部撤銷序號 |
 | 存摺交易 | `ppt.transactions.op_id` 可接到成立序號。 | 存摺交易的 op_id 接到成立序號 |
 | 效果建立與沖回 | `ppt.effects.created_op_id` 及 `reversed_op_id` 各接到對應的成立序號。 | 效果建立與沖回各自接到成立序號 |
+
+## 後續分包
+
+- 第 2 包負責登入、登出、工作階段查詢與延展、裝置標記、限流、排隊及 GAS 轉送識別。
+- 第 3 包負責班級清單、整班狀態、增量變更、匯出，並依上表處理暫緩項目與歷史效果。
+- 第 4 包負責排程、評語產生的後端流程、舊版整包寫入關閉開關及收尾清點。
