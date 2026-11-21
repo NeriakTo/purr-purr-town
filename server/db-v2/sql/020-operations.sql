@@ -39,3 +39,7 @@ CREATE TABLE ppt.operations (
 CREATE UNIQUE INDEX operations_one_committed_undo
   ON ppt.operations (class_id, (payload->>'target_op_id'))
   WHERE type = 'op.undo' AND status = 'committed';
+
+CREATE UNIQUE INDEX operations_one_committed_batch_undo
+  ON ppt.operations (class_id, (payload->>'batch_id'))
+  WHERE type = 'batch.undo' AND status = 'committed';
