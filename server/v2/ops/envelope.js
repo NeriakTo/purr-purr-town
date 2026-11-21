@@ -21,6 +21,13 @@ export function validateCancelEnvelope(body) {
   if (typeof body.op_id !== 'string') throw new RequestError('BAD_ENVELOPE')
 }
 
+export function validateLookupEnvelope(body) {
+  validateClassEnvelope(body)
+  const ids = body.op_ids
+  if (!Array.isArray(ids) || ids.length < 1 || ids.length > maxOps
+    || ids.some(id => typeof id !== 'string')) throw new RequestError('BAD_ENVELOPE')
+}
+
 function validateOperations(ops) {
   const ids = new Set()
   for (const op of ops) {
