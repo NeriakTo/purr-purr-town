@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { readFile } from 'node:fs/promises'
 import { expect, test } from 'vitest'
 import { agentSubmit, authorizeAgent } from './test-support/agent.js'
 import { addAgentClass, addManualRule, agentApplyRule } from './test-support/agent-fixtures.js'
@@ -8,6 +9,7 @@ import { lockComment, requestComment } from './test-support/comments.js'
 import { submissionData } from './test-support/confirmations.js'
 import { addImportedEffect } from './test-support/legacy-effects.js'
 import { addClass, adjustment, classSequence, operationCount, submit } from './test-support/operations.js'
+import { readResultCodes } from './test-support/operation-specification.js'
 import { commitOperation, saveRule } from './test-support/schoolwork.js'
 import { addProduct, purchase } from './test-support/shop.js'
 import { addSubmission, addTask, setStatus } from './test-support/submissions.js'
@@ -272,4 +274,17 @@ describeDatabase('03:374 小野暫緩後定案的錯誤碼', () => {
     await commitOperation(client, agentApplyRule(fixture, ruleId, 2))
     await assertHeldFinalRejection(client, classId, ops, batch, approve(), 'HELD_OP_OUTDATED')
   })
+})
+
+test('03:374 的驗收逐項涵蓋規格的二十五個定案拒絕碼', async () => {
+  const [{ final }, source] = await Promise.all([
+    readResultCodes(), readFile(new URL(import.meta.url), 'utf8'),
+  ])
+  expect(final).toHaveLength(28)
+  const nonRejections = new Set(['OK', 'HELD_FOR_TEACHER', 'OP_CANCELLED'])
+  const codes = final.filter(({ code }) => !nonRejections.has(code)).map(({ code }) => code)
+  expect(codes).toHaveLength(25)
+  const held = [...source.matchAll(/^ {2}test\('((?:CONFIRMATION_REJECTED|HELD_OP_OUTDATED)) /gm)]
+    .map(([, code]) => code)
+  expect([...cases.map(([code]) => code), ...held].sort()).toEqual(codes.sort())
 })

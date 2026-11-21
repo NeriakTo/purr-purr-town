@@ -452,6 +452,29 @@ OP-12 真的作廢且選沖回時，逐筆沖回仍有效的作業效果，依�
 | 16.3 第 9 條 | `undo-effects.test.js` | 16.3 第 9 條恢復作業後能撤缺交，作廢已退的扣分只提示 |
 | 16.3 第 10 條 | `batch-undo-acceptance.test.js` | 16.3 第 10 條跳過小野的撤銷本身與已撤銷原操作 |
 
+## 03:376 跨班驗收
+
+OP-01 的來源班存取拒絕回 `CLASS_FORBIDDEN`，不登記操作。其餘十三種操作找不到本班目標時回 `NOT_FOUND`，收據省略 `current`，被引用的班級維持原值。
+
+| 操作 | 測試檔 | 測試名稱 |
+|---|---|---|
+| OP-01 | `class-inherit.test.js` | 03:376 承接%s回 CLASS_FORBIDDEN 且不留資料 |
+| OP-16 | `confirmation-acceptance.test.js` | %s 拒絕小野、封存班、多餘鍵與跨班目標 |
+| OP-16 | `batch-undo-acceptance.test.js` | 03:376 同一老師跨班也查不到小野批次或待確認項目 |
+| OP-17 | `confirmation-acceptance.test.js` | %s 拒絕小野、封存班、多餘鍵與跨班目標 |
+| OP-17 | `batch-undo-acceptance.test.js` | 03:376 同一老師跨班也查不到小野批次或待確認項目 |
+| OP-19 | `correction-round-contract.test.js` | 03:376 同一老師的五種訂正操作也不能跨班查找，下一輪可用別班的編號 |
+| OP-20 | `correction-round-contract.test.js` | 03:376 同一老師的五種訂正操作也不能跨班查找，下一輪可用別班的編號 |
+| OP-21 | `correction-round-contract.test.js` | 03:376 同一老師的五種訂正操作也不能跨班查找，下一輪可用別班的編號 |
+| OP-22 | `correction-round-contract.test.js` | 03:376 同一老師的五種訂正操作也不能跨班查找，下一輪可用別班的編號 |
+| OP-23 | `correction-round-contract.test.js` | 03:376 同一老師的五種訂正操作也不能跨班查找，下一輪可用別班的編號 |
+| OP-26 | `transaction-acceptance.test.js` | %s查不到另一班的交易，且沒有現值 |
+| OP-27 | `transaction-acceptance.test.js` | %s查不到另一班的交易，且沒有現值 |
+| OP-32 | `ledger-shop-settings-acceptance.test.js` | %s 驗身分、封存、輸入鍵與跨班隔離 |
+| OP-50 | `undo-contract.test.js` | 03:376 同一老師也不能跨班撤銷，原班仍可撤 |
+| OP-51 | `batch-undo-acceptance.test.js` | 03:376 同一老師跨班也查不到小野批次或待確認項目 |
+| OP-53 | `legacy-effect-acceptance.test.js` | 同一老師的兩個班也不能互相引用效果或交易 |
+
 ## 暫定做法
 
 - 資料庫以 `type`、`class_id`、`payload` 與 `expect` 組成 JSONB，轉成 UTF-8 文字後計算 SHA-256。鍵順序和輸入排版不影響比對，陣列順序會影響。省略 `expect` 和傳 JSON null 在雜湊中相同。新編號若帶 `expect`，包含 JSON null，累加型驗證會拒絕。已登記的編號先走重送比對。雜湊只供資料庫使用，中繼資料與傳送路徑不參與比對。

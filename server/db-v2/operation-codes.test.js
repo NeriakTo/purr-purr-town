@@ -1,5 +1,6 @@
 import { readFile, readdir } from 'node:fs/promises'
 import { expect, test } from 'vitest'
+import { readResultCodes } from './test-support/operation-specification.js'
 
 // 規格 01:398–449。E-13 的 PAIRING_INVALID 已移除。
 const specificationCodes = new Set([
@@ -28,4 +29,23 @@ test('回應碼只在一處定義且全部列在規格表', async () => {
   const codes = [...enumBody[1].matchAll(/'([^']+)'/g)].map(([, code]) => code)
   expect(codes).toContain('OK')
   expect(codes.filter(code => !specificationCodes.has(code))).toEqual([])
+})
+
+test('規格第 5 節的 44 個有效碼與資料庫的 34 個碼逐項一致', async () => {
+  const { retry, final } = await readResultCodes()
+  const rows = [...retry, ...final]
+  expect(rows).toHaveLength(45)
+  expect(rows.filter(row => row.removed).map(row => row.id)).toEqual(['E-13'])
+  const active = rows.filter(row => !row.removed).map(row => row.code)
+  expect(active).toHaveLength(44)
+  expect(active.sort()).toEqual([...specificationCodes].sort())
+  const external = new Set([
+    'AUTH_REQUIRED', 'AUTH_EXPIRED', 'RATE_LIMITED', 'SERVER_BUSY', 'UPSTREAM_UNREACHABLE',
+    'INTERNAL_ERROR', 'NOT_PROCESSED', 'ROUTE_NOT_ALLOWED', 'LEGACY_WRITE_CLOSED', 'RELAY_FORBIDDEN',
+  ])
+  const sql = await readFile(new URL('./sql/020-operations.sql', import.meta.url), 'utf8')
+  const [, body] = sql.match(/CREATE TYPE ppt\.operation_code AS ENUM\s*\(([^)]+)\)/)
+  const databaseCodes = [...body.matchAll(/'([A-Z_]+)'/g)].map(([, code]) => code)
+  expect(databaseCodes).toHaveLength(34)
+  expect(databaseCodes.sort()).toEqual(active.filter(code => !external.has(code)))
 })

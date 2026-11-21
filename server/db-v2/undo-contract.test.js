@@ -3,6 +3,7 @@ import { agentSubmit, authorizeAgent } from './test-support/agent.js'
 import { removeAnnouncement, saveAnnouncement, saveSeating } from './test-support/announcement-seating.js'
 import { batchUndo, ruleBatch } from './test-support/batch-undo.js'
 import { classSnapshot } from './test-support/checks.js'
+import { commitClass, createClass } from './test-support/class-create.js'
 import {
   addStudentOperation, assignStudentGroups, saveGroup, setClassStatus, setStudentEnrollment,
   setStudentExemptRules, updateClassInfo, updateStudentProfile,
@@ -178,6 +179,7 @@ const nonUndoable = [
     const request = await commitOperation(client, requestComment(target))
     return applyComment(target, request.op_id)
   }, system],
+  ['OP-01', () => createClass(), teacher],
 ]
 
 describeDatabase('撤銷乙段驗收', () => {
@@ -249,6 +251,12 @@ describeDatabase('撤銷乙段驗收', () => {
     const original = await submit(client, op, actor)
     expect(original).toMatchObject({ status: 'committed', code: 'OK' })
     await rejectUndoWithoutChanges(client, undo(target.classId, original.op_id), 'NOT_UNDOABLE')
+  })
+
+  test.each(nonUndoable.filter(([, , actor]) => actor === teacher))('%s 建班成立後仍不可撤', async (_id, makeOperation, actor) => {
+    const { client } = db()
+    const { classId, op } = await commitClass(client, makeOperation(), actor)
+    await rejectUndoWithoutChanges(client, undo(classId, op.op_id), 'NOT_UNDOABLE')
   })
 
   test('兩條連線競爭二十次，每次只成立一次且只沖回一筆', async () => {
