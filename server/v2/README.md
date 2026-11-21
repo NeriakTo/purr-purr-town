@@ -16,7 +16,9 @@
 
 `ops` 須有 1 到 50 個物件，字串 `op_id` 不得重複。單筆 `payload` 以 `JSON.stringify` 後的 UTF-8 大小計算，最多 64 KiB。未帶 `op_id` 或不是字串時，由寫入程序回單筆 `INVALID_OP_ID`。頂層 `batch_id` 可省略、為 null 或非空字串。
 
-每筆只取 `op_id`、`type`、`payload`、`expect`、`client_time`、`client_seq`，以及頂層的 `class_id` 和選填的 `batch_id`。`expect` 省略與明帶 null 各依原值送入寫入程序。班級預先檢查不上鎖。只有班級不存在且首筆是 `class.create`、其 `payload.class_id` 和頂層相同時，才放行建班。
+每筆只取 `op_id`、`type`、`payload`、`expect`、`client_time`、`client_seq`，以及頂層的 `class_id` 和選填的 `batch_id`。`expect` 省略與明帶 null 各依原值送入寫入程序。
+
+班級預先檢查不上鎖。班級不存在時，只有首筆是 `class.create`、其 `payload.class_id` 為字串且等於頂層編號，而頂層編號符合小寫 UUID v4 格式，才放行至寫入程序。寫入程序仍負責檢查操作編號與承接來源，承接來源可用 64 字元舊編號。依規格 2.6 第 3 點，符合這些條件的建班可辨識 UUID v4 編號是否已被別人使用。其餘請求依班級存取權判斷，別人的班與不存在的班皆回相同的 HTTP 403 `CLASS_FORBIDDEN`，兩邊皆無寫入。
 
 每筆依陣列順序開啟獨立的 `READ COMMITTED` 交易，設定本次交易的等鎖與語句逾時，呼叫寫入程序並提交。提交完成才把原樣收據放入回應。頂層 `class_seq` 在最後一筆之後另讀，可能已包含別人的提交，班級不存在時為 null。
 
