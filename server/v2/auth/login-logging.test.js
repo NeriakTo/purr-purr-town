@@ -81,10 +81,10 @@ describe.skipIf(!process.env.PPT_TEST_DATABASE_URL)('登入與工作階段紀錄
     expect(malformed.statusCode).toBe(400)
     expect(malformed.json()).toEqual({ error: { code: 'BAD_ENVELOPE' } })
 
-    const holding = login({ name, passcode: busyPasscode, device_marker: marker })
+    const holding = login({ name, passcode: busyPasscode })
     try {
       await Promise.race([entered.promise, holding.then(() => { throw new Error('未進入測試比對') })])
-      const busy = await login({ name, passcode, device_marker: marker })
+      const busy = await login({ name, passcode })
       expect(busy.statusCode).toBe(429)
       expect(busy.json()).toEqual({ error: { code: 'RATE_LIMITED', reason: 'bucket_busy', retry_after: 30 } })
     } finally {

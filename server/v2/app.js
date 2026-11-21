@@ -3,6 +3,7 @@ import cors from '@fastify/cors'
 import { setTimeout as wait } from 'node:timers/promises'
 import { createAccountRateLimit } from './auth/account-rate-limit.js'
 import { registerLoginRoute } from './auth/login.js'
+import { scheduleLoginTimeout } from './auth/login-timers.js'
 import { comparePassword } from './auth/password.js'
 import { createRelayCheck } from './auth/relay.js'
 import { registerSessionRoutes } from './auth/session-routes.js'
@@ -35,6 +36,7 @@ function handleError(error, request, reply) {
 
 export function buildV2App({
   pool, config = {}, clock = () => new Date(), logger, hooks, sleep = wait, verifyPassword = comparePassword,
+  scheduleLoginTimer = scheduleLoginTimeout,
 }) {
   const isGasRelay = createRelayCheck(config.relayKey)
   const countAccountRequest = createAccountRateLimit(clock, config.accountRateLimit)
@@ -51,7 +53,7 @@ export function buildV2App({
   app.setErrorHandler(handleError)
   app.removeContentTypeParser('text/plain')
   app.decorateRequest('teacherSession', null)
-  registerLoginRoute(app, { pool, config, clock, isGasRelay, sleep, verifyPassword })
+  registerLoginRoute(app, { pool, config, clock, isGasRelay, sleep, verifyPassword, scheduleLoginTimer })
   registerSessionRoutes(app, { pool, clock, authenticateTeacher })
   registerSubmitRoute(app, { pool, config, clock, hooks, authenticateTeacher })
   registerCancelRoute(app, { pool, config, clock, authenticateTeacher })

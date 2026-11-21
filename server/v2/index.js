@@ -10,6 +10,7 @@ const {
   PPT_V2_STATEMENT_TIMEOUT_MS,
   PPT_V2_RELAY_KEY,
   PPT_V2_TRUST_PROXY,
+  UV_THREADPOOL_SIZE,
 } = process.env
 
 const port = Number(PPT_V2_PORT)
@@ -27,6 +28,7 @@ const app = buildV2App({
     allowedOrigins: PPT_V2_ALLOWED_ORIGINS?.split(',').map(origin => origin.trim()).filter(Boolean),
     lockTimeoutMs: PPT_V2_LOCK_TIMEOUT_MS === undefined ? undefined : Number(PPT_V2_LOCK_TIMEOUT_MS),
     statementTimeoutMs: PPT_V2_STATEMENT_TIMEOUT_MS === undefined ? undefined : Number(PPT_V2_STATEMENT_TIMEOUT_MS),
+    login: { threadPoolSize: UV_THREADPOOL_SIZE === undefined ? 4 : Number(UV_THREADPOOL_SIZE) },
   },
 })
 

@@ -18,11 +18,11 @@ function deleteQueueTicket(client, key, ticket) {
   return client.query('DELETE FROM ppt_web_state.login_queue WHERE bucket_key = $1 AND ticket = $2', [key, ticket])
 }
 
-async function takeLease(client, key, ticket, options, bucket, now) {
+async function takeLease(client, key, ticket, options, bucket, now, slotWaitMs) {
   const { delaysMs, failureThreshold, leaseMs } = options
   const delayIndex = Math.min(bucket.failures - failureThreshold, delaysMs.length - 1)
   const delay = delaysMs[delayIndex] ?? 0
-  const expiresAt = new Date(now.getTime() + delay + leaseMs)
+  const expiresAt = new Date(now.getTime() + delay + slotWaitMs + leaseMs)
   const { rows: [{ lease_number: number }] } = await client.query(`
     UPDATE ppt_web_state.login_buckets SET lease_expires_at = $2, lease_number = lease_number + 1
     WHERE bucket_key = $1 RETURNING lease_number
@@ -44,7 +44,7 @@ async function enqueue(client, key, deadline) {
 }
 
 export function createLoginBucketStore({ pool, config, clock }, options) {
-  function tryAcquire(key, waiting, reserveWaiter) {
+  function tryAcquire(key, slotWaitMs, waiting, reserveWaiter) {
     return writeTransaction(pool, config, async client => {
       const bucket = await lockBucket(client, key, !waiting)
       const now = clock()
@@ -59,7 +59,7 @@ export function createLoginBucketStore({ pool, config, clock }, options) {
       `, [key])
       const holdsTurn = waiting ? queue[0]?.ticket === waiting.ticket : queue.length === 0
       if (holdsTurn && (bucket.lease_expires_at === null || bucket.lease_expires_at <= now)) {
-        return takeLease(client, key, waiting?.ticket, options, bucket, now)
+        return takeLease(client, key, waiting?.ticket, options, bucket, clock(), slotWaitMs)
       }
       if (waiting) return waiting
       if (queue.length >= options.queueLimit || !reserveWaiter()) return {}
@@ -74,7 +74,8 @@ export function createLoginBucketStore({ pool, config, clock }, options) {
           failures = CASE $3::boolean WHEN true THEN 0
             WHEN false THEN LEAST(failures::bigint + 1, 2147483647) ELSE failures END,
           last_failure_at = CASE WHEN $3 IS FALSE THEN $4 ELSE last_failure_at END
-      WHERE bucket_key = $1 AND lease_number = $2 AND lease_expires_at > $4
+      WHERE bucket_key = $1 AND lease_number = $2 AND lease_expires_at IS NOT NULL
+        AND ($3::boolean IS NULL OR lease_expires_at > $4)
     `, [key, lease.number, verified, clock()])
     return rowCount === 1
   }

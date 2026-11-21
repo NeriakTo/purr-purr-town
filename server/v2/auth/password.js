@@ -11,11 +11,14 @@ async function createDummyHash(cost) {
 }
 
 export function createPasswordCheck(verifyPassword, dummyHashCost = 10) {
-  let dummyHash
-  return async function verifyLoginPassword(passcode, teacher) {
-    if (teacher) return verifyPassword(passcode, teacher.passcode_hash)
-    dummyHash ??= createDummyHash(dummyHashCost)
-    await verifyPassword(passcode, await dummyHash)
-    return false
+  const dummyHash = createDummyHash(dummyHashCost)
+  // 保留原 Promise 的錯誤供查無帳號時處理，避免啟動時出現未處理的拒絕。
+  dummyHash.catch(() => {})
+  return async function preparePasswordCheck(passcode, teacher) {
+    const hash = teacher ? teacher.passcode_hash : await dummyHash
+    return async function verifyLoginPassword() {
+      const verified = await verifyPassword(passcode, hash)
+      return teacher ? verified : false
+    }
   }
 }

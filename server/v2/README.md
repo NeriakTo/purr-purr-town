@@ -44,7 +44,7 @@
 | 401 | `LOGIN_FAILED` | 帳號不存在、密碼錯誤或帳號名稱重複 |
 | 403 | `CLASS_FORBIDDEN` | 無班級存取權或班級不存在 |
 | 403 | `ORIGIN_FORBIDDEN` | 直連帶了站台未允許的 `Origin` |
-| 429 | `RATE_LIMITED` | 帳號本分鐘額度用盡，或登入桶隊伍滿、超過等待上限或程序排隊額度用盡 |
+| 429 | `RATE_LIMITED` | 帳號本分鐘額度用盡，或登入達到桶或程序的同時處理、排隊或等待期限 |
 | 503 | `SERVER_BUSY` | 取不到連線、交易工作期間連線中斷、SQLSTATE `55P03` 或 `57014`、登入比對結果超出租約期限 |
 | 500 | `INTERNAL_ERROR` | 其他未預期錯誤或提交失敗 |
 
@@ -57,7 +57,7 @@
 | 動作 | 物件與用途 |
 | --- | --- |
 | 讀寫 | `ppt_web_state` 全部表開放 `SELECT`、`INSERT`、`UPDATE`、`DELETE` 給網站帳號。提交操作時讀取 `sessions` 驗證權杖。 |
-| 讀取 | `public.teachers` 的 `id`、`name`、`passcode_hash` 用於登入及查詢工作階段。正式站的授權由資料庫遷移工單 T-606 負責。 |
+| 讀取 | `public.teachers` 的 `id`、`name`、`passcode_hash` 用於登入及查詢工作階段，`created_at` 用於帶標記的比對排序。正式站的 `public.teachers.created_at` 讀取權由 T-606 處理，是上線前提。 |
 | 讀取 | `ppt.classes` 的 `class_id`、`class_seq`，用於建班預先檢查與提交回應 |
 | 讀取 | `ppt.operations` 的 `op_id`、`class_id`、`actor_kind`、`actor_id`、`type`、`receipt`，用於查詢原操作 |
 | 執行授權查詢 | `ppt.can_access_class(text, jsonb)`，用於班級預先檢查 |
@@ -75,7 +75,7 @@
 
 `x-ppt-relay-key` 與部署設定 `PPT_V2_RELAY_KEY` 的 SHA-256 摘要以固定時間比對，相符才認定經 GAS。密鑰須為至少 32 個可列印 ASCII 字元。設定未填或是空字串時一律走直連判定。直連登入的初始效期為 90 天，經 GAS 登入為 24 小時。
 
-測試支架在測試庫執行舊版 schema，授予 `ppt_web` 讀取 `public.teachers` 所需欄位的權限。
+測試支架在測試庫執行舊版 schema，授予 `ppt_web` 讀取 `public.teachers` 的 `id`、`name`、`passcode_hash`、`created_at`。
 
 ## 工作階段查詢與登出
 
@@ -89,9 +89,15 @@
 
 有效裝置標記各自成桶，直連與經 GAS 共用同一個標記桶。無有效標記時，經 GAS 以帳號名稱分桶，直連以來源位址與帳號名稱分桶。桶鍵只存 SHA-256，查無帳號的請求也計數。連續失敗五次後，本桶接下來的請求依序先等 1、2、4、8 秒，後續每次等 8 秒。密碼正確時將本桶的連續失敗數歸零。
 
-同一桶用 PostgreSQL 共用租約與排隊順序。租約預留延遲時間加 10 秒。排隊、延遲與比對期間會釋回資料庫連線，只有登記、輪詢及寫入結果時才查資料庫。每桶最多三個等待者，每 200 毫秒查看是否輪到，最多等 30 秒；每個後端程序最多 50 個等待者。排隊滿或逾時時回 HTTP 429 `RATE_LIMITED`，`retry_after` 為 `30`，`reason` 為 `bucket_busy`。`ppt_web_state.bucket_busy_counts` 按帳號名稱記錄次數和最後時間。
+同一桶用 PostgreSQL 共用租約與排隊順序。租約包含桶的延遲、等比對位置的上限與 10 秒比對時間。排隊、延遲與比對期間會釋回資料庫連線，只有登記、輪詢及寫入結果時才查資料庫。每桶最多三個等待者，每 200 毫秒查看是否輪到，最多等 30 秒。每個後端程序最多 50 個等桶的請求。桶排隊滿或逾時時回 HTTP 429 `RATE_LIMITED`，`retry_after` 為 `30`，`reason` 為 `bucket_busy`。`ppt_web_state.bucket_busy_counts` 按帳號名稱記錄次數和最後時間。
 
-可由 `config.login` 調整 `failureThreshold`（5）、`delaysMs`（`[1000, 2000, 4000, 8000]`）、`queueLimit`（3）、`queueWaitMs`（30000）、`pollMs`（200）、`leaseMs`（10000）與 `maxWaiters`（50）。若比對超出租約期限，新程序可接手，逾期的舊結果會被拒絕。逾期時仍在執行的比對可能短暫重疊。
+每個後端程序預設最多同時比對三筆，包含查無帳號時的假比對。假雜湊在建立 app 時開始產生。直連與經 GAS 的無標記請求合計最多佔兩個位置，保留一個給有效標記。位置釋出時，優先給目前沒有進行中比對的類別，同等順位時由各類隊首等待最久的先取得。無標記各類依進隊順序等候；帶標記依帳號建立時間、老師編號、進隊順序排列，缺少建立時間者排最後。帶標記隊伍已滿時，排序更前的新請求可替換隊尾。
+
+直連與經 GAS 的無標記請求各可同時處理 16 筆，取得租約並等完桶的延遲後，各可排 8 筆等位置，最長等 2 秒。有效標記在同一程序內每個帳號同時處理一筆，最多另有一筆等前筆回應，最長等 5 秒。全程序的帶標記位置隊伍可排 64 筆，最長等 5 秒。
+
+程序的處理或等待限制觸發時，回 HTTP 429 `RATE_LIMITED`，`retry_after` 為 `5`，省略 `reason`。在取租約前被拒的請求沒有資料庫寫入。已取租約的請求被拒時會清除租約並保留失敗次數。程序每分鐘最多寫一筆包含 `route`、`code`、`marked`、`gas`、`direct` 的 429 彙總，只有發生拒絕才寫。位置的等待期限是租約到期減去比對時間。比對超出租約時回 503 `SERVER_BUSY`，不發權杖也不計失敗。原比對完成前仍佔用程序的位置，其他程序可依資料庫租約接手。
+
+`config.login` 可調整桶的 `failureThreshold`（5）、`delaysMs`（`[1000, 2000, 4000, 8000]`）、`queueLimit`（3）、`queueWaitMs`（30000）、`pollMs`（200）、`leaseMs`（10000）、`maxWaiters`（50），以及程序的 `verifySlots`（3）、`anonymousInFlightPerRoute`（16）、`anonymousQueuePerRoute`（8）、`anonymousSlotWaitMs`（2000）、`markedQueueLimit`（64）、`markedSlotWaitMs`（5000）。時間皆為毫秒。啟動入口以 `UV_THREADPOOL_SIZE` 設定 `config.login.threadPoolSize`，未設定時使用 4。比對位置須至少 3 個，且至少留出一條執行緒。最大桶延遲加上帶標記等位置期限與比對租約，合計須小於等桶的期限。
 
 需權杖的端點驗證權杖後，以老師編號按 UTC 整分鐘計數，預設每分鐘 120 次，可由 `config.accountRateLimit` 調整。直連與 GAS 使用同一額度，同帳號的多個權杖也共用；登入不計入。超額回 HTTP 429 `RATE_LIMITED`，`retry_after` 是距下一個分鐘區間的秒數，無條件進位。帳號限流存在程序記憶體，執行兩個程序時各自計數。
 

@@ -52,7 +52,7 @@ export async function openWebTestDatabase(url = process.env.PPT_TEST_DATABASE_UR
       await database.client.query('RESET ROLE')
     }
     await database.client.query(await readFile(new URL('../../schema.sql', import.meta.url), 'utf8'))
-    await database.client.query('GRANT SELECT (id, name, passcode_hash) ON public.teachers TO ppt_web')
+    await database.client.query('GRANT SELECT (id, name, passcode_hash, created_at) ON public.teachers TO ppt_web')
     return { ...database, createPool, createWebsitePool, close }
   } catch (error) {
     await close()
