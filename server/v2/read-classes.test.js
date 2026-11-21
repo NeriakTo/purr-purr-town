@@ -7,6 +7,7 @@ import { readTestTime, readWriteBaseline, sendRead, useReadFixtures } from './te
 
 const endpoints = [
   ['classes', () => undefined],
+  ['state', ({ target }) => ({ class_id: target.classId })],
 ]
 
 describe.skipIf(!process.env.PPT_TEST_DATABASE_URL)('班級清單與讀取驗證', () => {
@@ -94,6 +95,9 @@ describe.skipIf(!process.env.PPT_TEST_DATABASE_URL)('班級清單與讀取驗證
     const stale = await sendRead(context, endpoint, payload(context), { token: expired })
     expect(stale.statusCode).toBe(401)
     expect(stale.json()).toEqual({ error: { code: 'AUTH_EXPIRED' } })
+    const malformed = await sendRead(context, endpoint, '{', { token: null })
+    expect(malformed.statusCode).toBe(401)
+    expect(malformed.json()).toEqual({ error: { code: 'AUTH_REQUIRED' } })
     expect(await readWriteBaseline(context.client)).toEqual(before)
   })
 

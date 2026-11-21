@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach } from 'vitest'
 import { buildV2App } from '../app.js'
 import { openWebTestDatabase } from './database.js'
 import { createTestClass, createTestSession, createTestTeacher } from './fixtures.js'
@@ -30,13 +30,11 @@ export function useReadFixtures() {
     fixture = { client, pool, teacher, target, token, makeApp, app: makeApp() }
   })
 
-  afterAll(async () => {
-    try {
-      await Promise.all(apps.map(app => app.close()))
-    } finally {
-      await database?.close()
-    }
-  }, 15000)
+  afterEach(async () => {
+    await Promise.all(apps.splice(0).map(app => app.close()))
+  })
+
+  afterAll(async () => database?.close(), 15000)
 
   return () => fixture
 }

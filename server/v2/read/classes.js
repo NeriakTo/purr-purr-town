@@ -1,21 +1,21 @@
 export const classValueSql = `jsonb_build_object(
-  'name', c.name,
-  'alias', c.alias,
-  'teacher_name', c.teacher,
-  'school_year', c.school_year,
-  'status', c.status,
-  'cutover_date', c.cutover_date
+  'name', e.name,
+  'alias', e.alias,
+  'teacher_name', e.teacher,
+  'school_year', e.school_year,
+  'status', e.status,
+  'cutover_date', e.cutover_date
 )`
 
 export async function queryOwnedClasses(client, teacherId) {
   const { rows } = await client.query(`
-    SELECT c.class_id, c.class_seq, c.rev, ${classValueSql} AS value,
+    SELECT e.class_id, e.class_seq, e.rev, ${classValueSql} AS value,
            to_jsonb(export.last_export_at) AS last_export_at
     FROM ppt.class_ownership AS owner
-    JOIN ppt.classes AS c ON c.class_id = owner.class_id
-    LEFT JOIN ppt_web_state.class_exports AS export ON export.class_id = c.class_id
+    JOIN ppt.classes AS e ON e.class_id = owner.class_id
+    LEFT JOIN ppt_web_state.class_exports AS export ON export.class_id = e.class_id
     WHERE owner.teacher_id = $1
-    ORDER BY c.class_id COLLATE "C"
+    ORDER BY e.class_id COLLATE "C"
   `, [teacherId])
   return rows
 }
