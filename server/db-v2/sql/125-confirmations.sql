@@ -8,6 +8,8 @@ CREATE TABLE ppt.confirmations (
   task_id text,
   student_id text,
   proposed_status ppt.submission_status,
+  batch_id text,
+  held_reason text,
   created_op_id text NOT NULL,
   created_at timestamptz NOT NULL,
   processed_op_id text,
@@ -30,3 +32,6 @@ CREATE TABLE ppt.confirmations (
 
 CREATE UNIQUE INDEX confirmations_pending_leader_proposal ON ppt.confirmations (class_id, task_id, student_id)
 WHERE kind = 'leader_proposal' AND status = 'pending';
+
+CREATE UNIQUE INDEX confirmations_one_agent_held_batch ON ppt.confirmations (class_id, batch_id)
+WHERE kind = 'agent_held';

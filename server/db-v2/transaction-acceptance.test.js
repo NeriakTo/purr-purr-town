@@ -102,7 +102,7 @@ describeDatabase('存摺、繳交與根交易驗收', () => {
     },
   )
 
-  test('先前的規則套用雖已沖回，小野再次套用仍提示', async () => {
+  test('先前的規則套用雖已沖回，小野再次套用仍被暫緩', async () => {
     const { client } = db()
     const { classId, studentId } = await addClass(client)
     await authorizeAgent(client, classId)
@@ -112,6 +112,8 @@ describeDatabase('存摺、繳交與根交易驗收', () => {
     const prior = await commitOperation(client, operation(classId, 'points.apply_rule', payload))
     await commitOperation(client, reverse(classId, prior.result.transactions[0], 5))
     const { receipts: [receipt] } = await agentSubmit(client, classId, [operation(classId, 'points.apply_rule', payload)])
-    expect(receipt.warnings).toMatchObject([{ code: 'POSSIBLE_DUPLICATE', prior_op_id: prior.op_id }])
+    expect(receipt).toMatchObject({
+      status: 'held', code: 'HELD_FOR_TEACHER', result: { held_reason: 'rule_applied_today' },
+    })
   })
 })

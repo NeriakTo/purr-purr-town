@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest'
 import { agentSubmit, authorizeAgent } from './test-support/agent.js'
+import { batchUndo, ruleBatch } from './test-support/batch-undo.js'
 import { classSnapshot } from './test-support/checks.js'
 import { confirm, propose } from './test-support/confirmations.js'
 import { setCorrectionDueOperation, setupOpenRoundConflict } from './test-support/correction-rounds.js'
@@ -133,6 +134,11 @@ const nonUndoable = [
     const op = saveJob(target.classId)
     await commitOperation(client, op)
     return assignJob(target.classId, op.payload.job_id, [target.studentId])
+  }],
+  ['OP-51', async (client, target) => {
+    await authorizeAgent(client, target.classId)
+    const { batch } = await ruleBatch(client, 1, target)
+    return batchUndo(target.classId, batch.call_id)
   }],
 ]
 

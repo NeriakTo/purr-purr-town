@@ -1,9 +1,13 @@
 import { randomUUID } from 'node:crypto'
 import { expect, test } from 'vitest'
 import { agentSubmit, authorizeAgent } from './test-support/agent.js'
+import { addAgentClass, addManualRule, agentApplyRule } from './test-support/agent-fixtures.js'
+import { heldMemberRows, holdAgentBatch, holdMissingSubmissions } from './test-support/agent-held.js'
 import { classSnapshot } from './test-support/checks.js'
+import { submissionData } from './test-support/confirmations.js'
 import { addImportedEffect } from './test-support/legacy-effects.js'
 import { addClass, adjustment, classSequence, operationCount, submit } from './test-support/operations.js'
+import { commitOperation, saveRule } from './test-support/schoolwork.js'
 import { addProduct, purchase } from './test-support/shop.js'
 import { addSubmission, addTask, setStatus } from './test-support/submissions.js'
 import { describeDatabase, useTestDatabase } from './test-support/suite.js'
@@ -215,5 +219,52 @@ describeDatabase('錯誤碼逐碼驗收', () => {
     expect(await classSnapshot(client, classId)).toBe(snapshot)
     expect(await operationCount(client)).toBe(count)
     expect(await classSequence(client, classId)).toBe(0)
+  })
+})
+
+async function assertHeldFinalRejection(client, classId, ops, held, process, code) {
+  const before = await submissionData(client, classId)
+  const count = await operationCount(client)
+  const seq = await classSequence(client, classId)
+  await commitOperation(client, process)
+  const members = await heldMemberRows(client, ops)
+  expect(members).toEqual(ops.map(op => expect.objectContaining({
+    op_id: op.op_id, status: 'rejected', code, class_seq: null, committed_at: null,
+    receipt: expect.objectContaining({
+      op_id: op.op_id, status: 'rejected', code, class_seq: null, committed_at: null,
+      changes: [], warnings: [], result: { noop: false, transactions: [], effects_added: [], effects_reversed: [] },
+    }),
+  })))
+  for (const row of members) expect(row.receipt).not.toHaveProperty('current')
+  expect(await submissionData(client, classId)).toEqual(before)
+  expect(await classSequence(client, classId)).toBe(seq + 1)
+  expect(await operationCount(client)).toBe(count + 1)
+  expect(await agentSubmit(client, classId, ops, held.call_id)).toEqual({
+    call_id: held.call_id,
+    receipts: members.map(({ receipt }) => ({ ...receipt, replayed: true })),
+  })
+  expect(await submissionData(client, classId)).toEqual(before)
+  expect(await operationCount(client)).toBe(count + 1)
+}
+
+describeDatabase('03:374 小野暫緩後定案的錯誤碼', () => {
+  const db = useTestDatabase()
+
+  test('CONFIRMATION_REJECTED 存入原列，沒有交易或效果，重播同一收據', async () => {
+    const { client } = db()
+    const { classId, ops, batch, reject } = await holdMissingSubmissions(client)
+    await assertHeldFinalRejection(client, classId, ops, batch, reject(), 'CONFIRMATION_REJECTED')
+  })
+
+  test('HELD_OP_OUTDATED 優先於版本不符，存入原列且重播同一收據', async () => {
+    const { client } = db()
+    const fixture = await addAgentClass(client)
+    const { classId } = fixture
+    const ruleId = await addManualRule(client, classId, 201)
+    const ops = [agentApplyRule(fixture, ruleId)]
+    const { batch, approve } = await holdAgentBatch(client, classId, ops)
+    await commitOperation(client, saveRule(classId, { rule_id: ruleId, amount: 5 }, 1))
+    await commitOperation(client, agentApplyRule(fixture, ruleId, 2))
+    await assertHeldFinalRejection(client, classId, ops, batch, approve(), 'HELD_OP_OUTDATED')
   })
 })

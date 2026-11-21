@@ -127,7 +127,7 @@ describeDatabase('OP-16 與 OP-17 處理學生點收提議', () => {
       .toEqual(['confirmed', 'confirmed', 'confirmed'])
   })
 
-  test('兩種操作遇小野暫緩皆拋同一未實作鍵且整筆回復', async () => {
+  test('兩種操作遇資料不完整的小野暫緩項目皆丟例外且整筆回復', async () => {
     const { client } = database()
     const { classId } = await addClass(client)
     const heldId = 'd'.repeat(64)
@@ -142,7 +142,7 @@ describeDatabase('OP-16 與 OP-17 處理學生點收提議', () => {
     const before = await classSnapshot(client, classId)
     const count = await operationCount(client)
     for (const op of [confirm(classId, heldId), reject(classId, heldId)]) {
-      await expect(submit(client, op)).rejects.toMatchObject({ code: '0A000', detail: 'agent_held_confirmation' })
+      await expect(submit(client, op)).rejects.toMatchObject({ code: expect.not.stringMatching(/^0A000$/) })
       expect(await classSnapshot(client, classId)).toBe(before)
       expect(await operationCount(client)).toBe(count)
     }
