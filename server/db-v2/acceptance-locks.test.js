@@ -1,6 +1,10 @@
 import { setTimeout as delay } from 'node:timers/promises'
 import { expect, test } from 'vitest'
 import { classSnapshot } from './test-support/checks.js'
+import { commitClass, createClass } from './test-support/class-create.js'
+import {
+  createInheritanceRaceClasses, prepareInheritanceRace, sendMixedClassOperations, updateInheritanceSource,
+} from './test-support/class-locks.js'
 import {
   addClass, adjustment, cancel, classSequence, operationCount, submit,
 } from './test-support/operations.js'
@@ -133,4 +137,54 @@ describeDatabase('班級鎖與交易驗收', () => {
     expect(await operationCount(client)).toBe(count)
     expect(await classSequence(client, fixture.classId)).toBe(0)
   }, 15000)
+
+  test('03:372 兩連線各送兩百筆混合操作，成立序號連號', async () => {
+    const { client, connect } = db()
+    const { classId, studentIds, receipt } = await commitClass(client, createClass(6))
+    const ruleId = receipt.changes.find(c => c.entity === 'rule' && c.value.kind === 'manual' && c.value.amount === 100)
+      .key.rule_id
+    const [left, right] = await Promise.all([connect(), connect()])
+    const start = performance.now()
+    const seq = await Promise.all([
+      sendMixedClassOperations(left, classId, studentIds.slice(0, 3), ruleId, 0),
+      sendMixedClassOperations(right, classId, studentIds.slice(3), ruleId, 1),
+    ])
+    console.log(`03:372 混合操作 400 筆耗時 ${(performance.now() - start).toFixed(1)} ms`)
+    const { rows } = await client.query(`
+      SELECT class_seq::int AS seq FROM ppt.operations
+      WHERE class_id = $1 AND status = 'committed' ORDER BY class_seq
+    `, [classId])
+    expect(rows.map(row => row.seq)).toEqual(Array.from({ length: 371 }, (_, index) => index + 1))
+    expect(seq.flat().sort((a, b) => a - b)).toEqual(rows.slice(1).map(row => row.seq))
+    expect(await classSequence(client, classId)).toBe(rows.length)
+  }, 60000)
+
+  test('03:372 承接三十班與來源班一百五十筆寫入並行，承接資料一致', async () => {
+    const { client, connect } = db()
+    const source = await prepareInheritanceRace(client)
+    const [creator, writer] = await Promise.all([connect(), connect()])
+    const start = performance.now()
+    const [classIds] = await Promise.all([
+      createInheritanceRaceClasses(creator, source.classId), updateInheritanceSource(writer, source),
+    ])
+    console.log(`03:372 承接 30 班與來源寫入 150 筆耗時 ${(performance.now() - start).toFixed(1)} ms`)
+    expect(new Set(classIds).size).toBe(30)
+    const { rows } = await client.query(`
+      SELECT c.class_id, c.class_seq::int,
+        s.value #>> '{}' AS duty, j.job_id, j.disabled,
+        ARRAY(SELECT event::text FROM ppt.rules r WHERE r.class_id = c.class_id AND r.kind = 'event' AND NOT r.disabled
+          ORDER BY event::text) AS events
+      FROM ppt.classes c
+      LEFT JOIN ppt.settings_entries s ON s.class_id = c.class_id AND s.key = 'dutyJobId'
+      LEFT JOIN ppt.jobs j ON j.class_id = c.class_id AND j.job_id = s.value #>> '{}'
+      WHERE c.class_id = ANY($1::text[])
+    `, [classIds])
+    expect(rows).toHaveLength(30)
+    for (const row of rows) {
+      expect(row.class_seq).toBe(1)
+      expect(row.events).toEqual(['daily_quest.complete', 'submission.late', 'submission.missing'])
+      if (row.duty !== null) expect(row).toMatchObject({ job_id: row.duty, disabled: false })
+    }
+    expect(await classSequence(client, source.classId)).toBe(153)
+  }, 60000)
 })

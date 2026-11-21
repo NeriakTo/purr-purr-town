@@ -1,5 +1,9 @@
 CREATE TABLE ppt.classes (
   class_id text PRIMARY KEY,
+  school_year text,
+  name text,
+  teacher text,
+  alias text,
   status text NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'archived')),
   cutover_date date,
   class_seq bigint NOT NULL DEFAULT 0 CHECK (class_seq >= 0),
@@ -23,6 +27,7 @@ CREATE TABLE ppt.students (
   student_id text NOT NULL,
   seat_number integer,
   name text NOT NULL,
+  avatar jsonb,
   group_key text,
   exempt_rules jsonb NOT NULL DEFAULT '[]' CHECK (jsonb_typeof(exempt_rules) = 'array'),
   enrollment_status text NOT NULL DEFAULT 'enrolled'

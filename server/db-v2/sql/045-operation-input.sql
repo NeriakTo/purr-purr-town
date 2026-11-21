@@ -5,6 +5,22 @@ SET search_path = pg_catalog, ppt, pg_temp
 AS $$
   SELECT definition.roles, definition.expect_mode
   FROM (VALUES
+    ('"class.create"'::jsonb, ARRAY['teacher'], 'forbidden'),
+    ('"class.update_info"'::jsonb, ARRAY['teacher'], 'required'),
+    ('"class.set_status"'::jsonb, ARRAY['teacher'], 'required'),
+    ('"student.add"'::jsonb, ARRAY['teacher'], 'forbidden'),
+    ('"student.update_profile"'::jsonb, ARRAY['teacher'], 'required'),
+    ('"student.set_enrollment"'::jsonb, ARRAY['teacher'], 'required'),
+    ('"student.set_exempt_rules"'::jsonb, ARRAY['teacher'], 'required'),
+    ('"group.assign_students"'::jsonb, ARRAY['teacher'], 'per_item'),
+    ('"group.save"'::jsonb, ARRAY['teacher'], 'required'),
+    ('"announcement.save"'::jsonb, ARRAY['teacher'], 'required'),
+    ('"announcement.remove"'::jsonb, ARRAY['teacher'], 'required'),
+    ('"seating.save"'::jsonb, ARRAY['teacher'], 'required'),
+    ('"comment.save"'::jsonb, ARRAY['teacher'], 'required'),
+    ('"comment.set_lock"'::jsonb, ARRAY['teacher'], 'required'),
+    ('"comment.request_generation"'::jsonb, ARRAY['teacher'], 'required'),
+    ('"comment.apply_generated"'::jsonb, ARRAY['system'], 'forbidden'),
     ('"op.undo"'::jsonb, ARRAY['teacher', 'agent'], 'forbidden'),
     ('"batch.undo"'::jsonb, ARRAY['teacher'], 'forbidden'),
     ('"tx.reverse"'::jsonb, ARRAY['teacher'], 'forbidden'),
@@ -75,7 +91,7 @@ SET search_path = pg_catalog, ppt, pg_temp
 AS $$
 BEGIN
   CASE (SELECT expect_mode FROM operation_definition(p_op->'type'))
-    WHEN 'forbidden' THEN
+    WHEN 'forbidden', 'per_item' THEN
       IF p_op ? 'expect' THEN
         PERFORM reject_operation('INVALID_PAYLOAD');
       END IF;

@@ -16,10 +16,6 @@ LANGUAGE plpgsql
 SET search_path = pg_catalog, ppt, pg_temp
 AS $$
 BEGIN
-  IF p_actor->>'kind' = 'system' THEN
-    -- PPT-PENDING: actor_system
-    PERFORM pending_operation('actor_system');
-  END IF;
   IF p_actor->>'kind' IS DISTINCT FROM 'teacher'
     OR jsonb_typeof(p_actor->'id') IS DISTINCT FROM 'string'
     OR p_actor->>'id' = '' THEN
@@ -36,6 +32,14 @@ AS $$
   SELECT jsonb_build_object('kind', 'scheduler', 'id', 'scheduler');
 $$;
 
+CREATE FUNCTION ppt.system_actor()
+RETURNS jsonb
+LANGUAGE sql
+SET search_path = pg_catalog, ppt, pg_temp
+AS $$
+  SELECT jsonb_build_object('kind', 'system', 'id', 'system');
+$$;
+
 CREATE FUNCTION ppt.require_submit_actor(p_actor jsonb)
 RETURNS void
 LANGUAGE plpgsql
@@ -45,6 +49,10 @@ BEGIN
   IF p_actor->>'kind' = 'scheduler' THEN
     IF p_actor IS DISTINCT FROM scheduler_actor() THEN
       RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = '此入口需要有效的排程身分';
+    END IF;
+  ELSIF p_actor->>'kind' = 'system' THEN
+    IF p_actor IS DISTINCT FROM system_actor() THEN
+      RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = '此入口需要有效的系統身分';
     END IF;
   ELSE
     PERFORM require_teacher_actor(p_actor);
@@ -94,6 +102,9 @@ AS $$
       SELECT 1 FROM class_authorizations
       WHERE class_id = p_class_id AND actor_kind = p_actor->>'kind'
     )
+    WHEN p_actor = system_actor() THEN EXISTS (
+      SELECT 1 FROM classes WHERE class_id = p_class_id
+    )
     ELSE false
   END;
 $$;
@@ -113,7 +124,7 @@ END;
 $$;
 
 -- The entry point has validated the actor before calling this function.
-CREATE FUNCTION ppt.lock_operation_class(p_class_id text, p_op_id text, p_actor jsonb)
+CREATE FUNCTION ppt.lock_operation_class(p_class_id text, p_op_id text, p_actor jsonb, p_op jsonb DEFAULT NULL)
 RETURNS ppt.operation_code
 LANGUAGE plpgsql
 SET search_path = pg_catalog, ppt, pg_temp
@@ -123,8 +134,13 @@ BEGIN
   IF NOT can_access_class(p_class_id, p_actor) THEN
     RETURN 'CLASS_FORBIDDEN';
   END IF;
-  IF NOT (CASE WHEN p_actor->>'kind' = 'scheduler'
+  IF NOT (CASE WHEN p_actor->>'kind' IN ('scheduler', 'system')
     THEN valid_v5_op_id(p_op_id) ELSE valid_v4_op_id(p_op_id) END) THEN
+    RETURN 'INVALID_OP_ID';
+  END IF;
+  IF p_actor->>'kind' = 'system' AND p_op->>'type' = 'comment.apply_generated'
+    AND (jsonb_typeof(p_op->'payload'->'request_op_id') IS DISTINCT FROM 'string'
+      OR p_op_id IS DISTINCT FROM comment_apply_op_id(p_op->'payload'->>'request_op_id')) THEN
     RETURN 'INVALID_OP_ID';
   END IF;
 

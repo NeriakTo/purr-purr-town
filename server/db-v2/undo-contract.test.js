@@ -1,7 +1,14 @@
 import { expect, test } from 'vitest'
 import { agentSubmit, authorizeAgent } from './test-support/agent.js'
+import { removeAnnouncement, saveAnnouncement, saveSeating } from './test-support/announcement-seating.js'
 import { batchUndo, ruleBatch } from './test-support/batch-undo.js'
 import { classSnapshot } from './test-support/checks.js'
+import { commitClass, createClass } from './test-support/class-create.js'
+import {
+  addStudentOperation, assignStudentGroups, saveGroup, setClassStatus, setStudentEnrollment,
+  setStudentExemptRules, updateClassInfo, updateStudentProfile,
+} from './test-support/class-student-group.js'
+import { applyComment, lockComment, requestComment, saveComment, system } from './test-support/comments.js'
 import { confirm, propose } from './test-support/confirmations.js'
 import { setCorrectionDueOperation, setupOpenRoundConflict } from './test-support/correction-rounds.js'
 import { useItem as inventoryUse } from './test-support/inventory.js'
@@ -140,6 +147,39 @@ const nonUndoable = [
     const { batch } = await ruleBatch(client, 1, target)
     return batchUndo(target.classId, batch.call_id)
   }],
+  ['OP-02', (_client, target) => updateClassInfo(target.classId)],
+  ['OP-03', async (client, target) => {
+    const archive = setClassStatus(target.classId, 'archived')
+    await commitOperation(client, archive)
+    return setClassStatus(target.classId, 'active', { after_op: archive.op_id })
+  }],
+  ['OP-04', (_client, target) => addStudentOperation(target.classId)],
+  ['OP-05', (_client, target) => updateStudentProfile(target, { name: '2號村民' })],
+  ['OP-06', (_client, target) => setStudentEnrollment(target, 'home_study')],
+  ['OP-07', (_client, target) => setStudentExemptRules(target, [{ keyword: '測試', taskType: '作業' }])],
+  ['OP-08', async (client, target) => {
+    const group = saveGroup(target.classId)
+    await commitOperation(client, group)
+    return assignStudentGroups(target.classId, [{
+      student_id: target.studentId, group_key: group.payload.group_key, expect: { rev: 1 },
+    }])
+  }],
+  ['OP-09', (_client, target) => saveGroup(target.classId)],
+  ['OP-40', (_client, target) => saveAnnouncement(target.classId)],
+  ['OP-41', async (client, target) => {
+    const op = saveAnnouncement(target.classId)
+    await commitOperation(client, op)
+    return removeAnnouncement(target.classId, op.payload.announcement_id)
+  }],
+  ['OP-42', (_client, target) => saveSeating(target.classId)],
+  ['OP-44', (_client, target) => saveComment(target)],
+  ['OP-45', (_client, target) => lockComment(target)],
+  ['OP-46', (_client, target) => requestComment(target)],
+  ['OP-47', async (client, target) => {
+    const request = await commitOperation(client, requestComment(target))
+    return applyComment(target, request.op_id)
+  }, system],
+  ['OP-01', () => createClass(), teacher],
 ]
 
 describeDatabase('撤銷乙段驗收', () => {
@@ -196,12 +236,27 @@ describeDatabase('撤銷乙段驗收', () => {
     await rejectUndoWithoutChanges(client, operation, 'INVALID_PAYLOAD')
   })
 
-  test.each(nonUndoable)('%s 成立後仍不可撤', async (_id, makeOperation) => {
+  test.each(nonUndoable.filter(([, , actor]) => actor === undefined))('%s 成立後仍不可撤', async (_id, makeOperation) => {
     const { client } = db()
     const target = await addClass(client)
     const op = await makeOperation(client, target)
     const original = await commitOperation(client, op)
     await rejectUndoWithoutChanges(client, undo(target.classId, original.op_id), 'NOT_UNDOABLE')
+  })
+
+  test.each(nonUndoable.filter(([, , actor]) => actor === system))('%s 由系統成立後，老師仍不可撤', async (_id, makeOperation, actor) => {
+    const { client } = db()
+    const target = await addClass(client)
+    const op = await makeOperation(client, target)
+    const original = await submit(client, op, actor)
+    expect(original).toMatchObject({ status: 'committed', code: 'OK' })
+    await rejectUndoWithoutChanges(client, undo(target.classId, original.op_id), 'NOT_UNDOABLE')
+  })
+
+  test.each(nonUndoable.filter(([, , actor]) => actor === teacher))('%s 建班成立後仍不可撤', async (_id, makeOperation, actor) => {
+    const { client } = db()
+    const { classId, op } = await commitClass(client, makeOperation(), actor)
+    await rejectUndoWithoutChanges(client, undo(classId, op.op_id), 'NOT_UNDOABLE')
   })
 
   test('兩條連線競爭二十次，每次只成立一次且只沖回一筆', async () => {

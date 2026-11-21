@@ -24,13 +24,36 @@ AS $$
 DECLARE
   class_status text;
 BEGIN
-  SELECT status INTO STRICT class_status FROM classes WHERE class_id = p_op->>'class_id';
-  IF class_status = 'archived' THEN
+  IF p_op->'type' = '"class.create"'::jsonb THEN
+    SELECT status INTO class_status FROM classes WHERE class_id = p_op->>'class_id';
+  ELSE
+    SELECT status INTO STRICT class_status FROM classes WHERE class_id = p_op->>'class_id';
+  END IF;
+  IF class_status = 'archived' AND p_op->>'type' <> 'class.set_status' THEN
     PERFORM reject_operation('CLASS_ARCHIVED');
   END IF;
 
   PERFORM validate_operation_expect(p_op);
   CASE p_op->>'type'
+    WHEN 'class.create' THEN PERFORM check_class_create(p_op);
+    WHEN 'class.update_info', 'class.set_status' THEN
+      PERFORM check_class_change(p_op);
+    WHEN 'student.add' THEN
+      PERFORM check_student_add(p_op);
+    WHEN 'student.update_profile', 'student.set_enrollment', 'student.set_exempt_rules' THEN
+      PERFORM check_student_change(p_op);
+    WHEN 'group.assign_students' THEN
+      PERFORM check_group_assignment(p_op);
+    WHEN 'group.save' THEN
+      PERFORM check_group_save(p_op);
+    WHEN 'announcement.save', 'announcement.remove' THEN
+      PERFORM check_announcement_operation(p_op);
+    WHEN 'seating.save' THEN
+      PERFORM check_seating_save(p_op);
+    WHEN 'comment.save', 'comment.set_lock', 'comment.request_generation' THEN
+      PERFORM check_teacher_comment_operation(p_op);
+    WHEN 'comment.apply_generated' THEN
+      PERFORM check_generated_comment(p_op);
     WHEN 'op.undo' THEN
       PERFORM validate_undo_payload(p_op->'payload');
       PERFORM check_undo_operation(p_op, p_actor);
@@ -122,6 +145,18 @@ SET search_path = pg_catalog, ppt, pg_temp
 AS $$
 BEGIN
   CASE p_op->>'type'
+    WHEN 'class.create' THEN RETURN apply_class_create(p_op, p_actor, p_time);
+    WHEN 'class.update_info', 'class.set_status' THEN RETURN apply_class_change(p_op);
+    WHEN 'student.add' THEN RETURN apply_student_add(p_op);
+    WHEN 'student.update_profile', 'student.set_enrollment', 'student.set_exempt_rules' THEN
+      RETURN apply_student_change(p_op);
+    WHEN 'group.assign_students' THEN RETURN apply_group_assignment(p_op);
+    WHEN 'group.save' THEN RETURN apply_group_save(p_op);
+    WHEN 'announcement.save', 'announcement.remove' THEN RETURN apply_announcement_operation(p_op);
+    WHEN 'seating.save' THEN RETURN apply_seating_save(p_op);
+    WHEN 'comment.save', 'comment.set_lock', 'comment.request_generation' THEN
+      RETURN apply_teacher_comment_operation(p_op);
+    WHEN 'comment.apply_generated' THEN RETURN apply_generated_comment(p_op);
     WHEN 'op.undo' THEN RETURN apply_undo_operation(p_op, p_time);
     WHEN 'batch.undo' THEN RETURN apply_batch_undo_operation(p_op, p_actor, p_time);
     WHEN 'points.adjust' THEN RETURN apply_points_adjust(p_op, p_time);
@@ -240,8 +275,10 @@ BEGIN
   END IF;
 
   PERFORM require_submit_actor(actor);
-  -- PPT-PENDING: class_create
-  access_error := lock_operation_class(class_id, op_id, actor);
+  IF actor->>'kind' = 'teacher' AND op->'type' = '"class.create"'::jsonb THEN
+    RETURN submit_class_create(op, actor);
+  END IF;
+  access_error := lock_operation_class(class_id, op_id, actor, op);
   IF access_error IS NOT NULL THEN
     RETURN retry_receipt(op_id, access_error);
   END IF;
