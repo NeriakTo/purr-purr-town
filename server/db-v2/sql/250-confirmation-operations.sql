@@ -46,7 +46,9 @@ BEGIN
   PERFORM require_submission_targets(p_confirmation.class_id, p_confirmation.task_id, p_confirmation.student_id, p_actor);
   target := load_submission(p_confirmation.class_id, p_confirmation.task_id, p_confirmation.student_id);
   PERFORM require_pending_submission(target);
-  PERFORM require_resolved_submission_effects(p_confirmation.class_id, p_confirmation.task_id, p_confirmation.student_id);
+  PERFORM require_resolved_submission_effects(
+    p_confirmation.class_id, p_confirmation.task_id, p_confirmation.student_id, p_confirmation.proposed_status
+  );
   RETURN target;
 END;
 $$;

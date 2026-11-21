@@ -289,18 +289,18 @@ describeDatabase('OP-14 繳交狀態', () => {
     }
   })
 
-  test.each(['legacy_unresolved'])('未實作分支 %s 拋例外且整筆不留資料', async (key) => {
+  test('未裁決歷史效果擋下改準時且只登記拒絕', async () => {
     const { client } = db()
     const target = await fixtureWithTask(client)
     const op = setStatus(target, 'on_time')
-    if (key === 'legacy_unresolved') await client.query(`
+    await client.query(`
       INSERT INTO ppt.effects (class_id, student_id, effect_id, event, subject_kind, subject_key, status, origin, lineage_id)
       VALUES ($1,$2,'legacy-test',NULL,'task',$3,'legacy_unresolved','legacy','legacy-test')
     `, [target.classId, target.studentId, target.taskId])
     const snapshot = await classSnapshot(client, target.classId)
     const count = await operationCount(client)
-    await expect(submit(client, op)).rejects.toMatchObject({ code: '0A000', detail: key })
+    expect(await submit(client, op)).toMatchObject({ code: 'LEGACY_EFFECT_UNRESOLVED', status: 'rejected' })
     expect(await classSnapshot(client, target.classId)).toBe(snapshot)
-    expect(await operationCount(client)).toBe(count)
+    expect(await operationCount(client)).toBe(count + 1)
   })
 })

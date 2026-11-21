@@ -4,6 +4,7 @@ import { classSnapshot } from './test-support/checks.js'
 import { confirm, propose } from './test-support/confirmations.js'
 import { setCorrectionDueOperation, setupOpenRoundConflict } from './test-support/correction-rounds.js'
 import { useItem as inventoryUse } from './test-support/inventory.js'
+import { addImportedEffect, addImportedSubmission, addImportedTask, resolveLegacyEffect } from './test-support/legacy-effects.js'
 import { addClass, adjustment, classSequence, operationCount, submit, teacher } from './test-support/operations.js'
 import { retireProduct, saveProduct } from './test-support/products.js'
 import { commitOperation, createTask, restoreTask, retireRule, saveRule, updateTask, voidTask } from './test-support/schoolwork.js'
@@ -115,6 +116,12 @@ const nonUndoable = [
   ['OP-39', retireRuleOperation],
   ['OP-43', (_client, target) => setSetting(target.classId, 'taskTypes', ['作業'])],
   ['OP-23', setCorrectionDueOperation],
+  ['OP-53', async (client, target) => {
+    const imported = { ...target, taskId: await addImportedTask(client, target.classId) }
+    await addImportedSubmission(client, imported, 'missing')
+    imported.effectId = await addImportedEffect(client, imported)
+    return resolveLegacyEffect(imported, 'none')
+  }],
 ]
 
 describeDatabase('撤銷乙段驗收', () => {

@@ -1,6 +1,6 @@
 # 改版資料庫寫入程序
 
-第 1 包提供老師的手動點數調整（OP-24）、商店購買（OP-31）、操作重送與放棄，以及老師和小野共用的繳交狀態變更（OP-14）。第 2 包甲段新增作業建立、更新、作廢與恢復（OP-10 至 OP-13），以及規則存檔與停用（OP-38、OP-39）。第 2 包乙段補上每日任務獎勵、學生點收提議及其確認與退回（OP-15 至 OP-17）。第 3 包新增手動規則套用、更正與沖回、道具使用、商品存檔與停用及設定存檔。第 4 包加入撤銷（OP-50）。第 5 包加入訂正輪次（OP-18 至 OP-23）、五種訂正操作的撤銷及逾期排程（OP-52）。資料表和函式位於 `ppt`。操作規格見 [v0.4 總則](../../docs/revamp/operation-contract/01-操作規格-v0.4-總則.md)、[操作與點數](../../docs/revamp/operation-contract/02-操作規格-v0.4-操作與點數.md) 與 [連線、讀取與未決事項](../../docs/revamp/operation-contract/03-操作規格-v0.4-連線讀取與未決.md)。
+第 1 包提供老師的手動點數調整（OP-24）、商店購買（OP-31）、操作重送與放棄，以及老師和小野共用的繳交狀態變更（OP-14）。第 2 包甲段新增作業建立、更新、作廢與恢復（OP-10 至 OP-13），以及規則存檔與停用（OP-38、OP-39）。第 2 包乙段補上每日任務獎勵、學生點收提議及其確認與退回（OP-15 至 OP-17）。第 3 包新增手動規則套用、更正與沖回、道具使用、商品存檔與停用及設定存檔。第 4 包加入撤銷（OP-50）。第 5 包加入訂正輪次（OP-18 至 OP-23）、五種訂正操作的撤銷及逾期排程（OP-52）。第 6 包加入歷史效果裁決（OP-53）、繳交限制及作廢沖回提示。資料表和函式位於 `ppt`。操作規格見 [v0.4 總則](../../docs/revamp/operation-contract/01-操作規格-v0.4-總則.md)、[操作與點數](../../docs/revamp/operation-contract/02-操作規格-v0.4-操作與點數.md) 與 [連線、讀取與未決事項](../../docs/revamp/operation-contract/03-操作規格-v0.4-連線讀取與未決.md)。
 
 ## 資料表
 
@@ -14,7 +14,7 @@
 | `accounts` | 每位學生一列，保存餘額、累計加分及版本。每寫一筆交易，帳戶版本加一並更新 `last_op_id`。 |
 | `transactions` | 以班級與交易編號為鍵的存摺。來源與操作／轉換批次的關係由資料庫檢查，每筆根交易至多沖回一次。觸發程序擋下更新、刪除及清空。規則產生的交易記 `rule_id` 與 `rule_rev`。程序依 `effective_at` 的臺灣日期填 `semester`，無歸屬時間時留空。撤銷補回的根交易另記 `restored_from_transaction_id`，指向快照記下的原根交易。 |
 | `rules`、`rule_versions` | 規則的 `rev` 指向現行版本。每班每個事件至多一條啟用規則，已發行的版本只能新增。建立規則與首版、調整現行版本與新增版本均須在同一交易完成。 |
-| `effects` | 記學生、事件、對象、規則版本、根交易、來源、接替鏈及產生／沖回的操作。未裁決歷史效果的事件與根交易為空。同一班內，同一學生同一事件同一對象、同一接替鏈，各至多一筆有效效果。 |
+| `effects` | 記學生、事件、對象、規則版本、根交易、來源、接替鏈及產生／沖回的操作。未裁決和裁決為未扣分的歷史效果，事件與根交易為空。候選交易可另記在 `suggested_transaction_id`，供畫面排序。同一班內，同一學生同一事件同一對象、同一接替鏈，各至多一筆有效效果。 |
 | `tasks`、`submissions` | 作業列存標題、類型、可空的頁碼文字 `page_text`、發布日、截止日、學期及作廢狀態。繳交以班級、作業、學生為鍵，含狀態、版本、基準、是否參與及匯入時的狀態。 |
 | `confirmations` | 保存 `leader_proposal` 與預留的 `agent_held`。項目有作業、學生、提議狀態、建立及處理操作與時間，以及 `rev`、`last_op_id`。狀態是 `pending`、`confirmed`、`rejected` 或 `superseded`。部分唯一索引限制同一班、同一筆繳交最多有一筆尚未處理的 `leader_proposal`。 |
 | `corrections` | 每輪一列，以班級與 `correction_id` 為主鍵，外鍵指向本班作業及學生。保存 `round`、`status`、可空的 `due_on`、`note`、`overdue_on` 及版本欄位。同班、同作業、同學生的輪次唯一，另有部分唯一索引保證至多一列為 `required` 或 `returned`。`basis_rev` 介於 0 和 `rev` 之間，基準為 0 時狀態須為 `cancelled`。 |
@@ -41,6 +41,9 @@
 保存的收據有 `op_id`、`status`、`code`、`replayed`、`class_seq`、`committed_at`、`result`、`changes`、`warnings`。非成立收據的序號與提交時間為 JSON null。
 
 - `result` 有 `noop`、`transactions`、`effects_added`、`effects_reversed`。`transactions` 依寫入順序列交易編號。兩份效果清單各記 `effect_id`、`lineage_id`、`event`、`subject_kind`、`subject_key`、`root_transaction_id`。新增附 `amount`，沖回附 `rule_id`、`rule_rev`、`effective_amount`、`effective_at`。
+- OP-53 的 `result.legacy_effect` 含 `effect_id`、`resolution`、`status`、`event`、`root_transaction_id`。回答 `none` 時，事件和根交易為 JSON null。
+- OP-12 確實作廢且選沖回時，`result.unresolved_legacy_effects` 逐筆列出 `effect_id`、`student_id`、`subject_kind`、`subject_key`。清單可為空；有項目時另帶 `{"code":"LEGACY_EFFECT_SKIPPED","count":筆數}`。不選沖回或同值作廢時省略清單和提示。
+- `LEGACY_EFFECT_UNRESOLVED` 的 `current` 為 `{"unresolved_legacy_effects":[{"effect_id":"…"}]}`，只列效果編號，老師與小野收到相同形狀。
 - `changes` 各項記 `entity`、`key`、`prev_rev`、`rev`、`prev_value`、`value`、`last_op_id`。帳戶的值包含 `balance` 與 `total_earned`，多筆交易合併為交易前與交易後的整體變更。繳交也記 `prev_basis_rev`、`basis_rev`。同值成立時收據列出當前版本及值，資料列的最後改動操作維持原值。
 - `task` 以 `{task_id}` 為鍵，建立時列出作業完整值，再依座號、學生編號列出初始繳交。更新列出變動欄位，同值成立時列出提交的欄位及當前值。作廢與恢復列出 `voided`。作廢沖回時，作業變更排在前面，每位受影響學生有一項帳戶變更。
 - `rule` 以 `{rule_id}` 為鍵，值含 `kind`、`event`、`disabled`、`name`、`amount`、`icon`、`category`。
@@ -60,10 +63,10 @@
 1. 提交先檢查交易隔離層級，再驗信封。操作須為物件、有非空的字串 `class_id`，且 `payload` 以資料庫的 JSONB 文字輸出計算，最多 64 KiB UTF-8。信封不符回 `BAD_ENVELOPE`。
 2. 單筆提交與放棄先驗傳入身分，無效身分拋出 `22023`，系統身分走未實作分支。小野入口先檢查整批信封和重複編號。接著驗班級存取權及編號格式，鎖住班級列後再驗一次存取權。班級不存在或無存取權都回 `CLASS_FORBIDDEN`，編號不符回 `INVALID_OP_ID`。這兩種回應都不登記操作。
 3. 登記編號。主鍵處理跨班同編號競爭。已有編號時依重送規則比對，內容衝突回 `OP_ID_REUSED`。
-4. 新操作依序檢查 `UNKNOWN_OP_TYPE`、`FORBIDDEN_ROLE`、`CLASS_ARCHIVED`、輸入的 `INVALID_PAYLOAD`、小野的 `SCOPE_FORBIDDEN`、`NOT_FOUND`、`ENTITY_INACTIVE`、`INVALID_TRANSITION`、`STALE_STATE`、各操作專屬檢查。專屬檢查若有 `ID_CONFLICT`，排在其餘專屬檢查之前。OP-50 查到原操作後依撤銷一節的順序檢查。目前辨識 OP-10 至 OP-27、OP-31 至 OP-34、OP-38、OP-39、OP-43、OP-50 與 OP-52。小野可呼叫 OP-14、OP-18、OP-19、OP-25 與 OP-50，撤銷限自己的操作。排程只可呼叫 OP-52。
+4. 新操作依序檢查 `UNKNOWN_OP_TYPE`、`FORBIDDEN_ROLE`、`CLASS_ARCHIVED`、輸入的 `INVALID_PAYLOAD`、小野的 `SCOPE_FORBIDDEN`、`NOT_FOUND`、`ENTITY_INACTIVE`、`INVALID_TRANSITION`、`STALE_STATE`、各操作專屬檢查。專屬檢查若有 `ID_CONFLICT`，排在其餘專屬檢查之前。OP-50 查到原操作後依撤銷一節的順序檢查。目前辨識 OP-10 至 OP-27、OP-31 至 OP-34、OP-38、OP-39、OP-43、OP-50、OP-52 與 OP-53。小野可呼叫 OP-14、OP-18、OP-19、OP-25 與 OP-50，撤銷限自己的操作。排程只可呼叫 OP-52。
 5. 套用操作後，推進 `class_seq` 並保存收據。OP-24 的金額是非零整數，絕對值至多 100000，理由至多 100 字，省略或空白時存「手動調整」。帳戶可為負值，這筆交易的 `earned_delta` 等於 `amount`。
 
-OP-14 接受 `expect.rev` 或同班且已成立的 `expect.after_op`。不存在或不參與的列接受 `rev: 0`；重新建立不參與的列會推進版本並重設基準。改成補交時保留作業扣分效果。其他狀態依現存效果沖回或新增。沖回採根交易的有效金額與原歸屬時間，包含 0 元沖回。版本通過後先檢查 `only_if_no_proposal`，再判斷同值。同值成立時保留待確認提議，真正改動才取代提議。
+OP-14 接受 `expect.rev` 或同班且已成立的 `expect.after_op`。不存在或不參與的列接受 `rev: 0`；重新建立不參與的列會推進版本並重設基準。改成補交時保留作業扣分效果。其他狀態依現存效果沖回或新增。沖回採根交易的有效金額與原歸屬時間，包含 0 元沖回。版本通過後先檢查 `only_if_no_proposal`，再判斷同值與未裁決歷史效果。同值成立時保留待確認提議，真正改動才取代提議。
 
 OP-31 檢查新物品編號、價格、庫存與餘額後，在同一交易扣款、建立背包物品及扣庫存。購買金額只計入餘額。
 
@@ -77,7 +80,7 @@ OP-31 檢查新物品編號、價格、庫存與餘額後，在同一交易扣�
 |---|---|---|---|
 | OP-10 `task.create` | 禁帶 | `task_id`、`title`、`task_type`、`published_on`、`due_on`，選填 `page_text`、`assignee_ids` | 檢查名單中查不到的學生、轉出或封存學生，再檢查作業編號是否已用過。依發布日計算學期，建立作業及名單上的繳交。符合自動免交規則的設為 `exempt`，其餘為 `pending`。兩種的版本與基準都從 1 起算。 |
 | OP-11 `task.update` | 必帶 | `task_id`，以及 `title`、`task_type`、`page_text`、`due_on` 中至少一項 | 依序檢查作業存在、未作廢、版本相符。更新作業列，繳交、點數及效果原樣保留。 |
-| OP-12 `task.void` | 必帶 | `task_id`、布林 `reverse_effects` | 檢查作業存在與版本。作業改成作廢。選沖回時逐筆結束有效效果，把根交易的有效金額取反寫入存摺，含零元。繳交資料與版本原樣保留。第一次作廢會取代該作業尚未處理的全部學生提議。 |
+| OP-12 `task.void` | 必帶 | `task_id`、布林 `reverse_effects` | 檢查作業存在與版本。作業改成作廢。選沖回時逐筆結束有效效果，把根交易的有效金額取反寫入存摺，含零元。略過未裁決歷史效果並列在收據。繳交資料與版本原樣保留。第一次作廢會取代該作業尚未處理的全部學生提議。 |
 | OP-13 `task.restore` | 必帶 | `task_id` | 檢查作業存在、目前作廢、版本相符，依序回 `NOT_FOUND`、`INVALID_TRANSITION`、`STALE_STATE`。恢復作業，繳交和點數原樣保留。 |
 | OP-38 `rule.save` | 必帶，新建用 `rev: 0` | `rule_id`、`kind`、`name`、`amount`，事件規則必帶 `event`，選填 `icon`、`category` | 既有規則接受本班的非空文字編號，含匯入編號。先檢查版本，再檢查新建編號是否為小寫 UUID v4、種類或事件是否變動，以及啟用事件是否重複。改動時新增一版，於提交時間生效。儲存停用規則會重新啟用。 |
 | OP-39 `rule.retire` | 必帶 | `rule_id` | 檢查規則存在與版本。停用時新增一版內容相同的版本列，已發生的交易與效果原樣保留。 |
@@ -158,6 +161,54 @@ OP-18 先驗輸入，再查作業與學生，並依序擋下無效目標、已�
 
 同編號同內容重送回原收據。同日使用另一個有效 v5 編號可成立，由輪次的效果歷史阻止重複扣分。OP-52 不可撤銷。記過逾期日後，建立該輪的 OP-18 會因基準改變而無法撤銷。老師可用 OP-22 取消並選擇沖回。
 
+## 歷史效果
+
+已對應的歷史效果與新版效果共用繳交矩陣、OP-27 單獨沖回、OP-12 作廢沖回及 OP-50 依快照補回。沖回以舊根交易的有效金額為準，歸屬時間沿用根交易。快照的規則編號和版本為 JSON null。新扣分採現行規則。補交保留當時的效果，單獨沖回後再改狀態時只處理仍有效的扣分。
+
+OP-14 依序驗版本、`only_if_no_proposal`、同值，再檢查同班同學生同作業有無未裁決效果。老師和小野遇到未裁決效果時都可改補交，保留歷史效果及交易；其餘狀態變更保存 `LEGACY_EFFECT_UNRESOLVED` 拒絕。效果編號依 `COLLATE "C"` 排序。OP-16 確認學生提議也用這道檢查。匯入時已點收的繳交觸發每日任務判定時，沿用 `LEGACY_DAY_NO_DAILY_QUEST`。
+
+OP-53 `legacy_effect.resolve` 只供老師呼叫。必帶 `expect`，以 `rev` 或 `after_op` 比對繳交版本，`rev: 0` 一律不符。輸入只允許 `effect_id`、`resolution`、`transaction_id`、`event`。編號以非空字串引用同班既有資料。回答 `link` 必帶交易編號，回答 `none` 時省略交易與事件。補交回答 `link` 必須指定 `submission.late` 或 `submission.missing`，遲交與缺交則由繳交狀態決定事件。
+
+1. 驗輸入與版本條件的格式。查效果及指定的交易，查不到回 `NOT_FOUND`。效果已裁決、已沖回或由新版產生時回 `INVALID_TRANSITION`，再查效果所指作業和繳交。作業已作廢或學生已轉出、封存時仍可裁決。
+2. 比對繳交版本，版本不符回 `STALE_STATE` 並帶目前繳交值。版本通過後，`link` 依序檢查事件與狀態是否相容、交易是否合格，以及是否已有同學生、同作業、同事件的有效效果。依序失敗時各回 `INVALID_PAYLOAD`、`TX_NOT_REVERSIBLE`、`INVALID_TRANSITION`。
+3. 連結對象須為同學生的 `legacy_general` 舊根交易，有效金額為負，且沒有成為任何效果的根交易。用 `effective_at` 的臺灣日期比發布日，當日可連結，早於發布日或日期無法取得時拒絕。建議交易欄只供排序。
+4. `link` 將效果設成 `active` 並填事件與根交易，`none` 將效果設成 `dismissed`。兩種都保留候選欄，將繳交 `rev` 加一、`basis_rev` 設為新版本，並更新 `last_op_id`。繳交狀態、參與、提議、交易和帳戶均維持原值。收據只有一項繳交變更，前後值相同，並另列裁決結果。
+
+接著可用 OP-53 的操作編號帶入 OP-14 的 `after_op`。裁決成立後，原版本即不符；裁決被拒絕時，接在它之後的 OP-14 也會回 `STALE_STATE`。先改補交再裁決會推進基準，所以撤銷先前的補交回 `UNDO_CONFLICT`、`reason: basis_changed`，`current.last_op_id` 指向裁決操作。裁決前仍可撤銷補交。OP-53 本身不可撤銷，若要退舊扣分可用 OP-27。
+
+OP-12 真的作廢且選沖回時，逐筆沖回仍有效的作業效果，依學生編號、效果編號以 `COLLATE "C"` 列出未裁決歷史效果。未裁決仍維持原狀，之後可用 OP-53 裁決。已裁決為未扣分的效果省略。選沖回的範圍依目前裁定限作業效果，訂正效果的範圍仍待專案負責人裁定。
+
+### 匯入欄位對照
+
+依規格 7.5 A、E 和 7.4 I，匯入的作業與繳交使用轉換器的穩定編號。只有狀態為遲交、缺交或補交、且來源繳交存在並可解析學生與作業時，才產生一列歷史效果。每筆繳交至多一列歷史效果，匯入時驗證每列的接替鏈編號各自唯一。
+
+| 轉換器 `legacy_effects` 欄位 | 匯入後的欄位或用途 |
+|---|---|
+| 共同 `id` | `effects.effect_id`，64 字元小寫十六進位；`lineage_id` 使用同一值。 |
+| 共同 `class_id` | `effects.class_id`，與對應的作業、學生、繳交及交易同班。 |
+| 共同 `batch_id` | 效果表無對應欄位，批次歸屬須在轉換或匯入產物留存。 |
+| 共同 `source_path` | 源於繳交來源路徑，效果表無對應欄位。 |
+| 共同 `legacy_id` | 轉換時留空，效果表無對應欄位。 |
+| 共同 `raw` | 三組判定筆數供轉換對帳，效果表無對應欄位。 |
+| `submission_id` | 繳交無獨立編號。匯入時核對它指向的 `submissions` 複合鍵 `(class_id, task_id, student_id)`。 |
+| `student_id` | `effects.student_id`。 |
+| `task_id` | `effects.subject_key`，`subject_kind` 固定為 `task`。 |
+| `link_state` | 依候選及裁決輸入決定 `effects.status`，原始候選狀態無獨立欄位。 |
+| `event` | 候選獲接受時填 `effects.event`；其餘留空。 |
+| `transaction_id` | 候選獲接受時填 `root_transaction_id`，否決或試匯入未裁決時填 `suggested_transaction_id`；無候選時兩欄皆空。 |
+| `amount_at_link` | 轉換時對帳資料，效果表無對應欄位；操作以帳本根交易的有效金額為準。 |
+| `unresolved_reason` | 轉換報告的診斷資料，效果表無對應欄位。 |
+
+匯入後三種效果形狀如下。共同填 `origin: legacy`，`rule_id`、`rule_rev`、`created_op_id`、`reversed_op_id` 皆空。
+
+| 匯入結果 | `status` | `event` | `root_transaction_id` | `suggested_transaction_id` |
+|---|---|---|---|---|
+| 候選獲接受 | `active` | 遲交或缺交事件 | 舊交易編號 | 空 |
+| 無候選 | `legacy_unresolved` | 空 | 空 | 空 |
+| 候選被否決或試匯入未裁決 | `legacy_unresolved` | 空 | 空 | 候選交易編號 |
+
+匯入程序對有版本的列設 `rev = 1`、`last_op_id = NULL`。繳交另設 `basis_rev = 1`、`assignment_active = true`，把轉換出的狀態同步填入 `status` 與 `legacy_status_at_import`，之後保留匯入狀態原值。批次 `cutover_date` 會由匯入程序寫入班級，班級欄位由第 7 包建立。效果表的來源追溯資料去向由匯入工單決定。目前的驗收使用 SQL 建立上述匯入結果。
+
 ## 撤銷 OP-50
 
 `op.undo` 屬累加型，禁止帶 `expect`，包含 JSON null。唯一的 `payload` 鍵是 `target_op_id`，接受既有操作的非空字串編號。老師可以撤銷本班任何操作者的操作，小野只能撤銷本班自己的操作。
@@ -219,7 +270,7 @@ OP-18 先驗輸入，再查作業與學生，並依序擋下無效目標、已�
 - 省略指派名單時，只取 `enrolled`。明列名單可含 `home_study`，名單不可空或重複。自動免交以非空關鍵字比對標題子字串，忽略大小寫，類型須完全相同。指派名單在建立時固定，類型接受非空字串。
 - `page_text` 可傳 JSON null 以清除頁碼，其他選填欄位以省略表示未提供。規則存檔每次帶完整內容。規則名稱為 1 至 100 字，金額為絕對值不超過 100000 的整數，允許 0。手動規則禁止傳 `event`，事件規則的代號固定為 `submission.late`、`submission.missing`、`daily_quest.complete`、`correction.confirmed`、`correction.overdue`。
 - 規則的新建版本條件不符時，`current.rev` 是 0。改種類、改事件或與另一條啟用事件規則重複時，版本檢查後回 `INVALID_PAYLOAD`。同內容且仍啟用的規則存檔、重複停用、重複作廢及同值更新在版本相符時回 `noop`。用現行版本存檔停用規則會重啟並新增版本。
-- 作廢沖回依學生編號及事件排序，包含轉出或封存學生的有效效果。作廢與恢復保留繳交的版本及基準，也不觸發每日任務判定。作廢選沖回且有未裁決歷史效果時，會拋出未實作例外並回復整筆操作。
+- 作廢沖回依學生編號及事件排序，包含轉出或封存學生的有效效果。作廢與恢復保留繳交的版本及基準，也不觸發每日任務判定。作廢選沖回時，略過未裁決的歷史效果，在收據列出這些效果並帶提示。
 
 - OP-25 版本不符只回現行版本號與金額。提示取最近 10 分鐘內另一位操作者對同班、同學生與同規則最後一筆 `adjust`；這筆交易後續被更正或沖回也計入提示。
 - OP-26 和 OP-27 都拒絕孤立更正、期初調整及原金額為零的使用道具交易。OP-27 也拒絕新版購買及有效金額為零的根交易。系統因狀態變更而結束效果時，仍照規格寫零元沖回。既有已沖回交易優先於有效金額過期回 `TX_ALREADY_REVERSED`。兩種操作都不檢查學生在學狀態、不推進繳交版本，也不重判每日任務。
@@ -232,6 +283,7 @@ OP-18 先驗輸入，再查作業與學生，並依序擋下無效目標、已�
 - 訂正期限接受有效的 `YYYY-MM-DD` 或 JSON null，日期可早於當日或作業截止日。選填期限省略視為 null。`note` 限 100 字，省略、JSON null 或全空白時存 null。OP-19 至 OP-23 必須帶 `rev` 或 `after_op` 擇一，既有輪次的 `rev: 0` 不相符。OP-18 與 OP-52 禁帶 `expect`。
 - 訂正真改時推進版本與基準，撤銷時按原收據回復基準。作廢作業選沖回的範圍為作業效果。老師可用 OP-22 取消未結束的輪次並選沖回。
 - OP-52 的有效輸入日期接受補跑且沒有上限，呼叫端負責選擇日期。調整寬限天數只影響後續挑選，已保存的逾期日及已成立的效果保留。
+- 歷史效果的匯入形狀、檢查及收據如「歷史效果」所述。資料庫驗收以兩次提交驗證裁決與狀態變更的串接；同一 HTTP 請求承載兩筆操作由端點處理。畫面可用撤銷衝突的 `current.last_op_id` 查原操作種類。
 
 ## 未實作清單
 
@@ -243,9 +295,7 @@ OP-18 先驗輸入，再查作業與學生，並依序擋下無效目標、已�
 | `agent_limits` | 小野操作上限、整批暫緩及待確認佇列，含 OP-25 的當日重複暫緩。也含小野撤銷自己的操作所寫的交易怎麼算進上限。含小野送 OP-18、OP-19 影響的學生數。 | 第 8 包 |
 | `agent_note` | 保存小野呼叫的 `note` | 第 8 包 |
 | `class_create` | OP-01 在班級列尚不存在時的建班路徑 | 第 9 包 |
-| `legacy_unresolved` | 有未裁決歷史效果時，依 OP-53 與繳交限制處理 | 第 6 包 |
 | `setting_duty_job` | 驗證 `dutyJobId` 指向本班職務 | 第 7 包 |
-| `task_void_legacy_effects` | 作廢作業選沖回時，略過並回報未裁決歷史效果 | 第 6 包 |
 | `undo_payroll` | 撤銷發薪操作 | 第 7 包 |
 
 第 8 包完成前，整合分支限小野無法呼叫的環境。正式資料庫的安裝須等資料庫角色與權限工單和規格 2.1 的上線前提完成。

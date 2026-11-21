@@ -144,21 +144,30 @@ describeDatabase('OP-12 與 OP-13', () => {
     expect(await taskLedger(client, classId)).toEqual(ledger)
   })
 
-  test('未裁決歷史效果只阻止選沖回且不登記', async () => {
+  test('選沖回時未裁決歷史效果不沖回並列在收據', async () => {
     const { client } = database()
     const { classId, taskId, studentId } = await missingTask(client, 1)
     await client.query(`
       INSERT INTO ppt.effects (class_id, student_id, effect_id, subject_kind, subject_key, status, origin, lineage_id)
       VALUES ($1,$2,'legacy-test','task',$3,'legacy_unresolved','legacy','legacy-test')
     `, [classId, studentId, taskId])
-    const before = await classSnapshot(client, classId)
+    const before = await taskLedger(client, classId)
     const count = await operationCount(client)
-    await expect(submit(client, voidTask(classId, taskId, true))).rejects.toMatchObject({
-      code: '0A000', detail: 'task_void_legacy_effects',
+    const receipt = await commitOperation(client, voidTask(classId, taskId, true))
+    expect(receipt.changes[0].value).toEqual({ voided: true })
+    const { rows } = await client.query('SELECT voided FROM ppt.tasks WHERE class_id = $1 AND task_id = $2', [classId, taskId])
+    expect(rows).toEqual([{ voided: true }])
+    const after = await taskLedger(client, classId)
+    expect(after.accounts).toEqual([{ student_id: studentId, balance: before.accounts[0].balance + 5, total_earned: 0 }])
+    expect(after.effects).toContainEqual(before.effects.find(effect => effect.status === 'legacy_unresolved'))
+    expect(after.effects).toContainEqual({
+      student_id: studentId, event: 'submission.missing', status: 'reversed', reversed_op_id: receipt.op_id,
     })
-    expect(await classSnapshot(client, classId)).toBe(before)
-    expect(await operationCount(client)).toBe(count)
-    await commitOperation(client, voidTask(classId, taskId, false))
+    expect(receipt.result.unresolved_legacy_effects).toEqual([{
+      effect_id: 'legacy-test', student_id: studentId, subject_kind: 'task', subject_key: taskId,
+    }])
+    expect(receipt.warnings).toEqual([{ code: 'LEGACY_EFFECT_SKIPPED', count: 1 }])
+    expect(await operationCount(client)).toBe(count + 1)
   })
 
   test('第二位學生沖回寫入後拒絕，回復兩筆並保留單一可重播收據', async () => {
