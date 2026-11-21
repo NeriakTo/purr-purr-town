@@ -1,15 +1,15 @@
 import { queryVersionRows } from './version-query.js'
 
-export function queryAccountRows(client, classId) {
-  return queryVersionRows(client, classId, 'account', {
+export function queryAccountRows(client, classId, sinceSeq) {
+  return queryVersionRows(client, classId, 'account', sinceSeq, {
     from: 'ppt.accounts AS e',
     key: "'student_id', e.student_id",
     value: "jsonb_build_object('balance', e.balance, 'total_earned', e.total_earned)",
   })
 }
 
-export function queryRuleRows(client, classId) {
-  return queryVersionRows(client, classId, 'rule', {
+export function queryRuleRows(client, classId, sinceSeq) {
+  return queryVersionRows(client, classId, 'rule', sinceSeq, {
     from: `ppt.rules AS e JOIN ppt.rule_versions AS v
       ON v.class_id = e.class_id AND v.rule_id = e.rule_id AND v.rev = e.rev`,
     key: "'rule_id', e.rule_id",
@@ -20,8 +20,8 @@ export function queryRuleRows(client, classId) {
   })
 }
 
-export function queryProductRows(client, classId) {
-  return queryVersionRows(client, classId, 'product', {
+export function queryProductRows(client, classId, sinceSeq) {
+  return queryVersionRows(client, classId, 'product', sinceSeq, {
     from: 'ppt.products AS e',
     key: "'product_id', e.product_id",
     value: `jsonb_build_object(
@@ -31,8 +31,8 @@ export function queryProductRows(client, classId) {
   })
 }
 
-export function queryInventoryItemRows(client, classId) {
-  return queryVersionRows(client, classId, 'inventory_item', {
+export function queryInventoryItemRows(client, classId, sinceSeq) {
+  return queryVersionRows(client, classId, 'inventory_item', sinceSeq, {
     from: 'ppt.inventory_items AS e',
     key: "'item_id', e.item_id",
     value: `jsonb_build_object(
@@ -42,8 +42,8 @@ export function queryInventoryItemRows(client, classId) {
   })
 }
 
-export function queryJobRows(client, classId) {
-  return queryVersionRows(client, classId, 'job', {
+export function queryJobRows(client, classId, sinceSeq) {
+  return queryVersionRows(client, classId, 'job', sinceSeq, {
     from: 'ppt.jobs AS e',
     key: "'job_id', e.job_id",
     value: `jsonb_build_object(
@@ -53,8 +53,8 @@ export function queryJobRows(client, classId) {
   })
 }
 
-export function queryDutyRows(client, classId) {
-  return queryVersionRows(client, classId, 'duty', {
+export function queryDutyRows(client, classId, sinceSeq) {
+  return queryVersionRows(client, classId, 'duty', sinceSeq, {
     from: 'ppt.daily_duties AS e',
     key: "'date', e.duty_date",
     value: "jsonb_build_object('student_ids', e.student_ids)",

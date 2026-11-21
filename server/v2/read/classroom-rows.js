@@ -1,16 +1,16 @@
 import { classValueSql } from './classes.js'
 import { queryVersionRows } from './version-query.js'
 
-export function queryClassRows(client, classId) {
-  return queryVersionRows(client, classId, 'class', {
+export function queryClassRows(client, classId, sinceSeq) {
+  return queryVersionRows(client, classId, 'class', sinceSeq, {
     from: 'ppt.classes AS e',
     key: "'class_id', e.class_id",
     value: classValueSql,
   })
 }
 
-export function queryStudentRows(client, classId) {
-  return queryVersionRows(client, classId, 'student', {
+export function queryStudentRows(client, classId, sinceSeq) {
+  return queryVersionRows(client, classId, 'student', sinceSeq, {
     from: 'ppt.students AS e',
     key: "'student_id', e.student_id",
     value: `jsonb_build_object(
@@ -20,16 +20,16 @@ export function queryStudentRows(client, classId) {
   })
 }
 
-export function queryGroupRows(client, classId) {
-  return queryVersionRows(client, classId, 'group', {
+export function queryGroupRows(client, classId, sinceSeq) {
+  return queryVersionRows(client, classId, 'group', sinceSeq, {
     from: 'ppt.groups AS e',
     key: "'group_key', e.group_key",
     value: "jsonb_build_object('name', e.name, 'leader_student_id', e.leader_student_id)",
   })
 }
 
-export function queryAnnouncementRows(client, classId) {
-  return queryVersionRows(client, classId, 'announcement', {
+export function queryAnnouncementRows(client, classId, sinceSeq) {
+  return queryVersionRows(client, classId, 'announcement', sinceSeq, {
     from: 'ppt.announcements AS e',
     key: "'announcement_id', e.announcement_id",
     value: `jsonb_build_object(
@@ -38,8 +38,8 @@ export function queryAnnouncementRows(client, classId) {
   })
 }
 
-export function querySeatingRows(client, classId) {
-  return queryVersionRows(client, classId, 'seating', {
+export function querySeatingRows(client, classId, sinceSeq) {
+  return queryVersionRows(client, classId, 'seating', sinceSeq, {
     from: 'ppt.seating AS e',
     key: "'class_id', e.class_id",
     value: `jsonb_build_object(
@@ -49,8 +49,8 @@ export function querySeatingRows(client, classId) {
   })
 }
 
-export function queryCommentRows(client, classId) {
-  return queryVersionRows(client, classId, 'comment', {
+export function queryCommentRows(client, classId, sinceSeq) {
+  return queryVersionRows(client, classId, 'comment', sinceSeq, {
     from: 'ppt.comments AS e',
     key: "'student_id', e.student_id, 'semester', e.semester",
     value: `jsonb_build_object(
@@ -62,8 +62,8 @@ export function queryCommentRows(client, classId) {
   })
 }
 
-export function querySettingRows(client, classId) {
-  return queryVersionRows(client, classId, 'setting', {
+export function querySettingRows(client, classId, sinceSeq) {
+  return queryVersionRows(client, classId, 'setting', sinceSeq, {
     from: 'ppt.settings_entries AS e',
     key: "'key', e.key",
     value: "jsonb_build_object('value', e.value)",

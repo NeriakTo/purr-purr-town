@@ -1,15 +1,15 @@
 import { queryVersionRows } from './version-query.js'
 
-export function querySubmissionRows(client, classId) {
-  return queryVersionRows(client, classId, 'submission', {
+export function querySubmissionRows(client, classId, sinceSeq) {
+  return queryVersionRows(client, classId, 'submission', sinceSeq, {
     from: 'ppt.submissions AS e',
     key: "'task_id', e.task_id, 'student_id', e.student_id",
     value: "jsonb_build_object('status', e.status, 'assignment_active', e.assignment_active)",
   })
 }
 
-export function queryTaskRows(client, classId) {
-  return queryVersionRows(client, classId, 'task', {
+export function queryTaskRows(client, classId, sinceSeq) {
+  return queryVersionRows(client, classId, 'task', sinceSeq, {
     from: 'ppt.tasks AS e',
     key: "'task_id', e.task_id",
     value: `jsonb_build_object(
@@ -19,8 +19,8 @@ export function queryTaskRows(client, classId) {
   })
 }
 
-export function queryConfirmationRows(client, classId) {
-  return queryVersionRows(client, classId, 'confirmation', {
+export function queryConfirmationRows(client, classId, sinceSeq) {
+  return queryVersionRows(client, classId, 'confirmation', sinceSeq, {
     from: 'ppt.confirmations AS e',
     key: "'confirmation_id', e.confirmation_id",
     value: `jsonb_build_object(
@@ -32,8 +32,8 @@ export function queryConfirmationRows(client, classId) {
   })
 }
 
-export function queryCorrectionRows(client, classId) {
-  return queryVersionRows(client, classId, 'correction', {
+export function queryCorrectionRows(client, classId, sinceSeq) {
+  return queryVersionRows(client, classId, 'correction', sinceSeq, {
     from: 'ppt.corrections AS e',
     key: "'correction_id', e.correction_id",
     value: `jsonb_build_object(

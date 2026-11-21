@@ -14,6 +14,7 @@ import { registerCancelRoute } from './ops/cancel.js'
 import { registerLookupRoute } from './ops/lookup.js'
 import { registerSubmitRoute } from './ops/submit.js'
 import { registerReadRoutes } from './read/routes.js'
+import { readConfig } from './read/config.js'
 import { createOriginCheck, readTrustProxy } from './request-source.js'
 
 const bodyErrors = new Set([
@@ -39,6 +40,7 @@ export function buildV2App({
   pool, config = {}, clock = () => new Date(), logger, hooks, sleep = wait, verifyPassword = comparePassword,
   scheduleLoginTimer = scheduleLoginTimeout,
 }) {
+  const read = readConfig(config.read)
   const isGasRelay = createRelayCheck(config.relayKey)
   const countAccountRequest = createAccountRateLimit(clock, config.accountRateLimit)
   const authenticateTeacher = createTeacherAuthentication({ pool, clock, isGasRelay, countAccountRequest })
@@ -59,7 +61,7 @@ export function buildV2App({
   registerSubmitRoute(app, { pool, config, clock, hooks, authenticateTeacher })
   registerCancelRoute(app, { pool, config, clock, authenticateTeacher })
   registerLookupRoute(app, { pool, clock, authenticateTeacher })
-  registerReadRoutes(app, { pool, config, clock, hooks, authenticateTeacher })
+  registerReadRoutes(app, { pool, config: { ...config, read }, clock, hooks, authenticateTeacher })
 
   function onPoolError(error) {
     const code = error?.code

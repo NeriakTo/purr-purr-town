@@ -23,10 +23,10 @@ function compareVersionRows(left, right) {
   return compareText(left.entity, right.entity) || compareText(JSON.stringify(left.key), JSON.stringify(right.key))
 }
 
-export async function queryClassVersionRows(client, classId) {
+export async function queryClassVersionRows(client, classId, sinceSeq) {
   const rows = []
   for (const query of queries) {
-    for (const row of await query(client, classId)) rows.push(row)
+    for (const row of await query(client, classId, sinceSeq)) rows.push(row)
   }
   return rows.sort(compareVersionRows)
 }
