@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises'
 import pg from 'pg'
 import { openTestDatabase } from '../../db-v2/test-support/database.js'
 import { install } from '../install.js'
@@ -35,6 +36,8 @@ export async function openWebTestDatabase(url = process.env.PPT_TEST_DATABASE_UR
     } finally {
       await database.client.query('RESET ROLE')
     }
+    await database.client.query(await readFile(new URL('../../schema.sql', import.meta.url), 'utf8'))
+    await database.client.query('GRANT SELECT (id, name, passcode_hash) ON public.teachers TO ppt_web')
     return { ...database, createPool, close }
   } catch (error) {
     await close()

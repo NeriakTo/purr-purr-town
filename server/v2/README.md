@@ -59,6 +59,18 @@
 
 先安裝 `server/db-v2/`，再以 `ppt_owner` 身分用 `server/v2/install.js` 安裝網站狀態。最後執行的 `server/v2/sql/990-web-state-privileges.sql` 授權網站角色並收回 PUBLIC 權限。小野與備份角色無權存取 `ppt_web_state`。T-605 負責 `ppt` 內的角色授權與寫入入口。
 
+## 登入
+
+`POST /api/v2/auth/login` 接受至多 4 KiB 的 JSON 物件。必填 `name`（1 至 50 字）及 `passcode`（非空字串），可帶先前收到的 `device_marker`。
+
+成功回 HTTP 200，欄位為 `server_time`、`token`、`expires_at`、`device_marker` 與 `teacher`（含 `id`、`name`）。時間採 ISO 8601，權杖與裝置標記均為 64 個小寫十六進位字元，伺服器只存各自的 SHA-256 雜湊。再次登入會簽發新權杖。有效且屬於該老師的裝置標記會原樣回傳，其他情況簽發新標記。裝置標記供登入分桶使用，驗證仍需密碼或有效權杖。
+
+信封格式錯誤或超過上限回 HTTP 400 `BAD_ENVELOPE`。帳號不存在、密碼錯誤、同名多列皆回 HTTP 401 `LOGIN_FAILED`。錯誤格式為 `{"error":{"code":"…"}}`。
+
+`x-ppt-relay-key` 與部署設定 `PPT_V2_RELAY_KEY` 的 SHA-256 摘要以固定時間比對，相符才認定經 GAS。密鑰須為至少 32 個可列印 ASCII 字元。設定空白時一律走直連判定。直連登入的初始效期為 90 天，經 GAS 登入為 24 小時。
+
+測試支架在測試庫執行舊版 schema，授予 `ppt_web` 讀取 `public.teachers` 所需欄位的權限。
+
 ## 增量讀取的接線
 
 `read-wiring.test.js` 使用 PostgreSQL 16，以一筆實際成立的操作驗每種實體。下表各版本列以 `class_id` 與 `last_op_id = op_id` 接到 `ppt.operations`。查到的序號等於收據與當下的班級序號。
