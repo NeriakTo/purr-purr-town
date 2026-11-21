@@ -6,6 +6,7 @@ import { setCorrectionDueOperation, setupOpenRoundConflict } from './test-suppor
 import { useItem as inventoryUse } from './test-support/inventory.js'
 import { addImportedEffect, addImportedSubmission, addImportedTask, resolveLegacyEffect } from './test-support/legacy-effects.js'
 import { addClass, adjustment, classSequence, operationCount, submit, teacher } from './test-support/operations.js'
+import { addPayrollJob, assignJob, payrollDay, retireJob, saveJob, setDuty } from './test-support/payroll.js'
 import { retireProduct, saveProduct } from './test-support/products.js'
 import { commitOperation, createTask, restoreTask, retireRule, saveRule, updateTask, voidTask } from './test-support/schoolwork.js'
 import { setSetting } from './test-support/settings.js'
@@ -121,6 +122,17 @@ const nonUndoable = [
     await addImportedSubmission(client, imported, 'missing')
     imported.effectId = await addImportedEffect(client, imported)
     return resolveLegacyEffect(imported, 'none')
+  }],
+  ['OP-29', (_client, target) => setDuty(target.classId, payrollDay, [target.studentId])],
+  ['OP-35', (_client, target) => saveJob(target.classId)],
+  ['OP-36', async (client, target) => {
+    const jobId = await addPayrollJob(client, target.classId, [target.studentId])
+    return retireJob(target.classId, jobId, { rev: 2 })
+  }],
+  ['OP-37', async (client, target) => {
+    const op = saveJob(target.classId)
+    await commitOperation(client, op)
+    return assignJob(target.classId, op.payload.job_id, [target.studentId])
   }],
 ]
 

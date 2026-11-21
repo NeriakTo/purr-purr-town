@@ -50,7 +50,7 @@ BEGIN
       ) THEN
         PERFORM reject_operation('NOT_UNDOABLE');
       END IF;
-    -- PPT-PENDING: undo_payroll
+    WHEN 'payroll.run', 'duty.pay' THEN NULL;
     ELSE PERFORM reject_operation('NOT_UNDOABLE');
   END CASE;
 
@@ -78,7 +78,7 @@ BEGIN
   END IF;
 
   CASE target.type
-    WHEN 'points.adjust', 'points.apply_rule' THEN NULL;
+    WHEN 'points.adjust', 'points.apply_rule', 'payroll.run', 'duty.pay' THEN NULL;
     WHEN 'submission.set_status', 'confirmation.confirm' THEN PERFORM check_undo_submission(target, p_actor);
     WHEN 'correction.require', 'correction.mark_returned', 'correction.confirm',
         'correction.redo', 'correction.cancel' THEN PERFORM check_undo_correction_round(target, p_actor);
@@ -105,6 +105,7 @@ BEGIN
   ELSE
     CASE target.type
       WHEN 'points.adjust', 'points.apply_rule' THEN outcome := undo_points_operation(target, op_key, p_time);
+      WHEN 'payroll.run', 'duty.pay' THEN outcome := undo_payroll_operation(target, op_key, p_time);
       WHEN 'submission.set_status', 'confirmation.confirm' THEN outcome := undo_submission(target, op_key, p_time);
       WHEN 'correction.require', 'correction.mark_returned', 'correction.confirm',
           'correction.redo', 'correction.cancel' THEN outcome := undo_correction_round(target, op_key, p_time);
