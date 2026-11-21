@@ -214,24 +214,31 @@ DECLARE
   seq bigint;
   rejection_code text;
   rejection_detail text;
+  receipt jsonb;
 BEGIN
-  -- Steps 4 and 5: apply role checks before operation input and target checks.
-  PERFORM check_operation_role(p_op->'type', p_actor);
-  PERFORM check_operation_input_and_target(p_op, p_actor);
+  BEGIN
+    -- Steps 4 and 5: apply role checks before operation input and target checks.
+    PERFORM check_operation_role(p_op->'type', p_actor);
+    PERFORM check_operation_input_and_target(p_op, p_actor);
 
-  -- Step 6: apply and advance the sequence within this subtransaction.
-  outcome := apply_operation(p_op, p_actor, p_time);
-  seq := advance_class_sequence(p_op->>'class_id');
-  RETURN operation_receipt(
-    p_op->>'op_id', 'committed', 'OK', seq, p_time,
-    outcome.result, outcome.changes, outcome.warnings
-  );
-EXCEPTION WHEN SQLSTATE 'P604R' THEN
-  GET STACKED DIAGNOSTICS rejection_code = MESSAGE_TEXT, rejection_detail = PG_EXCEPTION_DETAIL;
-  RETURN operation_receipt(
-    p_op->>'op_id', 'rejected', rejection_code::operation_code,
-    p_current => nullif(rejection_detail, '')::jsonb
-  );
+    -- Step 6: apply and advance the sequence within this subtransaction.
+    outcome := apply_operation(p_op, p_actor, p_time);
+    seq := advance_class_sequence(p_op->>'class_id');
+    receipt := operation_receipt(
+      p_op->>'op_id', 'committed', 'OK', seq, p_time,
+      outcome.result, outcome.changes, outcome.warnings
+    );
+  EXCEPTION WHEN SQLSTATE 'P604R' THEN
+    GET STACKED DIAGNOSTICS rejection_code = MESSAGE_TEXT, rejection_detail = PG_EXCEPTION_DETAIL;
+    receipt := operation_receipt(
+      p_op->>'op_id', 'rejected', rejection_code::operation_code,
+      p_current => nullif(rejection_detail, '')::jsonb
+    );
+  END;
+  IF p_actor->>'kind' = 'agent' THEN
+    RETURN mask_receipt_actor_ids(receipt);
+  END IF;
+  RETURN receipt;
 END;
 $$;
 

@@ -6,5 +6,6 @@ BEGIN
 END;
 $$;
 
--- Revoke the global default so it applies to functions in every schema.
+-- Revoke global defaults so they apply in every schema.
 ALTER DEFAULT PRIVILEGES FOR ROLE ppt_owner REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES FOR ROLE ppt_owner REVOKE USAGE ON TYPES FROM PUBLIC;

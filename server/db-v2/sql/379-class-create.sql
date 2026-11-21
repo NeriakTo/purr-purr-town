@@ -75,6 +75,7 @@ BEGIN
   VALUES (class_key, payload->>'school_year', payload->>'name', payload->>'teacher_name', payload->>'alias', op_key)
   RETURNING * INTO STRICT target;
   INSERT INTO class_ownership (class_id, teacher_id) VALUES (class_key, p_actor->>'id');
+  INSERT INTO class_authorizations (class_id, actor_kind) VALUES (class_key, 'scheduler');
 
   changes := jsonb_build_array(entity_change('class', jsonb_build_object('class_id', class_key), 0,
     target.rev, op_key, NULL, class_info_value(target)

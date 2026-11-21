@@ -22,7 +22,8 @@ export function overdueOperation(classId, date, opId = scheduledId(classId, date
 
 export function authorizeScheduler(client, classId) {
   return client.query(
-    "INSERT INTO ppt.class_authorizations (class_id, actor_kind) VALUES ($1, 'scheduler')", [classId],
+    `INSERT INTO ppt.class_authorizations (class_id, actor_kind) VALUES ($1, 'scheduler')
+     ON CONFLICT (class_id, actor_kind) DO NOTHING`, [classId],
   )
 }
 

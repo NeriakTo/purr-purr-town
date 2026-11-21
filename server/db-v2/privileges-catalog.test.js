@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { expect, it } from 'vitest'
-import { databaseRoles } from './test-support/roles.js'
+import { connectAsRole, databaseRoles } from './test-support/roles.js'
 import { describeDatabase, useTestDatabase } from './test-support/suite.js'
 
 const applicationSchemas = ['ppt', 'ppt_agent']
@@ -11,12 +11,47 @@ const schemaUsage = {
   ppt_agent: ['ppt_agent', 'ppt_backup'],
 }
 const tablePrivileges = ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER']
+const sequencePrivileges = ['USAGE', 'SELECT', 'UPDATE']
 const columnPrivileges = ['SELECT', 'INSERT', 'UPDATE', 'REFERENCES']
 const tableReaders = ['ppt_web', 'ppt_backup']
 const entrypointRoles = {
   'ppt.submit_operation(jsonb, jsonb)': 'ppt_web',
   'ppt.cancel_operation(text, text, jsonb)': 'ppt_web',
   'ppt_agent.agent_submit(text, text, jsonb, text)': 'ppt_agent',
+}
+const invokerFunctionRoles = {
+  'ppt.can_access_class(text, jsonb)': 'ppt_web',
+  'ppt.system_actor()': 'ppt_web',
+}
+const executeRoles = { ...entrypointRoles, ...invokerFunctionRoles }
+
+async function withOwnerTransaction(database, check) {
+  const client = await connectAsRole(database, 'ppt_owner')
+  await client.query('BEGIN')
+  try {
+    await check(client)
+  } finally {
+    await client.query('ROLLBACK')
+  }
+}
+
+async function typeUsageRows(client) {
+  const { rows } = await client.query(`
+    SELECT format('%I.%I', n.nspname, t.typname) AS object,
+           role, has_type_privilege(role, t.oid, 'USAGE') AS allowed
+    FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
+    LEFT JOIN pg_class c ON c.oid = t.typrelid
+    CROSS JOIN unnest($2::text[]) AS roles(role)
+    WHERE n.nspname = ANY($1::text[])
+      AND (t.typtype IN ('e', 'd') OR (t.typtype = 'c' AND c.relkind = 'c'))
+  `, [applicationSchemas, checkedRoles])
+  return rows
+}
+
+function assertTypeUsageDenied(rows) {
+  for (const { object, role, allowed } of rows) {
+    expect(allowed, `${role} USAGE ${object}`).toBe(false)
+  }
 }
 
 async function assertSchemaPrivileges(client) {
@@ -39,16 +74,18 @@ async function assertSchemaPrivileges(client) {
 
 async function assertTablePrivileges(client) {
   const { rows } = await client.query(`
-    SELECT nspname AS schema, format('%I.%I', nspname, relname) AS object, role, privilege,
-           has_table_privilege(role, c.oid, privilege) AS allowed
+    SELECT nspname AS schema, format('%I.%I', nspname, relname) AS object, relkind, role, privilege,
+           CASE WHEN relkind = 'S' THEN has_sequence_privilege(role, c.oid, privilege)
+                ELSE has_table_privilege(role, c.oid, privilege) END AS allowed
     FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
     CROSS JOIN unnest($2::text[]) AS roles(role)
-    CROSS JOIN unnest($3::text[]) AS privileges(privilege)
-    WHERE nspname = ANY($1::text[]) AND relkind IN ('r', 'p', 'v', 'm', 'f')
-  `, [applicationSchemas, checkedRoles, tablePrivileges])
-  expect(rows.some((row) => row.schema === 'ppt'), 'ppt 的資料表存在').toBe(true)
+    CROSS JOIN LATERAL unnest(CASE WHEN relkind = 'S' THEN $4::text[] ELSE $3::text[] END) AS privileges(privilege)
+    WHERE nspname = ANY($1::text[]) AND relkind IN ('r', 'p', 'v', 'm', 'f', 'S')
+  `, [applicationSchemas, checkedRoles, tablePrivileges, sequencePrivileges])
+  expect(rows.some((row) => row.schema === 'ppt' && row.relkind !== 'S'), 'ppt 的資料表存在').toBe(true)
   for (const row of rows) {
-    const expected = row.schema === 'ppt' && row.privilege === 'SELECT' && tableReaders.includes(row.role)
+    const expected = row.relkind !== 'S' && row.schema === 'ppt'
+      && row.privilege === 'SELECT' && tableReaders.includes(row.role)
     expect(row.allowed, `${row.role} ${row.privilege} ${row.object}`).toBe(expected)
   }
 }
@@ -87,11 +124,11 @@ async function assertExecutePrivileges(client) {
     CROSS JOIN unnest($2::text[]) AS roles(role)
     WHERE nspname = ANY($1::text[])
   `, [applicationSchemas, checkedRoles])
-  for (const [entrypoint, role] of Object.entries(entrypointRoles)) {
-    expect(rows.some((row) => row.object === entrypoint), `${role} EXECUTE ${entrypoint} 存在`).toBe(true)
+  for (const [object, role] of Object.entries(executeRoles)) {
+    expect(rows.some((row) => row.object === object), `${role} EXECUTE ${object} 存在`).toBe(true)
   }
   for (const row of rows) {
-    expect(row.allowed, `${row.role} EXECUTE ${row.object}`).toBe(entrypointRoles[row.object] === row.role)
+    expect(row.allowed, `${row.role} EXECUTE ${row.object}`).toBe(executeRoles[row.object] === row.role)
   }
 }
 
@@ -108,10 +145,7 @@ async function assertFunctionSettings(client) {
     if (prosecdef) definers.add(object)
     expect(prosecdef, `${owner} SECURITY DEFINER ${object}`).toBe(Object.hasOwn(entrypointRoles, object))
     const config = proconfig?.find((setting) => setting.startsWith('search_path='))
-    expect(config, `${owner} search_path ${object}`).toBeDefined()
-    const path = config.slice('search_path='.length).split(',').map((schema) => schema.trim())
-    expect(path[0], `${owner} search_path 首項 ${object}`).toBe('pg_catalog')
-    expect(path.at(-1), `${owner} search_path 末項 ${object}`).toBe('pg_temp')
+    expect(config, `${owner} search_path ${object}`).toBe('search_path=pg_catalog, ppt, pg_temp')
     expect(body, `${owner} 函式身分判斷 ${object}`).not.toMatch(/\b(current_user|session_user|current_role)\b/i)
   }
   for (const entrypoint of Object.keys(entrypointRoles)) {
@@ -182,12 +216,60 @@ describeDatabase('資料庫權限清點', () => {
     await assertColumnPrivileges(client)
   })
 
-  it('C04 只有指定連線角色可執行各自的入口', async () => {
+  it('C03 能抓到序列的 USAGE、SELECT 與 UPDATE 授權', async () => {
+    await withOwnerTransaction(database(), async (client) => {
+      await client.query('CREATE SEQUENCE ppt.test_sequence')
+      await assertTablePrivileges(client)
+      for (const privilege of sequencePrivileges) {
+        await client.query(`GRANT ${privilege} ON SEQUENCE ppt.test_sequence TO ppt_web`)
+        await expect(assertTablePrivileges(client)).rejects.toThrow(`ppt_web ${privilege} ppt.test_sequence`)
+        await client.query(`REVOKE ${privilege} ON SEQUENCE ppt.test_sequence FROM ppt_web`)
+      }
+    })
+  })
+
+  it('C04 只有指定連線角色可執行各自的入口或輔助函式', async () => {
     await assertExecutePrivileges(database().client)
   })
 
   it('C05 只有三支函式以擁有者身分執行且每支皆固定搜尋順序', async () => {
     await assertFunctionSettings(database().client)
+  })
+
+  it('C05 能抓到首尾正確但中間有其他 schema 的搜尋順序', async () => {
+    await withOwnerTransaction(database(), async (client) => {
+      await client.query('ALTER FUNCTION ppt.system_actor() SET search_path = pg_catalog, public, pg_temp')
+      await expect(assertFunctionSettings(client)).rejects.toThrow('search_path ppt.system_actor()')
+    })
+  })
+
+  it('C06 新建型別預設封閉 PUBLIC 與三個連線角色的 USAGE', async () => {
+    await withOwnerTransaction(database(), async (client) => {
+      await client.query("CREATE TYPE ppt.test_default_usage AS ENUM ('測試')")
+      const types = await typeUsageRows(client)
+      const created = types.filter(({ object }) => object === 'ppt.test_default_usage')
+      expect(created).toHaveLength(checkedRoles.length)
+      assertTypeUsageDenied(created)
+      await client.query('DROP TYPE ppt.test_default_usage')
+    })
+  })
+
+  it('最終授權收回兩個 schema 既有 enum、domain 和獨立複合型別的 PUBLIC USAGE', async () => {
+    await withOwnerTransaction(database(), async (client) => {
+      await client.query(`
+        CREATE TYPE ppt.test_enum AS ENUM ('測試');
+        CREATE DOMAIN ppt_agent.test_domain AS text;
+        CREATE TYPE ppt_agent.test_composite AS (value text);
+        GRANT USAGE ON TYPE ppt.test_enum, ppt_agent.test_domain, ppt_agent.test_composite TO PUBLIC;
+      `)
+      const finalPrivileges = await readFile(new URL('./sql/990-privileges.sql', import.meta.url), 'utf8')
+      await client.query(finalPrivileges)
+      const types = await typeUsageRows(client)
+      for (const name of ['ppt.test_enum', 'ppt_agent.test_domain', 'ppt_agent.test_composite']) {
+        expect(types.filter(({ object }) => object === name)).toHaveLength(checkedRoles.length)
+      }
+      assertTypeUsageDenied(types)
+    })
   })
 
   it('C07 角色屬性、成員關係與登入設定符合契約', async () => {

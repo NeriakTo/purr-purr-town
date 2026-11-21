@@ -585,6 +585,29 @@ OP-01 的來源班存取拒絕回 `CLASS_FORBIDDEN`，不登記操作。其餘�
 - `ppt.submit_operation(jsonb, jsonb)` 與 `ppt.cancel_operation(text, text, jsonb)` 開放給 `ppt_web`。
 - `ppt_agent.agent_submit(text, text, jsonb, text)` 開放給 `ppt_agent`，呼叫內部的 `ppt.agent_submit` 並原樣回傳結果。
 
+網站後端用 `ppt.can_access_class(text, jsonb)` 在送出、放棄與查詢前檢查班級存取權。該函式會呼叫回傳固定身分的 `ppt.system_actor()`。這兩支輔助函式開放給 `ppt_web`，均以呼叫者身分執行。
+
+小野的收據省略老師編號與別人輸入的自由文字。資料庫在保存收據前，將各層名為 `actor` 的物件縮成只含 `kind` 的物件。`last_op_id`、`prior_op_id` 等操作編號保留。老師確認暫緩批次時，成員仍以小野身分執行，重送會讀到已遮過的收據。
+
+暫緩收據保留 `result.confirmation_id` 與 `result.held_reason`。`HELD_QUEUE_FULL` 與 `CALL_ID_REUSED` 仍回 `call_id`、`status: retry`、`code`。這三種收據都省略 `current`。第 3 包的檢視表讓小野從 `ppt_agent.confirmations` 查待確認筆數、從 `ppt_agent.agent_calls` 查原呼叫內容，並從 `ppt_agent.held_batches` 查自己的暫緩批次。
+
+OP-01 建班與承接班在建立擁有者資料時一併寫入排程授權。1D 匯入完成後、開啟排程前，由管理連線以 `ppt_owner` 身分執行 [排程授權補登](maintenance/backfill-scheduler-authorizations.sql)（T-613）。這支檔只補缺少的排程授權。啟用小野時，由管理連線以 `ppt_owner` 身分逐班授權。以下兩段 SQL 的 `$1` 都綁定班級編號。
+
+```sql
+INSERT INTO ppt.class_authorizations (class_id, actor_kind)
+VALUES ($1, 'agent')
+ON CONFLICT (class_id, actor_kind) DO NOTHING;
+```
+
+```sql
+DELETE FROM ppt.class_authorizations
+WHERE class_id = $1 AND actor_kind = 'agent';
+```
+
+`ppt` 與 `ppt_agent` 內既有的 enum、domain 與獨立複合型別已收回 PUBLIC 的 USAGE。`ppt_owner` 日後建立的型別預設也收回這項權限。表的列型別與陣列型別沿用 PostgreSQL 對應表或元素型別的規則。
+
+PostgreSQL 的 `pg_advisory_lock` 仍維持 PUBLIC 的預設執行權。小野的連線可能用連線層級的 advisory lock 阻塞同一個新班的 OP-01。此情況需要事先知道該班的新 UUID。
+
 準備新叢集時，資料庫管理者先透過管理連線執行 `roles.js` 的 `ensureRoles(client)`，在交易內加鎖後套用 `cluster/roles.sql`。叢集角色要先於建庫與安裝建立，並維持 `NOLOGIN`，直到正式主機工單配置登入。建立由 `ppt_owner` 擁有的資料庫後，安裝連線以 `SET ROLE ppt_owner` 切換身分再呼叫 `install(client)`。安裝完成後以 `RESET ROLE` 回到原身分。
 
 測試支架會收回測試庫的 PUBLIC TEMP 權限，並用獨立連線 `SET ROLE` 到受測角色。每條角色連線先驗 `current_user`，再執行查詢或呼叫入口。正式主機工單須以角色實際登入驗證小野的閒置交易與查詢逾時各 30 秒、鎖等待逾時 10 秒、最多 5 條連線，以及備份的預設唯讀。
