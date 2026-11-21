@@ -29,7 +29,12 @@ export async function openWebTestDatabase(url = process.env.PPT_TEST_DATABASE_UR
   }
 
   try {
-    await install(database.client)
+    await database.client.query('SET ROLE ppt_owner')
+    try {
+      await install(database.client)
+    } finally {
+      await database.client.query('RESET ROLE')
+    }
     return { ...database, createPool, close }
   } catch (error) {
     await close()

@@ -51,14 +51,13 @@
 
 | 動作 | 物件與用途 |
 | --- | --- |
-| 讀取 | `ppt_web_state.sessions` 的 `token_hash`、`teacher_id`、`expires_at`、`first_relayed_at`，用於驗證權杖 |
+| 讀寫 | `ppt_web_state` 全部表開放 `SELECT`、`INSERT`、`UPDATE`、`DELETE` 給網站帳號。提交操作時讀取 `sessions` 驗證權杖。 |
 | 讀取 | `ppt.classes` 的 `class_id`、`class_seq`，用於建班預先檢查與提交回應 |
 | 讀取 | `ppt.operations` 的 `op_id`、`class_id`、`actor_kind`、`actor_id`、`type`、`receipt`，用於查詢原操作 |
 | 執行授權查詢 | `ppt.can_access_class(text, jsonb)`，用於班級預先檢查 |
 | 執行寫入入口 | `ppt.submit_operation(jsonb, jsonb)` 與 `ppt.cancel_operation(text, text, jsonb)`，由寫入程序負責修改 `ppt` 資料 |
-| 直接寫入 | 本包的路由皆無。後續直接寫入限於 `ppt_web_state`，工作階段簽發等寫入由第 2 包接上 |
 
-`ppt_web_state.sessions` 的建立由獨立安裝程式執行。T-605 負責角色、函式執行和對應物件的授權，網站帳號不應取得 `ppt` 的直接寫入權。
+先安裝 `server/db-v2/`，再以 `ppt_owner` 身分用 `server/v2/install.js` 安裝網站狀態。最後執行的 `server/v2/sql/990-web-state-privileges.sql` 授權網站角色並收回 PUBLIC 權限。小野與備份角色無權存取 `ppt_web_state`。T-605 負責 `ppt` 內的角色授權與寫入入口。
 
 ## 增量讀取的接線
 
