@@ -569,6 +569,28 @@ OP-01 的來源班存取拒絕回 `CLASS_FORBIDDEN`，不登記操作。其餘�
 - 第 9 包丙段依暫定做法 127 至 132，用建班排隊鎖處理新班、共用登記與重送程序、保留定案拒絕，並在來源班的共用列鎖內承接。預設值、可承接範圍及收據見「建班 OP-01」。
 - 暫定做法 133 定義收據的新建與同值格式，OP-40 整份列出四個欄位。暫定做法 134 依各操作的資料保留與版本規則處理。
 
+## 角色與權限
+
+| 角色 | 資料庫內的權限 |
+|---|---|
+| `ppt_owner` | 擁有 `ppt`、`ppt_agent` 與其中的表、型別和函式。以此身分安裝 SQL，三個寫入入口也以此身分執行。 |
+| `ppt_web` | 有 `ppt` 的 USAGE 和全部表的 SELECT。老師、排程與系統透過網站後端共用此角色，寫入只經 `ppt.submit_operation` 和 `ppt.cancel_operation`。 |
+| `ppt_agent` | 有 `ppt_agent` 的 USAGE，只能執行 `ppt_agent.agent_submit`。底層 `ppt` 的 schema、表與函式均不開放。專用檢視表及其 SELECT 在第 3 包加入。 |
+| `ppt_backup` | 有兩個 schema 的 USAGE 和 `ppt` 全部表的 SELECT。`ppt_agent` 內無物件讀取權，兩個 schema 均無寫入權和入口執行權。 |
+
+三個連線角色均無資料表或欄位的寫入授權，也無表的 REFERENCES、TRIGGER 權限。PUBLIC 對兩個 schema 均無權限，也無其中函式的執行權。`ppt_owner` 日後建立的函式預設不開放給 PUBLIC，新建表也不會自動授予三個連線角色。
+
+以下三支是以擁有者身分執行的函式（`SECURITY DEFINER`）。
+
+- `ppt.submit_operation(jsonb, jsonb)` 與 `ppt.cancel_operation(text, text, jsonb)` 開放給 `ppt_web`。
+- `ppt_agent.agent_submit(text, text, jsonb, text)` 開放給 `ppt_agent`，呼叫內部的 `ppt.agent_submit` 並原樣回傳結果。
+
+準備新叢集時，資料庫管理者先透過管理連線執行 `roles.js` 的 `ensureRoles(client)`，在交易內加鎖後套用 `cluster/roles.sql`。叢集角色要先於建庫與安裝建立，並維持 `NOLOGIN`，直到正式主機工單配置登入。建立由 `ppt_owner` 擁有的資料庫後，安裝連線以 `SET ROLE ppt_owner` 切換身分再呼叫 `install(client)`。安裝完成後以 `RESET ROLE` 回到原身分。
+
+測試支架會收回測試庫的 PUBLIC TEMP 權限，並用獨立連線 `SET ROLE` 到受測角色。每條角色連線先驗 `current_user`，再執行查詢或呼叫入口。正式主機工單須以角色實際登入驗證小野的閒置交易與查詢逾時各 30 秒、鎖等待逾時 10 秒、最多 5 條連線，以及備份的預設唯讀。
+
+正式主機工單負責配置登入及連線來源，收回正式庫的 PUBLIC CONNECT 和 TEMP，並按規格 2.1 驗證作業系統執行身分隔離及網站連線設定的存取權。須通過上線驗證後，才能在正式資料庫安裝並開放寫入入口。
+
 ## 未實作清單
 
 | 鍵 | 缺少的分支 | 補上的分包 |
