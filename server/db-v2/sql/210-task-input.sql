@@ -23,7 +23,7 @@ BEGIN
 END;
 $$;
 
-CREATE FUNCTION ppt.validate_task_assignee_list(p_assignees jsonb)
+CREATE FUNCTION ppt.validate_task_assignee_list(p_assignees jsonb, p_allow_empty boolean DEFAULT false)
 RETURNS void
 LANGUAGE plpgsql
 SET search_path = pg_catalog, ppt, pg_temp
@@ -32,7 +32,7 @@ BEGIN
   IF jsonb_typeof(p_assignees) IS DISTINCT FROM 'array' THEN
     PERFORM reject_operation('INVALID_PAYLOAD');
   END IF;
-  IF jsonb_array_length(p_assignees) = 0 OR EXISTS (
+  IF (NOT p_allow_empty AND jsonb_array_length(p_assignees) = 0) OR EXISTS (
     SELECT 1 FROM jsonb_array_elements(p_assignees) AS item(value)
     GROUP BY value
     HAVING count(*) > 1 OR jsonb_typeof(value) <> 'string' OR value = '""'::jsonb
