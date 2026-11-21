@@ -103,3 +103,13 @@ export function writeTransaction(pool, config, work) {
 export function readSnapshot(pool, work) {
   return runTransaction(pool, 'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY', work)
 }
+
+export function readClassSnapshot(pool, config, work) {
+  const statementTimeout = timeoutMilliseconds(config.statementTimeoutMs ?? 30000)
+  return readSnapshot(pool, async function configureSnapshot(client) {
+    await client.query(`SET LOCAL statement_timeout = ${statementTimeout}`)
+    await client.query("SET LOCAL timezone = 'UTC'")
+    await client.query("SET LOCAL datestyle = 'ISO, YMD'")
+    return work(client)
+  })
+}

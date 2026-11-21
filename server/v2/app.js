@@ -13,6 +13,7 @@ import { sqlState } from './db.js'
 import { registerCancelRoute } from './ops/cancel.js'
 import { registerLookupRoute } from './ops/lookup.js'
 import { registerSubmitRoute } from './ops/submit.js'
+import { registerReadRoutes } from './read/routes.js'
 import { createOriginCheck, readTrustProxy } from './request-source.js'
 
 const bodyErrors = new Set([
@@ -58,6 +59,7 @@ export function buildV2App({
   registerSubmitRoute(app, { pool, config, clock, hooks, authenticateTeacher })
   registerCancelRoute(app, { pool, config, clock, authenticateTeacher })
   registerLookupRoute(app, { pool, clock, authenticateTeacher })
+  registerReadRoutes(app, { pool, config, clock, hooks, authenticateTeacher })
 
   function onPoolError(error) {
     const code = error?.code
