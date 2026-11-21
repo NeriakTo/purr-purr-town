@@ -10,6 +10,7 @@ import { registerSessionRoutes } from './auth/session-routes.js'
 import { createTeacherAuthentication } from './auth/session.js'
 import { logError, RequestError, sendError } from './errors.js'
 import { sqlState } from './db.js'
+import { defaultTimers, readBackgroundConfig, validateTimers } from './jobs/config.js'
 import { registerCancelRoute } from './ops/cancel.js'
 import { registerLookupRoute } from './ops/lookup.js'
 import { registerSubmitRoute } from './ops/submit.js'
@@ -39,8 +40,11 @@ function handleError(error, request, reply) {
 export function buildV2App({
   pool, config = {}, clock = () => new Date(), logger, hooks, sleep = wait, verifyPassword = comparePassword,
   scheduleLoginTimer = scheduleLoginTimeout,
+  timers = defaultTimers,
 }) {
   const read = readConfig(config.read)
+  const backgroundConfig = readBackgroundConfig(config)
+  validateTimers(timers)
   const isGasRelay = createRelayCheck(config.relayKey)
   const countAccountRequest = createAccountRateLimit(clock, config.accountRateLimit)
   const authenticateTeacher = createTeacherAuthentication({ pool, clock, isGasRelay, countAccountRequest })
@@ -56,6 +60,7 @@ export function buildV2App({
   app.setErrorHandler(handleError)
   app.removeContentTypeParser('text/plain')
   app.decorateRequest('teacherSession', null)
+  app.decorate('backgroundJobContext', { pool, config: backgroundConfig, clock, timers, hooks })
   registerLoginRoute(app, { pool, config, clock, isGasRelay, sleep, verifyPassword, scheduleLoginTimer })
   registerSessionRoutes(app, { pool, clock, authenticateTeacher })
   registerSubmitRoute(app, { pool, config, clock, hooks, authenticateTeacher })
