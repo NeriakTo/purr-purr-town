@@ -45,6 +45,8 @@ BEGIN
       PERFORM check_announcement_operation(p_op);
     WHEN 'seating.save' THEN
       PERFORM check_seating_save(p_op);
+    WHEN 'comment.save', 'comment.set_lock', 'comment.request_generation' THEN
+      PERFORM check_teacher_comment_operation(p_op);
     WHEN 'op.undo' THEN
       PERFORM validate_undo_payload(p_op->'payload');
       PERFORM check_undo_operation(p_op, p_actor);
@@ -144,6 +146,8 @@ BEGIN
     WHEN 'group.save' THEN RETURN apply_group_save(p_op);
     WHEN 'announcement.save', 'announcement.remove' THEN RETURN apply_announcement_operation(p_op);
     WHEN 'seating.save' THEN RETURN apply_seating_save(p_op);
+    WHEN 'comment.save', 'comment.set_lock', 'comment.request_generation' THEN
+      RETURN apply_teacher_comment_operation(p_op);
     WHEN 'op.undo' THEN RETURN apply_undo_operation(p_op, p_time);
     WHEN 'batch.undo' THEN RETURN apply_batch_undo_operation(p_op, p_actor, p_time);
     WHEN 'points.adjust' THEN RETURN apply_points_adjust(p_op, p_time);

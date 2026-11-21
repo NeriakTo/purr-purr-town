@@ -4,6 +4,7 @@ import { agentSubmit, authorizeAgent } from './test-support/agent.js'
 import { addAgentClass, addManualRule, agentApplyRule } from './test-support/agent-fixtures.js'
 import { heldMemberRows, holdAgentBatch, holdMissingSubmissions } from './test-support/agent-held.js'
 import { classSnapshot } from './test-support/checks.js'
+import { lockComment, requestComment } from './test-support/comments.js'
 import { submissionData } from './test-support/confirmations.js'
 import { addImportedEffect } from './test-support/legacy-effects.js'
 import { addClass, adjustment, classSequence, operationCount, submit } from './test-support/operations.js'
@@ -182,6 +183,10 @@ const cases = [
     `, [target.classId, target.taskId, target.studentId])
     await addImportedEffect(client, target)
     return setStatus(target, 'on_time')
+  }],
+  ['COMMENT_LOCKED', async (client, target) => {
+    await commitOperation(client, lockComment(target))
+    return requestComment(target, { rev: 1 })
   }],
 ]
 
