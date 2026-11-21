@@ -61,7 +61,7 @@
 - `warnings` 是物件陣列，每項至少有 `code`。`LEGACY_DAY_NO_DAILY_QUEST` 另有 `student_id` 與 `date`，日期是 `YYYY-MM-DD`。每日任務交易仍列入 `result.transactions`，效果清單以 `event: daily_quest.complete` 識別，`subject_kind` 是 `date`，`subject_key` 是截止日。
 - OP-25 的 `POSSIBLE_DUPLICATE` 含 `code`、`student_id`、`rule_id`、`prior_op_id`、`prior_actor_kind`、`prior_at`。這項提示照樣允許成立。
 - 重送讀取已保存的收據，僅將回傳的 `replayed` 設為 `true`。同編號異班、異操作者或異內容回 `OP_ID_REUSED`。同班、同操作者提交已放棄的編號時，回 `cancelled`、`OP_CANCELLED`。放棄已存在的編號時，只比班級與操作者。
-- 小野目前也逐筆依 `op_id` 重播。已存在的操作保留原本的 `batch_id`。
+- 小野用同一個 `call_id`、同班且清單順序、編號和雜湊都相同時，逐筆重播操作紀錄目前的收據。說明文字沿用首次呼叫所存的值。班級或清單不同時整次回 `CALL_ID_REUSED`。清單中的既有操作保留原本的 `batch_id`。
 
 ## 檢查順序
 
@@ -353,10 +353,8 @@ OP-12 真的作廢且選沖回時，逐筆沖回仍有效的作業效果，依�
 | 鍵 | 缺少的分支 | 補上的分包 |
 |---|---|---|
 | `actor_system` | 系統身分入口 | 第 9 包 |
-| `agent_call_record` | 呼叫紀錄、整批重播、`CALL_ID_REUSED` 與新舊分組 | 第 8 包 |
 | `agent_held_confirmation` | 確認或退回小野暫緩批次 | 第 8 包 |
 | `agent_limits` | 小野操作上限、整批暫緩及待確認佇列，含 OP-25 的當日重複暫緩。也含小野撤銷自己的操作所寫的交易怎麼算進上限。含小野送 OP-18、OP-19 影響的學生數。 | 第 8 包 |
-| `agent_note` | 保存小野呼叫的 `note` | 第 8 包 |
 | `class_create` | OP-01 在班級列尚不存在時的建班路徑 | 第 9 包 |
 
 第 8 包完成前，整合分支限小野無法呼叫的環境。正式資料庫的安裝須等資料庫角色與權限工單和規格 2.1 的上線前提完成。

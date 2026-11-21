@@ -6,7 +6,7 @@ AS $$
   SELECT jsonb_build_object('kind', 'agent', 'id', 'agent');
 $$;
 
-CREATE FUNCTION ppt.valid_agent_envelope(p_class_id text, p_ops jsonb)
+CREATE FUNCTION ppt.valid_agent_envelope(p_class_id text, p_ops jsonb, p_note text)
 RETURNS boolean
 LANGUAGE plpgsql
 SET search_path = pg_catalog, ppt, pg_temp
@@ -15,7 +15,9 @@ BEGIN
   IF p_class_id IS NULL OR p_class_id = '' OR jsonb_typeof(p_ops) IS DISTINCT FROM 'array' THEN
     RETURN false;
   END IF;
-  IF jsonb_array_length(p_ops) NOT BETWEEN 1 AND 50 THEN
+  IF jsonb_array_length(p_ops) NOT BETWEEN 1 AND 50
+      OR length(p_note) > 1000
+      OR octet_length(convert_to(p_ops::text, 'UTF8')) > 512 * 1024 THEN
     RETURN false;
   END IF;
   RETURN NOT EXISTS (
@@ -48,23 +50,39 @@ AS $$
   SELECT jsonb_build_object('call_id', p_call_id, 'status', 'retry', 'code', p_code);
 $$;
 
-CREATE FUNCTION ppt.submit_locked_agent_batch(p_class_id text, p_call_id text, p_ops jsonb, p_actor jsonb)
+CREATE FUNCTION ppt.submit_locked_agent_batch(
+  p_class_id text, p_call_id text, p_ops jsonb, p_actor jsonb, p_note text
+)
 RETURNS jsonb
 LANGUAGE plpgsql
 SET search_path = pg_catalog, ppt, pg_temp
 AS $$
 DECLARE
-  op jsonb;
+  call_time timestamptz := clock_timestamp();
   context jsonb := jsonb_build_object('class_id', p_class_id, 'batch_id', p_call_id);
-  receipts jsonb := '[]';
+  ops jsonb;
+  entries jsonb;
+  existing agent_calls;
+  new_ops jsonb;
+  receipts jsonb;
 BEGIN
-  -- PPT-PENDING: agent_call_record
+  SELECT jsonb_agg(op || context ORDER BY position) INTO ops
+  FROM jsonb_array_elements(p_ops) WITH ORDINALITY AS inputs(op, position);
+  entries := agent_call_entries(ops);
+
+  SELECT * INTO existing FROM agent_calls WHERE call_id = p_call_id;
+  IF FOUND THEN
+    IF NOT agent_call_matches(existing, p_class_id, entries) THEN
+      RETURN agent_retry_receipt(p_call_id, 'CALL_ID_REUSED');
+    END IF;
+    RETURN agent_batch_receipts(p_class_id, p_call_id, entries, p_actor, '{}'::jsonb);
+  END IF;
+
+  new_ops := agent_new_operations(ops);
   -- PPT-PENDING: agent_limits
-  FOR op IN SELECT value FROM jsonb_array_elements(p_ops) WITH ORDINALITY ORDER BY ordinality
-  LOOP
-    receipts := receipts || jsonb_build_array(submit_locked_operation(op || context, p_actor));
-  END LOOP;
-  RETURN jsonb_build_object('call_id', p_call_id, 'receipts', receipts);
+  receipts := execute_new_agent_operations(new_ops, p_actor);
+  PERFORM store_agent_call(p_class_id, p_call_id, p_note, entries, receipts, call_time);
+  RETURN agent_batch_receipts(p_class_id, p_call_id, entries, p_actor, receipts);
 END;
 $$;
 
@@ -77,7 +95,7 @@ DECLARE
   actor jsonb := agent_actor();
 BEGIN
   PERFORM require_read_committed();
-  IF NOT valid_agent_envelope(class_id, ops) THEN
+  IF NOT valid_agent_envelope(class_id, ops, note) THEN
     RETURN agent_retry_receipt(call_id, 'BAD_ENVELOPE');
   END IF;
   IF NOT can_access_class(class_id, actor) THEN
@@ -89,7 +107,6 @@ BEGIN
   IF NOT lock_authorized_class(class_id, actor) THEN
     RETURN agent_retry_receipt(call_id, 'CLASS_FORBIDDEN');
   END IF;
-  -- PPT-PENDING: agent_note
-  RETURN submit_locked_agent_batch(class_id, call_id, ops, actor);
+  RETURN submit_locked_agent_batch(class_id, call_id, ops, actor, note);
 END;
 $$;
