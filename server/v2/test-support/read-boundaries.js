@@ -71,7 +71,7 @@ export function expectNoNeighbor(response, neighbor) {
   for (const id of neighbor.studentIds) expect(response.body).not.toContain(id)
 }
 
-export function testReadIsolation(fixture, endpoint, makeRequest) {
+export function testReadIsolation(fixture, endpoint, makeRequest, prepare = () => {}) {
   test.each([
     ['別的老師', false],
     ['同一位老師', true],
@@ -79,10 +79,11 @@ export function testReadIsolation(fixture, endpoint, makeRequest) {
     const context = fixture()
     const { client, target, teacher } = context
     await commitReadOperation(client, adjustment(target), teacher)
-    const before = await makeRequest(context)
+    const prepared = await prepare(context)
+    const before = await makeRequest(context, prepared)
     expect(before.statusCode).toBe(200)
     const neighbor = await populateReadNeighbor(client, sameOwner ? teacher : createTestTeacher())
-    const after = await makeRequest(context)
+    const after = await makeRequest(context, prepared)
     expect(after.statusCode).toBe(200)
     expectNoNeighbor(after, neighbor)
     expect(after.rawPayload).toEqual(before.rawPayload)

@@ -8,6 +8,7 @@ function readInteger(value, fallback, upper, name) {
 
 export function readConfig(read = {}) {
   return {
+    pageSize: readInteger(read.pageSize, 500, 2000, 'read.pageSize'),
     changesFullThreshold: readInteger(read.changesFullThreshold, 500, 100000, 'read.changesFullThreshold'),
   }
 }

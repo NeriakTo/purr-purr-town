@@ -2,7 +2,7 @@ import { readClassSnapshot } from '../db.js'
 import { precheckClassAccess } from '../ops/class-access.js'
 import { buildClassesResponse, queryOwnedClasses } from './classes.js'
 import { buildChangesResponse, loadClassChanges } from './changes.js'
-import { readChangesEnvelope, readClassEnvelope } from './envelope.js'
+import { readChangesEnvelope, readStateEnvelope } from './envelope.js'
 import { buildStateResponse, loadClassState } from './state.js'
 
 export function registerReadRoutes(app, { pool, config, clock, hooks, authenticateTeacher }) {
@@ -15,10 +15,10 @@ export function registerReadRoutes(app, { pool, config, clock, hooks, authentica
   })
 
   app.post('/api/v2/read/state', auth, async function readState(request) {
-    const { classId } = readClassEnvelope(request.body)
-    await precheckClassAccess(pool, classId, request.teacherSession.actor)
+    const envelope = readStateEnvelope(request.body)
+    await precheckClassAccess(pool, envelope.classId, request.teacherSession.actor)
     const readTime = clock()
-    const state = await loadClassState(pool, config, classId, readTime, hooks)
+    const state = await loadClassState(pool, config, envelope, readTime, hooks)
     return buildStateResponse(readTime, state)
   })
 
