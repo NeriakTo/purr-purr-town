@@ -1,10 +1,15 @@
+import { randomUUID } from 'node:crypto'
 import { expect } from 'vitest'
 import { authorizeAgent } from './agent.js'
 import { agentApplyRule } from './agent-fixtures.js'
 import { assignStudentGroups, saveGroup } from './class-student-group.js'
+import { createRound, requireRound } from './correction-rounds.js'
+import { addImportedEffect, resolveLegacyEffect } from './legacy-effects.js'
 import { addClass, adjustment } from './operations.js'
-import { connectAsRole } from './roles.js'
-import { commitOperation, saveRule } from './schoolwork.js'
+import { addPayrollJob, setDuty } from './payroll.js'
+import { agentSubmitAs, connectAsRole } from './roles.js'
+import { commitOperation, createTask, saveRule } from './schoolwork.js'
+import { addSubmission } from './submissions.js'
 
 export const maskedViewColumns = {
   students: ['group_key'],
@@ -12,6 +17,9 @@ export const maskedViewColumns = {
   transactions: ['rule_name'],
   rules: ['name', 'icon', 'category'],
   rule_versions: ['name', 'icon', 'category'],
+  tasks: ['title', 'task_type', 'page_text'],
+  corrections: ['note'],
+  jobs: ['title', 'icon', 'category'],
 }
 
 export const sampleStudentNames = ['王小明', '陳大文', '歐陽小華', '司馬大中']
@@ -51,13 +59,72 @@ async function seedViewLedger(client, fixture) {
   return { ruleId, adjustId: adjust.op_id, appliedId: applied.op_id }
 }
 
-export async function addClassViewFixture(client, authorized = true) {
+export async function addClassViewFixture(client) {
   const fixture = await addClass(client, { students: ['enrolled', 'home_study', 'transferred', 'archived'] })
   await setViewStudentNames(client, fixture)
   await seedViewGroup(client, fixture)
   const ledger = await seedViewLedger(client, fixture)
-  if (authorized) await authorizeAgent(client, fixture.classId)
+  await authorizeAgent(client, fixture.classId)
   return { ...fixture, ...ledger }
+}
+
+async function seedViewTask(client, { classId, studentIds }) {
+  const [first, second, transferred] = studentIds
+  const task = createTask(classId, {
+    title: '王 小明和小華的作業', task_type: '王　小明類', page_text: 'Page 12，王小明和小明',
+    assignee_ids: [first, second],
+  })
+  await commitOperation(client, task)
+  const taskId = task.payload.task_id
+  const unresolved = { classId, taskId, studentId: first }
+  const resolved = { classId, taskId, studentId: second }
+  await addSubmission(client, { classId, taskId, studentId: transferred }, { active: false })
+  await addImportedEffect(client, unresolved)
+  const effectId = await addImportedEffect(client, resolved)
+  await commitOperation(client, resolveLegacyEffect({ ...resolved, effectId }, 'none'))
+  return taskId
+}
+
+async function seedViewCorrections(database, { classId, studentIds }, taskId) {
+  const { client } = database
+  const [first, second, transferred] = studentIds
+  const note = '請王小明重寫'
+  const teacherRound = await createRound(client, { classId, taskId, studentId: first }, { note })
+  const agentOp = requireRound({ classId, taskId, studentId: second }, { note })
+  const { class_id: _classId, ...agentEntry } = agentOp
+  const { receipts } = await withViewRole(database, 'ppt_agent', agent =>
+    agentSubmitAs(agent, classId, [agentEntry]),
+  )
+  expect(receipts).toMatchObject([{ status: 'committed', code: 'OK' }])
+  const imported = randomUUID()
+  await client.query(`
+    INSERT INTO ppt.corrections (class_id, correction_id, task_id, student_id, round, status, note)
+    VALUES ($1, $2, $3, $4, 1, 'required', $5)
+  `, [classId, imported, taskId, transferred, note])
+  return { teacher: teacherRound.correctionId, agent: agentOp.payload.correction_id, imported }
+}
+
+async function seedViewDuties(client, { classId, studentIds }) {
+  const [first, second, transferred] = studentIds
+  const jobId = await addPayrollJob(client, classId, [transferred, first], {
+    title: '王小明值日', cycle: 'daily', icon: '歐陽小華圖', category: '司馬大中類',
+  })
+  const dutyDate = '2026-11-22'
+  await commitOperation(client, setDuty(classId, dutyDate, [second, first, transferred]))
+  return { jobId, dutyDate }
+}
+
+export async function addSchoolworkViewFixture(database) {
+  const { client } = database
+  const fixture = await addClassViewFixture(client)
+  const taskId = await seedViewTask(client, fixture)
+  const correctionIds = await seedViewCorrections(database, fixture, taskId)
+  const duties = await seedViewDuties(client, fixture)
+  return { ...fixture, taskId, correctionIds, ...duties }
+}
+
+export async function revokeViewAuthorization(client, classId) {
+  await client.query("DELETE FROM ppt.class_authorizations WHERE class_id = $1 AND actor_kind = 'agent'", [classId])
 }
 
 export async function listAgentViews(client) {
@@ -99,8 +166,7 @@ export async function expectViewAccess(database, visibleClassId, hiddenClassId) 
       expect((await readAgentView(agent, view, visibleClassId)).length, view).toBeGreaterThan(0)
       expect(await readAgentView(agent, view, hiddenClassId), view).toEqual([])
     }
-    await client.query("DELETE FROM ppt.class_authorizations WHERE class_id = $1 AND actor_kind = 'agent'",
-      [visibleClassId])
+    await revokeViewAuthorization(client, visibleClassId)
     for (const view of views) {
       expect(await readAgentView(agent, view, visibleClassId), view).toEqual([])
     }

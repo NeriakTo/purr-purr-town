@@ -27,6 +27,24 @@ const viewColumns = {
     class_id: 'text', rule_id: 'text', rev: 'int4', name: 'text', amount: 'numeric',
     icon: 'text', category: 'text', effective_at: 'timestamptz',
   },
+  tasks: {
+    class_id: 'text', task_id: 'text', title: 'text', task_type: 'text', page_text: 'text',
+    published_on: 'date', due_on: 'date', semester: 'text', voided: 'bool',
+  },
+  submissions: {
+    class_id: 'text', task_id: 'text', student_id: 'text', status: 'text', rev: 'int4',
+    last_op_id: 'text', has_unresolved_legacy_effect: 'bool',
+  },
+  corrections: {
+    class_id: 'text', correction_id: 'text', task_id: 'text', student_id: 'text', round: 'int4',
+    status: 'text', due_on: 'date', overdue_on: 'date', note: 'text', rev: 'int4',
+  },
+  jobs: {
+    class_id: 'text', job_id: 'text', title: 'text', salary: 'numeric', icon: 'text',
+    cycle: 'text', category: 'text', disabled: 'bool',
+  },
+  job_assignees: { class_id: 'text', job_id: 'text', position: 'int8', student_id: 'text' },
+  daily_duties: { class_id: 'text', duty_date: 'date', position: 'int8', student_id: 'text' },
 }
 
 async function readViewColumns(client) {

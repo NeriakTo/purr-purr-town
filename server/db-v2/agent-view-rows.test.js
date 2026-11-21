@@ -1,7 +1,9 @@
 import { beforeAll, expect, it } from 'vitest'
 import {
-  addClassViewFixture, expectViewAccess, expectViewReadDenied, readAgentView, withViewRole,
+  addSchoolworkViewFixture, expectViewAccess, expectViewReadDenied, readAgentView, revokeViewAuthorization, withViewRole,
 } from './test-support/agent-views.js'
+import { agentSubmitAs } from './test-support/roles.js'
+import { setStatus, submissionRow } from './test-support/submissions.js'
 import { describeDatabase, useTestDatabase } from './test-support/suite.js'
 
 describeDatabase('小野檢視表的資料列', () => {
@@ -11,8 +13,9 @@ describeDatabase('小野檢視表的資料列', () => {
 
   beforeAll(async () => {
     const { client } = database()
-    visible = await addClassViewFixture(client)
-    hidden = await addClassViewFixture(client, false)
+    visible = await addSchoolworkViewFixture(database())
+    hidden = await addSchoolworkViewFixture(database())
+    await revokeViewAuthorization(client, hidden.classId)
   })
 
   function asAgent(check) {
@@ -111,6 +114,89 @@ describeDatabase('小野檢視表的資料列', () => {
       expect(await readAgentView(agent, 'rules', classId)).toEqual([
         { ...versions[1], kind: 'manual', event: null, disabled: false },
       ])
+    })
+  })
+
+  it('作業標題、類型與頁碼遮成座號，其餘欄位等於底層', async () => {
+    const { classId, taskId } = visible
+    const { rows: [task] } = await database().client.query(`
+      SELECT class_id, task_id, published_on, due_on, semester, voided
+      FROM ppt.tasks WHERE class_id = $1 AND task_id = $2
+    `, [classId, taskId])
+    await asAgent(async (agent) => {
+      const tasks = await readAgentView(agent, 'tasks', classId)
+      expect(tasks.find(row => row.task_id === taskId)).toEqual({
+        ...task, title: '1號和3號的作業', task_type: '1號類', page_text: 'Page 12，1號和1號',
+      })
+    })
+  })
+
+  it('繳交只列參與者，內嵌歷史效果旗標且可用檢視版本送 OP-14', async () => {
+    const { classId, taskId, studentIds: [first, second, transferred] } = visible
+    const { client } = database()
+    const baseline = await submissionRow(client, { classId, taskId, studentId: second })
+    expect(baseline).toMatchObject({ assignment_active: true, rev: 2, last_op_id: expect.any(String) })
+    expect(await submissionRow(client, { classId, taskId, studentId: transferred })).toMatchObject({
+      assignment_active: false,
+    })
+    await asAgent(async (agent) => {
+      const rows = (await readAgentView(agent, 'submissions', classId)).filter(row => row.task_id === taskId)
+      expect(rows).toHaveLength(2)
+      expect(rows.find(row => row.student_id === first)).toMatchObject({
+        status: 'pending', has_unresolved_legacy_effect: true,
+      })
+      const settled = rows.find(row => row.student_id === second)
+      expect(settled).toMatchObject({
+        status: baseline.status, rev: baseline.rev, last_op_id: baseline.last_op_id,
+        has_unresolved_legacy_effect: false,
+      })
+      const { class_id: _classId, ...op } = setStatus(
+        { classId, taskId, studentId: second }, 'on_time', { rev: settled.rev },
+      )
+      const { receipts } = await agentSubmitAs(agent, classId, [op])
+      expect(receipts).toMatchObject([{ status: 'committed', code: 'OK' }])
+      const changed = (await readAgentView(agent, 'submissions', classId))
+        .find(row => row.task_id === taskId && row.student_id === second)
+      expect(changed).toMatchObject({ status: 'on_time', rev: settled.rev + 1, last_op_id: op.op_id })
+    })
+  })
+
+  it('訂正只對老師與匯入的備註遮姓名，小野建立的保留原文', async () => {
+    const { classId, correctionIds: ids } = visible
+    await asAgent(async (agent) => {
+      const rows = await readAgentView(agent, 'corrections', classId)
+      expect(rows).toHaveLength(3)
+      expect(Object.fromEntries(rows.map(row => [row.correction_id, row.note]))).toEqual({
+        [ids.teacher]: '請1號重寫', [ids.agent]: '請王小明重寫', [ids.imported]: '請1號重寫',
+      })
+    })
+  })
+
+  it('職務只給契約欄位，指派逐位依原序且保留轉出者', async () => {
+    const { classId, jobId, studentIds: [first, , transferred] } = visible
+    await asAgent(async (agent) => {
+      expect(await readAgentView(agent, 'jobs', classId)).toEqual([{
+        class_id: classId, job_id: jobId, title: '1號值日', salary: '10', icon: '3號圖',
+        cycle: 'daily', category: '4號類', disabled: false,
+      }])
+      const rows = await readAgentView(agent, 'job_assignees', classId)
+      expect(rows.sort((a, b) => Number(a.position) - Number(b.position))).toEqual([
+        { class_id: classId, job_id: jobId, position: '1', student_id: transferred },
+        { class_id: classId, job_id: jobId, position: '2', student_id: first },
+      ])
+    })
+  })
+
+  it('值日名單逐位列出三人，保留原陣列順序', async () => {
+    const { classId, dutyDate, studentIds: [first, second, transferred] } = visible
+    await asAgent(async (agent) => {
+      const { rows } = await agent.query(`
+        SELECT class_id, duty_date::text, position, student_id
+        FROM ppt_agent.daily_duties WHERE class_id = $1 ORDER BY position
+      `, [classId])
+      expect(rows).toEqual([second, first, transferred].map((studentId, index) => ({
+        class_id: classId, duty_date: dutyDate, position: String(index + 1), student_id: studentId,
+      })))
     })
   })
 })

@@ -35,3 +35,5 @@ GRANT EXECUTE ON FUNCTION ppt_agent.agent_submit(text, text, jsonb, text) TO ppt
 GRANT EXECUTE ON FUNCTION ppt_agent.mask_student_names(text, jsonb) TO ppt_agent;
 GRANT SELECT ON ppt_agent.classes, ppt_agent.students, ppt_agent.groups, ppt_agent.accounts,
   ppt_agent.transactions, ppt_agent.rules, ppt_agent.rule_versions TO ppt_agent;
+GRANT SELECT ON ppt_agent.tasks, ppt_agent.submissions, ppt_agent.corrections, ppt_agent.jobs,
+  ppt_agent.job_assignees, ppt_agent.daily_duties TO ppt_agent;
