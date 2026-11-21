@@ -1,6 +1,6 @@
 # 新版後端操作介面
 
-三個端點皆使用 `POST` 與 JSON。請求本文上限為 512 KiB。端點先驗證 `Authorization: Bearer <權杖>`，再檢查信封與班級存取權。權杖是 64 個小寫十六進位字元，資料庫以 SHA-256 雜湊查找。到期取 `expires_at` 與 `first_relayed_at + 24 小時` 中較早者。未曾經 GAS 轉送時只用 `expires_at`。操作者固定為工作階段所屬的老師。
+操作與讀取端點皆使用 `POST` 與 JSON。請求本文上限為 512 KiB。端點先驗證 `Authorization: Bearer <權杖>`，再檢查信封與班級存取權。權杖是 64 個小寫十六進位字元，資料庫以 SHA-256 雜湊查找。到期取 `expires_at` 與 `first_relayed_at + 24 小時` 中較早者。未曾經 GAS 轉送時只用 `expires_at`。操作者固定為工作階段所屬的老師。
 
 ## 端點
 
@@ -10,7 +10,7 @@
 | `/api/v2/ops/cancel` | `{ "class_id": "…", "op_id": "…" }` | `{ "server_time": "…", "receipt": {…} }` |
 | `/api/v2/ops/lookup` | `{ "class_id": "…", "op_ids": ["…"] }` | `{ "server_time": "…", "results": […] }` |
 
-`server_time` 是結尾為 `Z` 的 ISO 8601 UTC 時間。所有請求的 `class_id` 都須為非空字串。
+`server_time` 是結尾為 `Z` 的 ISO 8601 UTC 時間。需要 `class_id` 的請求須帶非空字串。
 
 ### 提交
 
@@ -22,6 +22,8 @@
 
 每筆依陣列順序開啟獨立的 `READ COMMITTED` 交易，設定本次交易的等鎖與語句逾時，呼叫寫入程序並提交。提交完成才把原樣收據放入回應。頂層 `class_seq` 在最後一筆之後另讀，可能已包含別人的提交，班級不存在時為 null。
 
+若操作已成立，但另讀頂層 `class_seq` 時連線中斷，整個請求回 HTTP 503。送出端用同一個操作編號重送，拿回原收據。
+
 單筆遇到暫時型的 `CLASS_FORBIDDEN`、`SERVER_BUSY`、`INTERNAL_ERROR` 時保留該筆與之前的收據。其餘操作不進寫入程序，依原順序回 `{ "op_id": "…", "status": "retry", "code": "NOT_PROCESSED" }`，缺少編號時用 null。定案拒絕、`INVALID_OP_ID`、`OP_ID_REUSED` 及單筆 `BAD_ENVELOPE` 都會繼續處理下一筆。
 
 ### 放棄
@@ -31,6 +33,47 @@
 ### 查詢原操作
 
 `op_ids` 接受 1 到 50 個字串。先驗班級存取權，再用 `REPEATABLE READ READ ONLY` 交易讀操作紀錄，無須取得班級鎖。依輸入順序回覆，同一編號出現多次會在各位置回覆。屬於本班、操作者種類為老師且操作者編號和工作階段相同的紀錄，回原樣收據加 `op_type`，放棄登記的種類為 null。其餘各回 `{ "op_id": "…", "status": "unknown" }`。例如可用撤銷衝突的 `current.last_op_id` 查出阻擋操作是 `legacy_effect.resolve`。
+
+## 讀取
+
+| 路徑 | 請求 JSON | HTTP 200 回應 |
+| --- | --- | --- |
+| `/api/v2/read/classes` | 可省略本文或帶 JSON 物件，本文欄位忽略 | `{ server_time, classes }` |
+| `/api/v2/read/state` | `{ class_id }` | `{ server_time, class_seq, rows, transactions, operations, legacy_effects, payroll, agent_batches }` |
+| `/api/v2/read/state` | `{ class_id, cursor }` | `{ server_time, class_seq, stream, items, next }` |
+| `/api/v2/read/changes` | `{ class_id, since_seq }` | `{ server_time, class_seq, full, rows, transactions, operations, legacy_effects, payroll, agent_batches }` |
+| `/api/v2/read/export` | `{ class_id }` | `{ server_time, export_v, exported_at, class_id, class_seq, rows, transactions, effects, rule_versions }` |
+
+四條路徑都需要工作階段，解析本文前先驗權杖並計入帳號限流。班級編號取自本文，信封只檢查格式，忽略未知的鍵。缺班與無存取權皆回相同的 HTTP 403 `CLASS_FORBIDDEN`。每個請求的讀取走同一個 `REPEATABLE READ READ ONLY` 交易，班級序號與資料取自同一個快照。讀取交易的每句查詢預設最多 30,000 毫秒，可用 `config.statementTimeoutMs` 調整。
+
+`classes` 陣列只列權杖老師擁有的班，包含封存班，依 `class_id` 排序。每筆含 `class_id`、`class_seq`、`rev`、`value`、`last_export_at`。其中 `value` 與 `class` 版本列相同，從未匯出時 `last_export_at` 為 null。
+
+每筆 `rows` 為 `{ entity, key, rev, value }`，依 `entity`、再依 `key` 的 JSON 字串排序。各實體的 `key` 和 `value` 型別與收據的 `changes` 一致，`value` 帶整列可用欄位。包含 `assignment_active: false` 的繳交。送出端可依 `rev` 合併收據與讀取。
+
+### 交易與操作分頁
+
+整班首讀的 `transactions` 與 `operations` 各是 `{ items, next }`。有下一頁時把 `next` 原樣填入下一次整班讀取的 `cursor`。伺服器依本文的 `class_id` 查詢，游標只帶串流名稱與最後一筆排序鍵。無下一頁回 null。無效游標回 HTTP 400 `BAD_ENVELOPE`。每頁預設 500 筆，`config.read.pageSize` 接受 1 至 2,000 的整數。
+
+- 交易依操作 `class_seq`、`occurred_at`、`transaction_id` 由大到小排列。每筆是交易表欄位去掉 `class_id`，另加 `class_seq`。匯入交易的 `class_seq` 為 null，排序時視為 0。
+- 操作只列已成立的紀錄，依 `class_seq` 由大到小排列。每筆帶 `op_id`、`type`、`actor_kind`、`class_seq`、`committed_at`、`batch_id`、`client_time`、`payload`。
+
+翻頁時新提交的操作及交易可用第一頁的 `class_seq` 拉增量。
+
+### 增量讀取與衍生欄位
+
+`since_seq` 必須是 0 以上的 JSON 安全整數。等於 0、超過快照的班級序號、或其後已成立的操作筆數超過門檻時，回整班首讀的內容並加 `full: true`。門檻預設 500 筆，`config.read.changesFullThreshold` 接受 1 至 100,000 的整數。
+
+其餘回 `full: false`。版本列、交易及操作取成立序號嚴格大於 `since_seq` 的紀錄，交易與操作在增量回應中直接給陣列。`rows` 也固定帶全部尚未處理的待確認項目，讓未推進班級序號的暫緩批次可見。
+
+- `legacy_effects` 帶 `effect_id`、`student_id`、`task_id`、`status`、`suggested_transaction_id`、`candidates`。整班列未裁決效果。增量也帶變動繳交的已裁決效果，以及有繳交、交易或效果變動之學生的全部未裁決效果。候選欄位為 `transaction_id`、`effective_amount`、`reason`、`effective_at`、`default_listed`、`suggested`。建議項目優先，其餘依時間、再依編號由小到大。只有理由完全等於「作業遲交」或「作業缺交」的候選標為 `default_listed`。已裁決效果的候選為空陣列。
+- `payroll` 每個職務一筆，帶 `job_id`、臺灣日期 `pay_date`、`period`、`first_day`、`needs_legacy_confirmation`。日、週、月與學期職務依期別首日和切換日判定，一次性職務的首日為 null，匯入的一次性職務要確認。增量每次帶完整清單。
+- `agent_batches` 每批帶 `batch_id`、`created_at`、`note`、`op_count`、`seats`、`pending_held`、`held_ops`、`undone`。最近七天以及仍待確認的批次皆列入，按建立時間由新到舊。筆數及座號從這批新成立的操作計算。待確認時 `held_ops` 帶原始暫緩內容，其餘為 null。增量每次帶完整清單。
+
+### 匯出
+
+`export_v` 為 1。`rows` 與整班讀取相同，`transactions` 帶全部交易，`effects` 與 `rule_versions` 分別帶本班所有效果及規則版本的資料表欄位。匯出格式不含操作串流。
+
+快照讀完後，伺服器以獨立短交易寫入 `ppt_web_state.class_exports`，以兩次匯出時間中較晚的為準。成功後才回備份，`exported_at` 與班級清單回的 `last_export_at` 使用相同 ISO 8601 UTC 格式。這筆寫入不推進班級序號，也不產生操作紀錄。寫入失敗回請求層級錯誤。
 
 ## HTTP 狀態與錯誤碼
 
@@ -52,7 +95,7 @@
 
 ## 網站帳號需要的權限
 
-執行時需要能使用 `ppt` 與 `ppt_web_state` schema。以下是這一包在路由直接使用的物件。
+執行時需要能使用 `ppt` 與 `ppt_web_state` schema。以下是路由直接使用的物件。
 
 | 動作 | 物件與用途 |
 | --- | --- |
@@ -60,6 +103,8 @@
 | 讀取 | `public.teachers` 的 `id`、`name`、`passcode_hash` 用於登入及查詢工作階段，`created_at` 用於帶標記的比對排序。正式站的 `public.teachers.created_at` 讀取權由 T-606 處理，是上線前提。 |
 | 讀取 | `ppt.classes` 的 `class_id`、`class_seq`，用於建班預先檢查與提交回應 |
 | 讀取 | `ppt.operations` 的 `op_id`、`class_id`、`actor_kind`、`actor_id`、`type`、`receipt`，用於查詢原操作 |
+| 讀取 | `ppt.class_ownership`、`classes`、`students`、`accounts`、`submissions`、`tasks`、`rules`、`rule_versions`、`confirmations`、`corrections`、`products`、`inventory_items`、`settings_entries`、`jobs`、`daily_duties`、`groups`、`announcements`、`seating`、`comments`、`transactions`、`operations`、`effects`、`agent_calls`。由 `server/db-v2/sql/990-privileges.sql` 授予網站帳號 `SELECT`。 |
+| 讀寫 | `ppt_web_state.class_exports` 的 `SELECT`、`INSERT`、`UPDATE`，供班級清單與匯出使用。 |
 | 執行授權查詢 | `ppt.can_access_class(text, jsonb)`，用於班級預先檢查 |
 | 執行寫入入口 | `ppt.submit_operation(jsonb, jsonb)` 與 `ppt.cancel_operation(text, text, jsonb)`，由寫入程序負責修改 `ppt` 資料 |
 
@@ -143,5 +188,4 @@
 
 ## 後續分包
 
-- 第 3 包負責班級清單、整班狀態、增量變更、匯出，並依上表處理暫緩項目與歷史效果。
 - 第 4 包負責排程、評語產生的後端流程、舊版整包寫入關閉開關及收尾清點，包含過期工作階段、登入桶、排隊列與裝置標記的定期清理。
