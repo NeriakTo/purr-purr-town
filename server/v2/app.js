@@ -4,6 +4,8 @@ import { setTimeout as wait } from 'node:timers/promises'
 import { registerLoginRoute } from './auth/login.js'
 import { comparePassword } from './auth/password.js'
 import { createRelayCheck } from './auth/relay.js'
+import { registerSessionRoutes } from './auth/session-routes.js'
+import { createTeacherAuthentication } from './auth/session.js'
 import { logError, RequestError, sendError } from './errors.js'
 import { sqlState } from './db.js'
 import { registerCancelRoute } from './ops/cancel.js'
@@ -33,6 +35,7 @@ export function buildV2App({
   pool, config = {}, clock = () => new Date(), logger, hooks, sleep = wait, verifyPassword = comparePassword,
 }) {
   const isGasRelay = createRelayCheck(config.relayKey)
+  const authenticateTeacher = createTeacherAuthentication({ pool, clock, isGasRelay })
   const app = Fastify({
     bodyLimit: 512 * 1024,
     logController: new Fastify.LogController({ disableRequestLogging: true }),
@@ -41,10 +44,12 @@ export function buildV2App({
   app.register(cors, { origin: config.allowedOrigins ?? [] })
   app.setErrorHandler(handleError)
   app.removeContentTypeParser('text/plain')
+  app.decorateRequest('teacherSession', null)
   registerLoginRoute(app, { pool, config, clock, isGasRelay, sleep, verifyPassword })
-  registerSubmitRoute(app, { pool, config, clock, hooks })
-  registerCancelRoute(app, { pool, config, clock })
-  registerLookupRoute(app, { pool, clock })
+  registerSessionRoutes(app, { pool, clock, authenticateTeacher })
+  registerSubmitRoute(app, { pool, config, clock, hooks, authenticateTeacher })
+  registerCancelRoute(app, { pool, config, clock, authenticateTeacher })
+  registerLookupRoute(app, { pool, clock, authenticateTeacher })
 
   function onPoolError(error) {
     const code = error?.code

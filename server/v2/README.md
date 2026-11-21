@@ -52,6 +52,7 @@
 | 動作 | 物件與用途 |
 | --- | --- |
 | 讀寫 | `ppt_web_state` 全部表開放 `SELECT`、`INSERT`、`UPDATE`、`DELETE` 給網站帳號。提交操作時讀取 `sessions` 驗證權杖。 |
+| 讀取 | `public.teachers` 的 `id`、`name`、`passcode_hash` 用於登入及查詢工作階段。正式站的授權由資料庫遷移工單 T-606 負責。 |
 | 讀取 | `ppt.classes` 的 `class_id`、`class_seq`，用於建班預先檢查與提交回應 |
 | 讀取 | `ppt.operations` 的 `op_id`、`class_id`、`actor_kind`、`actor_id`、`type`、`receipt`，用於查詢原操作 |
 | 執行授權查詢 | `ppt.can_access_class(text, jsonb)`，用於班級預先檢查 |
@@ -67,9 +68,17 @@
 
 信封格式錯誤或超過上限回 HTTP 400 `BAD_ENVELOPE`。帳號不存在、密碼錯誤、同名多列皆回 HTTP 401 `LOGIN_FAILED`。錯誤格式為 `{"error":{"code":"…"}}`。
 
-`x-ppt-relay-key` 與部署設定 `PPT_V2_RELAY_KEY` 的 SHA-256 摘要以固定時間比對，相符才認定經 GAS。密鑰須為至少 32 個可列印 ASCII 字元。設定空白時一律走直連判定。直連登入的初始效期為 90 天，經 GAS 登入為 24 小時。
+`x-ppt-relay-key` 與部署設定 `PPT_V2_RELAY_KEY` 的 SHA-256 摘要以固定時間比對，相符才認定經 GAS。密鑰須為至少 32 個可列印 ASCII 字元。設定未填或是空字串時一律走直連判定。直連登入的初始效期為 90 天，經 GAS 登入為 24 小時。
 
 測試支架在測試庫執行舊版 schema，授予 `ppt_web` 讀取 `public.teachers` 所需欄位的權限。
+
+## 工作階段查詢與登出
+
+兩個端點都要求 `Authorization: Bearer <token>`，可省略本文，也可送 JSON 物件。查詢 `POST /api/v2/auth/session` 成功回 HTTP 200，含 `server_time`、`teacher`（含 `id`、`name`）與 `expires_at`。登出 `POST /api/v2/auth/logout` 刪除該權杖後回 HTTP 200，含 `server_time`。權杖缺少、無法識別或完成登出後使用，回 HTTP 401 `AUTH_REQUIRED`。查詢時若找不到老師資料也回此碼。過期回 HTTP 401 `AUTH_EXPIRED`，該列保留。登出前已驗過權杖的操作請求會繼續處理。
+
+已登入端點在解析本文前驗證權杖。經 GAS 的請求只記第一次的時間，包含本文無效或無權操作的請求。實際效期取原效期與第一次經 GAS 後 24 小時的較早時間，到期當下即失效。只走直連、尚未到期且效期剩不到 30 天的權杖，延展至當下加 90 天。曾經 GAS 的權杖不延展。
+
+經 GAS 的判定影響權杖效期，以及乙段要接的登入分桶與直連來源站台檢查。兩條路的操作授權、執行與收據規則一致。
 
 ## 增量讀取的接線
 

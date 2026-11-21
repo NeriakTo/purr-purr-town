@@ -1,4 +1,3 @@
-import { requireTeacher } from '../auth/session.js'
 import { readQuery, writeTransaction } from '../db.js'
 import { logError, RequestError } from '../errors.js'
 import { precheckClassAccess } from './class-access.js'
@@ -46,9 +45,9 @@ async function buildSubmitResponse({ pool, clock }, classId, receipts) {
 }
 
 export function registerSubmitRoute(app, context) {
-  const { pool, clock } = context
-  app.post(submitPath, async request => {
-    const actor = await requireTeacher(pool, request.headers.authorization, clock)
+  const { pool, authenticateTeacher } = context
+  app.post(submitPath, { onRequest: authenticateTeacher }, async request => {
+    const { actor } = request.teacherSession
     const envelope = request.body
     validateSubmitEnvelope(envelope)
     await precheckClassAccess(pool, envelope.class_id, actor, envelope.ops[0])

@@ -1,4 +1,3 @@
-import { requireTeacher } from '../auth/session.js'
 import { writeTransaction } from '../db.js'
 import { RequestError } from '../errors.js'
 import { precheckClassAccess } from './class-access.js'
@@ -22,9 +21,9 @@ function buildCancelResponse(clock, receipt) {
 }
 
 export function registerCancelRoute(app, context) {
-  const { pool, clock } = context
-  app.post('/api/v2/ops/cancel', async request => {
-    const actor = await requireTeacher(pool, request.headers.authorization, clock)
+  const { pool, clock, authenticateTeacher } = context
+  app.post('/api/v2/ops/cancel', { onRequest: authenticateTeacher }, async request => {
+    const { actor } = request.teacherSession
     const envelope = request.body
     validateClassEnvelope(envelope)
     await precheckClassAccess(pool, envelope.class_id, actor)

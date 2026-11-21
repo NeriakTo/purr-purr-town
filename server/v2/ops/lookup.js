@@ -1,4 +1,3 @@
-import { requireTeacher } from '../auth/session.js'
 import { readSnapshot } from '../db.js'
 import { precheckClassAccess } from './class-access.js'
 import { validateLookupEnvelope } from './envelope.js'
@@ -22,9 +21,9 @@ function buildLookupResponse(clock, opIds, rows) {
   return { server_time: clock().toISOString(), results }
 }
 
-export function registerLookupRoute(app, { pool, clock }) {
-  app.post('/api/v2/ops/lookup', async request => {
-    const actor = await requireTeacher(pool, request.headers.authorization, clock)
+export function registerLookupRoute(app, { pool, clock, authenticateTeacher }) {
+  app.post('/api/v2/ops/lookup', { onRequest: authenticateTeacher }, async request => {
+    const { actor } = request.teacherSession
     const envelope = request.body
     validateLookupEnvelope(envelope)
     await precheckClassAccess(pool, envelope.class_id, actor)
