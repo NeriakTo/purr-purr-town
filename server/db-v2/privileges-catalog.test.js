@@ -18,6 +18,11 @@ const entrypointRoles = {
   'ppt.cancel_operation(text, text, jsonb)': 'ppt_web',
   'ppt_agent.agent_submit(text, text, jsonb, text)': 'ppt_agent',
 }
+const invokerFunctionRoles = {
+  'ppt.can_access_class(text, jsonb)': 'ppt_web',
+  'ppt.system_actor()': 'ppt_web',
+}
+const executeRoles = { ...entrypointRoles, ...invokerFunctionRoles }
 
 async function assertSchemaPrivileges(client) {
   const { rows } = await client.query(`
@@ -87,11 +92,11 @@ async function assertExecutePrivileges(client) {
     CROSS JOIN unnest($2::text[]) AS roles(role)
     WHERE nspname = ANY($1::text[])
   `, [applicationSchemas, checkedRoles])
-  for (const [entrypoint, role] of Object.entries(entrypointRoles)) {
-    expect(rows.some((row) => row.object === entrypoint), `${role} EXECUTE ${entrypoint} 存在`).toBe(true)
+  for (const [object, role] of Object.entries(executeRoles)) {
+    expect(rows.some((row) => row.object === object), `${role} EXECUTE ${object} 存在`).toBe(true)
   }
   for (const row of rows) {
-    expect(row.allowed, `${row.role} EXECUTE ${row.object}`).toBe(entrypointRoles[row.object] === row.role)
+    expect(row.allowed, `${row.role} EXECUTE ${row.object}`).toBe(executeRoles[row.object] === row.role)
   }
 }
 
@@ -182,7 +187,7 @@ describeDatabase('資料庫權限清點', () => {
     await assertColumnPrivileges(client)
   })
 
-  it('C04 只有指定連線角色可執行各自的入口', async () => {
+  it('C04 只有指定連線角色可執行各自的入口或輔助函式', async () => {
     await assertExecutePrivileges(database().client)
   })
 
