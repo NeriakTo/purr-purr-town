@@ -1,6 +1,6 @@
 CREATE TYPE ppt.rule_event AS ENUM (
   'submission.late', 'submission.missing', 'daily_quest.complete',
-  'correction.confirmed', 'correction.overdue'
+  'correction.confirmed', 'correction.overdue', 'payroll', 'duty_pay'
 );
 
 CREATE TABLE ppt.rules (
@@ -12,6 +12,7 @@ CREATE TABLE ppt.rules (
   rev integer NOT NULL DEFAULT 1 CHECK (rev >= 1),
   last_op_id text,
   PRIMARY KEY (class_id, rule_id),
+  CHECK (event NOT IN ('payroll', 'duty_pay')),
   CHECK ((kind = 'event') = (event IS NOT NULL))
 );
 
