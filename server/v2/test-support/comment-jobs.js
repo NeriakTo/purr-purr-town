@@ -55,7 +55,7 @@ export function mockWalle(respond = () => generated) {
   return { walle, entered: entered.promise }
 }
 
-export function useCommentFixtures() {
+export function useCommentFixtures({ isolated = false } = {}) {
   let database
   let pool
   let fixture
@@ -67,12 +67,17 @@ export function useCommentFixtures() {
     return app
   }
 
-  beforeAll(async () => {
+  async function openDatabase() {
     database = await openWebTestDatabase()
     pool = database.createWebsitePool()
+  }
+
+  beforeAll(async () => {
+    if (!isolated) await openDatabase()
   }, 15000)
 
   beforeEach(async () => {
+    if (isolated) await openDatabase()
     const { client } = database
     const teacher = createTestTeacher()
     const target = await createTestClass(client, {
@@ -88,11 +93,18 @@ export function useCommentFixtures() {
     expect(saved.status).toBe('committed')
     const token = await createTestSession(client, teacher.id)
     fixture = { database, pool, client, target, teacher, token, makeApp, request: requestComment(target, { rev: 1 }) }
-  })
+  }, 15000)
 
   afterEach(async () => {
-    await Promise.all(apps.splice(0).map(app => app.close()))
-  })
+    try {
+      await Promise.all(apps.splice(0).map(app => app.close()))
+    } finally {
+      if (isolated) {
+        await database?.close()
+        database = undefined
+      }
+    }
+  }, 15000)
 
   afterAll(async () => {
     await database?.close()
