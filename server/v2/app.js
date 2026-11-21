@@ -11,6 +11,7 @@ import { sqlState } from './db.js'
 import { registerCancelRoute } from './ops/cancel.js'
 import { registerLookupRoute } from './ops/lookup.js'
 import { registerSubmitRoute } from './ops/submit.js'
+import { createOriginCheck, readTrustProxy } from './request-source.js'
 
 const bodyErrors = new Set([
   'FST_ERR_CTP_BODY_TOO_LARGE',
@@ -36,12 +37,15 @@ export function buildV2App({
 }) {
   const isGasRelay = createRelayCheck(config.relayKey)
   const authenticateTeacher = createTeacherAuthentication({ pool, clock, isGasRelay })
+  const allowedOrigins = config.allowedOrigins ?? []
   const app = Fastify({
     bodyLimit: 512 * 1024,
+    trustProxy: readTrustProxy(config.trustProxy),
     logController: new Fastify.LogController({ disableRequestLogging: true }),
     ...(logger === true ? { logger: { base: null } } : { loggerInstance: logger }),
   })
-  app.register(cors, { origin: config.allowedOrigins ?? [] })
+  app.register(cors, { origin: allowedOrigins })
+  app.addHook('onRequest', createOriginCheck(allowedOrigins, isGasRelay))
   app.setErrorHandler(handleError)
   app.removeContentTypeParser('text/plain')
   app.decorateRequest('teacherSession', null)
