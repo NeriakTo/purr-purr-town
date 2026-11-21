@@ -2,6 +2,10 @@ import { expect, test } from 'vitest'
 import { agentSubmit, authorizeAgent } from './test-support/agent.js'
 import { batchUndo, ruleBatch } from './test-support/batch-undo.js'
 import { classSnapshot } from './test-support/checks.js'
+import {
+  addStudentOperation, assignStudentGroups, saveGroup, setClassStatus, setStudentEnrollment,
+  setStudentExemptRules, updateClassInfo, updateStudentProfile,
+} from './test-support/class-student-group.js'
 import { confirm, propose } from './test-support/confirmations.js'
 import { setCorrectionDueOperation, setupOpenRoundConflict } from './test-support/correction-rounds.js'
 import { useItem as inventoryUse } from './test-support/inventory.js'
@@ -140,6 +144,24 @@ const nonUndoable = [
     const { batch } = await ruleBatch(client, 1, target)
     return batchUndo(target.classId, batch.call_id)
   }],
+  ['OP-02', (_client, target) => updateClassInfo(target.classId)],
+  ['OP-03', async (client, target) => {
+    const archive = setClassStatus(target.classId, 'archived')
+    await commitOperation(client, archive)
+    return setClassStatus(target.classId, 'active', { after_op: archive.op_id })
+  }],
+  ['OP-04', (_client, target) => addStudentOperation(target.classId)],
+  ['OP-05', (_client, target) => updateStudentProfile(target, { name: '2號村民' })],
+  ['OP-06', (_client, target) => setStudentEnrollment(target, 'home_study')],
+  ['OP-07', (_client, target) => setStudentExemptRules(target, [{ keyword: '測試', taskType: '作業' }])],
+  ['OP-08', async (client, target) => {
+    const group = saveGroup(target.classId)
+    await commitOperation(client, group)
+    return assignStudentGroups(target.classId, [{
+      student_id: target.studentId, group_key: group.payload.group_key, expect: { rev: 1 },
+    }])
+  }],
+  ['OP-09', (_client, target) => saveGroup(target.classId)],
 ]
 
 describeDatabase('撤銷乙段驗收', () => {

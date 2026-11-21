@@ -1,17 +1,18 @@
 # 改版資料庫寫入程序
 
-第 1 包提供老師的手動點數調整（OP-24）、商店購買（OP-31）、操作重送與放棄，以及老師和小野共用的繳交狀態變更（OP-14）。第 2 包甲段新增作業建立、更新、作廢與恢復（OP-10 至 OP-13），以及規則存檔與停用（OP-38、OP-39）。第 2 包乙段補上每日任務獎勵、學生點收提議及其確認與退回（OP-15 至 OP-17）。第 3 包新增手動規則套用、更正與沖回、道具使用、商品存檔與停用及設定存檔。第 4 包加入撤銷（OP-50）。第 5 包加入訂正輪次（OP-18 至 OP-23）、五種訂正操作的撤銷及逾期排程（OP-52）。第 6 包加入歷史效果裁決（OP-53）、繳交限制及作廢沖回提示。第 7 包加入職務與指派（OP-35 至 OP-37）、值日設定與每日名單（OP-29）、一般發薪與值日薪資（OP-28、OP-30）及兩種發薪的撤銷。第 8 包補齊小野的呼叫紀錄、重送、上限與暫緩，並加入整批撤銷（OP-51）。資料表和函式位於 `ppt`。操作規格見 [v0.4 總則](../../docs/revamp/operation-contract/01-操作規格-v0.4-總則.md)、[操作與點數](../../docs/revamp/operation-contract/02-操作規格-v0.4-操作與點數.md) 與 [連線、讀取與未決事項](../../docs/revamp/operation-contract/03-操作規格-v0.4-連線讀取與未決.md)。
+第 1 包提供老師的手動點數調整（OP-24）、商店購買（OP-31）、操作重送與放棄，以及老師和小野共用的繳交狀態變更（OP-14）。第 2 包甲段新增作業建立、更新、作廢與恢復（OP-10 至 OP-13），以及規則存檔與停用（OP-38、OP-39）。第 2 包乙段補上每日任務獎勵、學生點收提議及其確認與退回（OP-15 至 OP-17）。第 3 包新增手動規則套用、更正與沖回、道具使用、商品存檔與停用及設定存檔。第 4 包加入撤銷（OP-50）。第 5 包加入訂正輪次（OP-18 至 OP-23）、五種訂正操作的撤銷及逾期排程（OP-52）。第 6 包加入歷史效果裁決（OP-53）、繳交限制及作廢沖回提示。第 7 包加入職務與指派（OP-35 至 OP-37）、值日設定與每日名單（OP-29）、一般發薪與值日薪資（OP-28、OP-30）及兩種發薪的撤銷。第 8 包補齊小野的呼叫紀錄、重送、上限與暫緩，並加入整批撤銷（OP-51）。第 9 包甲段加入班級資訊、封存與解除封存、學生及小組操作（OP-02 至 OP-09）。資料表和函式位於 `ppt`。操作規格見 [v0.4 總則](../../docs/revamp/operation-contract/01-操作規格-v0.4-總則.md)、[操作與點數](../../docs/revamp/operation-contract/02-操作規格-v0.4-操作與點數.md) 與 [連線、讀取與未決事項](../../docs/revamp/operation-contract/03-操作規格-v0.4-連線讀取與未決.md)。
 
 ## 資料表
 
 | 表 | 用途與約束 |
 |---|---|
-| `classes` | 班級狀態、版本、從 0 起算的 `class_seq` 及可空的 `cutover_date`。序號是提交游標，推進序號時班級資料的版本與最後改動者維持原值。匯入時寫入切換日，不推進版本。 |
+| `classes` | 班級狀態、版本、從 0 起算的 `class_seq` 及可空的 `cutover_date`。班級資訊為可空的 `school_year`、`name`、`teacher` 與 `alias`，操作輸入及收據把 `teacher` 命名為 `teacher_name`。序號是提交游標，推進序號時班級資料的版本與最後改動者維持原值。匯入時寫入切換日，不推進版本。 |
 | `class_ownership` | 班級與老師的對應，每班一位擁有者。 |
 | `class_authorizations` | 以班級與身分種類為鍵，保存小野與排程授權。測試由 SQL 建立授權列。 |
 | `operations` | 以全庫唯一的 `op_id` 保存操作者、輸入、內容雜湊、狀態和收據。`recorded_at` 記登記時間。只有成立的操作有 `class_seq` 與 `committed_at`。`operations_one_committed_undo` 是部分唯一索引，只收成立的 `op.undo`，鍵是 `class_id` 與 `payload->>'target_op_id'`。`operations_one_committed_batch_undo` 只收成立的 `batch.undo`，鍵是 `class_id` 與 `payload->>'batch_id'`。 |
 | `agent_calls` | 以全庫唯一的 `call_id` 保存班級、選填的 `note`、輸入順序的 `entries` 及呼叫時間 `created_at`。只有暫緩的呼叫會填 `held_inputs`，依原順序保存帶入外層班級與批次的完整新操作 JSONB。 |
-| `students` | 以班級與學生編號為鍵，保存座號、姓名、小組、在學狀態及版本。`exempt_rules` 預設為空陣列，每項有 `keyword` 與 `taskType`。 |
+| `students` | 以班級與學生編號為鍵，保存座號、姓名、可空的 JSONB 頭像 `avatar`、小組、在學狀態及版本。`exempt_rules` 預設為空陣列，每項有 `keyword` 與 `taskType`。 |
+| `groups` | 以班級與 `group_key` 為鍵，保存組名、可空的本班組長 `leader_student_id` 及版本。 |
 | `accounts` | 每位學生一列，保存餘額、累計加分及版本。每寫一筆交易，帳戶版本加一並更新 `last_op_id`。 |
 | `transactions` | 以班級與交易編號為鍵的存摺。來源與操作／轉換批次的關係由資料庫檢查，每筆根交易至多沖回一次。觸發程序擋下更新、刪除及清空。規則產生的交易記 `rule_id` 與 `rule_rev`。程序依 `effective_at` 的臺灣日期填 `semester`，無歸屬時間時留空。撤銷補回的根交易另記 `restored_from_transaction_id`，指向快照記下的原根交易。 |
 | `rules`、`rule_versions` | 規則的 `rev` 指向現行版本。每班每個事件至多一條啟用規則，已發行的版本只能新增。建立規則與首版、調整現行版本與新增版本均須在同一交易完成。 |
@@ -68,7 +69,7 @@
 1. 提交先檢查交易隔離層級，再驗信封。操作須為物件、有非空的字串 `class_id`，且 `payload` 以資料庫的 JSONB 文字輸出計算，最多 64 KiB UTF-8。信封不符回 `BAD_ENVELOPE`。
 2. 單筆提交與放棄先驗傳入身分，無效身分拋出 `22023`，系統身分走未實作分支。小野入口先檢查整批信封、重複編號、說明字數與清單大小。接著驗班級存取權及編號格式，鎖住班級列後再驗一次存取權。班級不存在或無存取權都回 `CLASS_FORBIDDEN`，編號不符回 `INVALID_OP_ID`。這兩種回應都不登記操作。
 3. 登記編號。主鍵處理跨班同編號競爭。已有編號時依重送規則比對，內容衝突回 `OP_ID_REUSED`。
-4. 新操作依序檢查 `UNKNOWN_OP_TYPE`、`FORBIDDEN_ROLE`、`CLASS_ARCHIVED`、輸入的 `INVALID_PAYLOAD`、小野的 `SCOPE_FORBIDDEN`、`NOT_FOUND`、`ENTITY_INACTIVE`、`INVALID_TRANSITION`、`STALE_STATE`、各操作專屬檢查。專屬檢查若有 `ID_CONFLICT`，排在其餘專屬檢查之前。OP-50 與 OP-51 的目標檢查詳見各自的撤銷節。目前辨識 OP-10 至 OP-39、OP-43、OP-50 至 OP-53。小野可呼叫 OP-14、OP-18、OP-19、OP-25 與 OP-50，撤銷限自己的操作。排程只可呼叫 OP-52。
+4. 新操作依序檢查 `UNKNOWN_OP_TYPE`、`FORBIDDEN_ROLE`、`CLASS_ARCHIVED`、輸入的 `INVALID_PAYLOAD`、小野的 `SCOPE_FORBIDDEN`、`NOT_FOUND`、`ENTITY_INACTIVE`、`INVALID_TRANSITION`、`STALE_STATE`、各操作專屬檢查。專屬檢查若有 `ID_CONFLICT`，排在其餘專屬檢查之前。OP-50 與 OP-51 的目標檢查詳見各自的撤銷節。目前辨識 OP-02 至 OP-39、OP-43、OP-50 至 OP-53。封存的例外是 OP-03。小野可呼叫 OP-14、OP-18、OP-19、OP-25 與 OP-50，撤銷限自己的操作。排程只可呼叫 OP-52。
 5. 套用操作後，推進 `class_seq` 並保存收據。OP-24 的金額是非零整數，絕對值至多 100000，理由至多 100 字，省略或空白時存「手動調整」。帳戶可為負值，這筆交易的 `earned_delta` 等於 `amount`。
 
 OP-14 接受 `expect.rev` 或同班且已成立的 `expect.after_op`。不存在或不參與的列接受 `rev: 0`；重新建立不參與的列會推進版本並重設基準。改成補交時保留作業扣分效果。其他狀態依現存效果沖回或新增。沖回採根交易的有效金額與原歸屬時間，包含 0 元沖回。版本通過後先檢查 `only_if_no_proposal`，再判斷同值與未裁決歷史效果。同值成立時保留待確認提議，真正改動才取代提議。
@@ -76,6 +77,27 @@ OP-14 接受 `expect.rev` 或同班且已成立的 `expect.after_op`。不存在
 OP-31 檢查新物品編號、價格、庫存與餘額後，在同一交易扣款、建立背包物品及扣庫存。購買金額只計入餘額。
 
 操作檢查或寫入要定案拒絕時，呼叫 `ppt.reject_operation(p_code ppt.operation_code, p_current jsonb DEFAULT NULL)`。這支函式使用 SQLSTATE `P604R`，把規格錯誤碼放在 `MESSAGE`，選填的 `current` JSON 放在 `DETAIL`。核心只攔這個 SQLSTATE，先回復該筆的檢查與寫入區塊，再把拒絕收據存進已登記的操作列。其他例外往外拋。偵測到已標記的未實作分支時，`ppt.pending_operation(p_key text)` 拋出 `0A000`，`DETAIL` 為該分支鍵。
+
+## 班級、學生與小組
+
+這八種操作只接受老師，皆不可撤銷。封存班只接受 OP-03，包括把已封存的班再設為 `archived`。封存與解除封存僅改班級狀態及其版本欄位，不處理待確認項目、學生提議或訂正。放棄操作照常可用。
+
+| 操作 | `expect` | `payload` | 檢查與成立結果 |
+|---|---|---|---|
+| OP-02 `class.update_info` | 必帶 | `name` 1 至 100 字、`alias` 與 `teacher_name` 各 0 至 100 字、`school_year` 1 至 20 字。四項都必帶。 | 先驗輸入，再驗班級版本。整份取代資訊，收據列四欄前後值。 |
+| OP-03 `class.set_status` | 必帶 | `status` 為 `active` 或 `archived`。 | 先驗輸入，再驗班級版本。收據只列狀態的前後值。 |
+| OP-04 `student.add` | 禁帶 | `student_id` 為小寫 UUID v4、`seat_number` 為 1 至 999 的整數、`name` 1 至 100 字。選填 `group_key` 1 至 50 字或 JSON null。 | 驗輸入後，本班已有編號優先回 `ID_CONFLICT`，再驗新編號及座號。建在學學生及零餘額帳戶，依序回 `student` 與 `account` 兩項新建變更。省略組別或帶 JSON null 時未分組。 |
+| OP-05 `student.update_profile` | 必帶 | `student_id`，另帶 `name`、`seat_number`、`avatar` 至少一項。姓名、座號同 OP-04，頭像為 0 至 200 字或 JSON null。 | 驗輸入、查學生、驗版本，再查在學學生的新座號是否重複。只寫提供的欄位，JSON null 清除頭像。 |
+| OP-06 `student.set_enrollment` | 必帶 | `student_id`、`enrollment_status`，狀態為 `enrolled`、`home_study`、`transferred` 或 `archived`。 | 驗輸入、查學生、檢查復學座號、驗版本。只改在學狀態，保留帳戶及既有紀錄。 |
+| OP-07 `student.set_exempt_rules` | 必帶 | `student_id`、`rules` 陣列，至多 50 項；各項只含 `keyword` 與 `taskType`，各 1 至 50 字。 | 驗輸入、查學生、驗版本。照輸入順序整份取代 `exempt_rules`，只影響日後建立的作業。 |
+| OP-08 `group.assign_students` | 頂層禁帶、每項必帶 | `items` 陣列 1 至 200 項，每項只含 `student_id`、`group_key`（1 至 50 字）及 `expect`，學生編號不可重複。 | 先驗所有輸入，再確認所有學生存在，逐位比對操作前的版本。全部通過才寫入，`unassigned` 清為空值。依輸入順序回每位學生的小組前後值。 |
+| OP-09 `group.save` | 必帶，新建用 `rev: 0` | `group_key` 1 至 50 字且不得為 `unassigned`，`name` 1 至 100 字。選填 `leader_student_id` 為非空字串或 JSON null。 | 驗輸入、有指定組長就查本班學生，再驗小組版本。新建省略組長時為空值，更新省略時保留原值，帶 JSON null 時清除。 |
+
+引用既有學生的編號接受非空文字，包含匯入編號。OP-04 不補既有作業的指派，後續可用 OP-14 帶 `rev: 0` 補上。座號重複只查本班 `enrolled` 或 `home_study` 的其他學生。OP-04、OP-05 的座號重複回 `INVALID_PAYLOAD`。原為 `transferred` 或 `archived` 的學生要改回這兩種在學狀態時，座號被占用會在版本檢查前回 `INVALID_TRANSITION`，可先用 OP-05 改座號。
+
+OP-02 與 OP-03 共用班級列版本。過期時 `current.value` 含 `name`、`alias`、`teacher_name`、`school_year` 與 `status`。OP-05 至 OP-08 共用學生列版本。OP-05 至 OP-07 的過期現值含 `name`、`seat_number`、`avatar`、`group_key`、`enrollment_status` 與 `exempt_rules`。OP-08 使用 `per_item` 模式，項目可帶 `rev` 或 `after_op` 擇一，`rev: 0` 對既有學生一律不相符。過期時 `current` 為 `{ "items": [...] }`，只列不符項目，順序與輸入相同。各項有 `student_id`、`value`（只含 `group_key`）、`rev`、`last_op_id`、`actor`、`committed_at`。學生的分組可先於小組命名，組長可由本班其他組學生擔任。
+
+設定型操作的同值提交照常取得序號，收據的 `prev_rev` 等於 `rev`，資料列保留原版本與最後改動編號。OP-08 只更新有變動的學生，所有項目都沒變時整筆為 `noop`。新建的 `group` 收據以 `{group_key}` 為鍵，值含 `name` 和 `leader_student_id`，更新時列出送來的欄位。班級與學生各以 `{class_id}` 和 `{student_id}` 為鍵。
 
 ## 作業與規則操作
 
@@ -430,6 +452,8 @@ OP-12 真的作廢且選沖回時，逐筆沖回仍有效的作業效果，依�
 - 薪資期別、歷史期別旗標、收據與已知限制依「職務、發薪、值日」。事件列舉中的 `payroll`、`duty_pay` 留給效果表，OP-38 與規則表各自限制事件規則只能使用既有五種事件。
 - 第 8 包的暫定做法 94 至 112 詳見「小野的呼叫、上限與暫緩」及「整批撤銷 OP-51」。10 分鐘的人數不含老師確認後才成立的操作，OP-51 至少要求一筆已成立操作。
 - 第 8 包的暫定做法 113 沿用 10 分鐘人數視窗，小野可分多次逐步影響全班。小野入口沒有放棄程序。跨午夜時，輸入與金額上限用同一次呼叫的臺灣日期。異班並行使用同一 `call_id` 時，較晚寫入者可能撞主鍵而整次回復，再送回 `CALL_ID_REUSED`。
+
+- 第 9 包甲段的暫定做法 114 至 120、133 與相關的 134 依「班級、學生與小組」。轉換器的 `classes.teacher` 對應操作的 `teacher_name`。轉換器以 JSONB 保留舊頭像，OP-05 的新輸入限字串或 JSON null。
 
 ## 未實作清單
 
