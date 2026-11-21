@@ -1,12 +1,12 @@
 # 改版資料庫寫入程序
 
-第 1 包提供老師的手動點數調整（OP-24）、商店購買（OP-31）、操作重送與放棄，以及老師和小野共用的繳交狀態變更（OP-14）。第 2 包甲段新增作業建立、更新、作廢與恢復（OP-10 至 OP-13），以及規則存檔與停用（OP-38、OP-39）。第 2 包乙段補上每日任務獎勵、學生點收提議及其確認與退回（OP-15 至 OP-17）。第 3 包新增手動規則套用、更正與沖回、道具使用、商品存檔與停用及設定存檔。第 4 包加入撤銷（OP-50）。第 5 包加入訂正輪次（OP-18 至 OP-23）、五種訂正操作的撤銷及逾期排程（OP-52）。第 6 包加入歷史效果裁決（OP-53）、繳交限制及作廢沖回提示。資料表和函式位於 `ppt`。操作規格見 [v0.4 總則](../../docs/revamp/operation-contract/01-操作規格-v0.4-總則.md)、[操作與點數](../../docs/revamp/operation-contract/02-操作規格-v0.4-操作與點數.md) 與 [連線、讀取與未決事項](../../docs/revamp/operation-contract/03-操作規格-v0.4-連線讀取與未決.md)。
+第 1 包提供老師的手動點數調整（OP-24）、商店購買（OP-31）、操作重送與放棄，以及老師和小野共用的繳交狀態變更（OP-14）。第 2 包甲段新增作業建立、更新、作廢與恢復（OP-10 至 OP-13），以及規則存檔與停用（OP-38、OP-39）。第 2 包乙段補上每日任務獎勵、學生點收提議及其確認與退回（OP-15 至 OP-17）。第 3 包新增手動規則套用、更正與沖回、道具使用、商品存檔與停用及設定存檔。第 4 包加入撤銷（OP-50）。第 5 包加入訂正輪次（OP-18 至 OP-23）、五種訂正操作的撤銷及逾期排程（OP-52）。第 6 包加入歷史效果裁決（OP-53）、繳交限制及作廢沖回提示。第 7 包加入職務與指派（OP-35 至 OP-37）、值日設定與每日名單（OP-29）、一般發薪與值日薪資（OP-28、OP-30）及兩種發薪的撤銷。資料表和函式位於 `ppt`。操作規格見 [v0.4 總則](../../docs/revamp/operation-contract/01-操作規格-v0.4-總則.md)、[操作與點數](../../docs/revamp/operation-contract/02-操作規格-v0.4-操作與點數.md) 與 [連線、讀取與未決事項](../../docs/revamp/operation-contract/03-操作規格-v0.4-連線讀取與未決.md)。
 
 ## 資料表
 
 | 表 | 用途與約束 |
 |---|---|
-| `classes` | 班級狀態、版本及從 0 起算的 `class_seq`。序號是提交游標，推進序號時班級資料的版本與最後改動者維持原值。 |
+| `classes` | 班級狀態、版本、從 0 起算的 `class_seq` 及可空的 `cutover_date`。序號是提交游標，推進序號時班級資料的版本與最後改動者維持原值。匯入時寫入切換日，不推進版本。 |
 | `class_ownership` | 班級與老師的對應，每班一位擁有者。 |
 | `class_authorizations` | 以班級與身分種類為鍵，保存小野與排程授權。測試由 SQL 建立授權列。 |
 | `operations` | 以全庫唯一的 `op_id` 保存操作者、輸入、內容雜湊、狀態和收據。`recorded_at` 記登記時間。只有成立的操作有 `class_seq` 與 `committed_at`。`operations_one_committed_undo` 是部分唯一索引，只收成立的 `op.undo`，鍵是 `class_id` 與 `payload->>'target_op_id'`。 |
@@ -14,12 +14,14 @@
 | `accounts` | 每位學生一列，保存餘額、累計加分及版本。每寫一筆交易，帳戶版本加一並更新 `last_op_id`。 |
 | `transactions` | 以班級與交易編號為鍵的存摺。來源與操作／轉換批次的關係由資料庫檢查，每筆根交易至多沖回一次。觸發程序擋下更新、刪除及清空。規則產生的交易記 `rule_id` 與 `rule_rev`。程序依 `effective_at` 的臺灣日期填 `semester`，無歸屬時間時留空。撤銷補回的根交易另記 `restored_from_transaction_id`，指向快照記下的原根交易。 |
 | `rules`、`rule_versions` | 規則的 `rev` 指向現行版本。每班每個事件至多一條啟用規則，已發行的版本只能新增。建立規則與首版、調整現行版本與新增版本均須在同一交易完成。 |
-| `effects` | 記學生、事件、對象、規則版本、根交易、來源、接替鏈及產生／沖回的操作。未裁決和裁決為未扣分的歷史效果，事件與根交易為空。候選交易可另記在 `suggested_transaction_id`，供畫面排序。同一班內，同一學生同一事件同一對象、同一接替鏈，各至多一筆有效效果。 |
+| `effects` | 記學生、事件、對象、規則版本、根交易、來源、接替鏈及產生／沖回的操作。未裁決和裁決為未扣分的歷史效果，事件與根交易為空。候選交易可另記在 `suggested_transaction_id`，供畫面排序。同一班內，同一學生同一事件同一對象、同一接替鏈，各至多一筆有效效果。`payroll` 與 `duty_pay` 只供效果使用，規則編號及版本皆空。 |
 | `tasks`、`submissions` | 作業列存標題、類型、可空的頁碼文字 `page_text`、發布日、截止日、學期及作廢狀態。繳交以班級、作業、學生為鍵，含狀態、版本、基準、是否參與及匯入時的狀態。 |
 | `confirmations` | 保存 `leader_proposal` 與預留的 `agent_held`。項目有作業、學生、提議狀態、建立及處理操作與時間，以及 `rev`、`last_op_id`。狀態是 `pending`、`confirmed`、`rejected` 或 `superseded`。部分唯一索引限制同一班、同一筆繳交最多有一筆尚未處理的 `leader_proposal`。 |
 | `corrections` | 每輪一列，以班級與 `correction_id` 為主鍵，外鍵指向本班作業及學生。保存 `round`、`status`、可空的 `due_on`、`note`、`overdue_on` 及版本欄位。同班、同作業、同學生的輪次唯一，另有部分唯一索引保證至多一列為 `required` 或 `returned`。`basis_rev` 介於 0 和 `rev` 之間，基準為 0 時狀態須為 `cancelled`。 |
 | `products`、`inventory_items` | 商品列存價格、單位、庫存、可空的 `description` 及停用狀態。背包物品記購買時的名稱、圖示、購買交易編號及物品狀態。 |
 | `settings_entries` | 以班級與設定鍵定位一筆 JSONB 設定。購買使用 `currency`。 |
+| `jobs` | 以班級與職務編號為鍵，保存 `title`、`salary`、`icon`、`cycle`、`category`、`disabled`、`assignee_ids`、`origin` 與版本。指派名單以 JSONB 陣列整份保存。 |
+| `daily_duties` | 以班級與 `duty_date` 為鍵，每天一列，保存 `student_ids` 陣列及版本。 |
 
 所有編號用 `text`，可容納匯入的 64 字元編號。版本列預設 `rev = 1`、`last_op_id = NULL`。
 
@@ -50,7 +52,9 @@
 - `confirmation` 以 `{confirmation_id}` 為鍵。提議新建時列出完整值，`prev_rev` 為 0、`prev_value` 為 null。取代、確認或退回時，列出狀態、處理操作及處理時間的前後值。OP-15 的 `changes` 只列實際改動的待確認項目。
 - `inventory.use` 的 `changes` 依序列 `inventory_item` 與 `account`。物品前後值各只有 `status`，由 `held` 變成 `used`。零元交易仍推進帳戶版本。
 - 商品存檔與停用的 `product` 值含 `name`、`icon`、`price`、`price_unit`、`stock`、`initial_stock`、`description`、`disabled`。OP-31 的商品變更仍只列庫存。
+- `job` 以 `{job_id}` 為鍵，值含 `title`、`salary`、`icon`、`cycle`、`category`、`disabled`、`assignee_ids`。`duty` 以 `{date}` 為鍵，值含 `student_ids`。兩者新建的 `prev_rev` 為 0、`prev_value` 為 JSON null。
 - `setting` 以 `{key}` 定位設定列，前後值各為 `{"value": 設定值}`，新建的 `prev_value` 為 JSON null。
+- OP-36 停用目前的值日職務時，`changes` 依序列 `job`、`setting`。設定項以 `{"key":"dutyJobId"}` 定位，前後值從 `{"value":"<job_id>"}` 變為 `{"value":null}`。設定版本推進後可用這筆 OP-36 作為 OP-43 的 `expect.after_op`。
 - `RULE_VERSION_STALE` 的 `current` 只有 `rev` 和 `value.amount`。OP-26、OP-27 的 `STALE_STATE` 只回根交易的 `transaction_id` 與 `effective_amount`。
 - 版本列的 `STALE_STATE` 的 `current` 有 `value`、`rev`、`last_op_id`、`actor`、`committed_at`。最後改動的資料取自同班的操作紀錄。目標列不存在時，`rev` 為 0，其他欄位為 JSON null。OP-14 的版本條件通過後，若 `only_if_no_proposal: true` 擋下操作，`current.proposal` 有 `confirmation_id`、`proposed_status`、`status`、`proposed_at`，其中 `proposed_at` 是提議的提交時間。
 - `warnings` 是物件陣列，每項至少有 `code`。`LEGACY_DAY_NO_DAILY_QUEST` 另有 `student_id` 與 `date`，日期是 `YYYY-MM-DD`。每日任務交易仍列入 `result.transactions`，效果清單以 `event: daily_quest.complete` 識別，`subject_kind` 是 `date`，`subject_key` 是截止日。
@@ -63,7 +67,7 @@
 1. 提交先檢查交易隔離層級，再驗信封。操作須為物件、有非空的字串 `class_id`，且 `payload` 以資料庫的 JSONB 文字輸出計算，最多 64 KiB UTF-8。信封不符回 `BAD_ENVELOPE`。
 2. 單筆提交與放棄先驗傳入身分，無效身分拋出 `22023`，系統身分走未實作分支。小野入口先檢查整批信封和重複編號。接著驗班級存取權及編號格式，鎖住班級列後再驗一次存取權。班級不存在或無存取權都回 `CLASS_FORBIDDEN`，編號不符回 `INVALID_OP_ID`。這兩種回應都不登記操作。
 3. 登記編號。主鍵處理跨班同編號競爭。已有編號時依重送規則比對，內容衝突回 `OP_ID_REUSED`。
-4. 新操作依序檢查 `UNKNOWN_OP_TYPE`、`FORBIDDEN_ROLE`、`CLASS_ARCHIVED`、輸入的 `INVALID_PAYLOAD`、小野的 `SCOPE_FORBIDDEN`、`NOT_FOUND`、`ENTITY_INACTIVE`、`INVALID_TRANSITION`、`STALE_STATE`、各操作專屬檢查。專屬檢查若有 `ID_CONFLICT`，排在其餘專屬檢查之前。OP-50 查到原操作後依撤銷一節的順序檢查。目前辨識 OP-10 至 OP-27、OP-31 至 OP-34、OP-38、OP-39、OP-43、OP-50、OP-52 與 OP-53。小野可呼叫 OP-14、OP-18、OP-19、OP-25 與 OP-50，撤銷限自己的操作。排程只可呼叫 OP-52。
+4. 新操作依序檢查 `UNKNOWN_OP_TYPE`、`FORBIDDEN_ROLE`、`CLASS_ARCHIVED`、輸入的 `INVALID_PAYLOAD`、小野的 `SCOPE_FORBIDDEN`、`NOT_FOUND`、`ENTITY_INACTIVE`、`INVALID_TRANSITION`、`STALE_STATE`、各操作專屬檢查。專屬檢查若有 `ID_CONFLICT`，排在其餘專屬檢查之前。OP-50 查到原操作後依撤銷一節的順序檢查。目前辨識 OP-10 至 OP-39、OP-43、OP-50、OP-52 與 OP-53。小野可呼叫 OP-14、OP-18、OP-19、OP-25 與 OP-50，撤銷限自己的操作。排程只可呼叫 OP-52。
 5. 套用操作後，推進 `class_seq` 並保存收據。OP-24 的金額是非零整數，絕對值至多 100000，理由至多 100 字，省略或空白時存「手動調整」。帳戶可為負值，這筆交易的 `earned_delta` 等於 `amount`。
 
 OP-14 接受 `expect.rev` 或同班且已成立的 `expect.after_op`。不存在或不參與的列接受 `rev: 0`；重新建立不參與的列會推進版本並重設基準。改成補交時保留作業扣分效果。其他狀態依現存效果沖回或新增。沖回採根交易的有效金額與原歸屬時間，包含 0 元沖回。版本通過後先檢查 `only_if_no_proposal`，再判斷同值與未裁決歷史效果。同值成立時保留待確認提議，真正改動才取代提議。
@@ -125,12 +129,64 @@ OP-14 與 OP-16 真的改動繳交時，在同一交易判定這位學生於作�
 | `currency` | 含 `base`、`tier1`、`tier2` 三個物件。後兩者的 `rate` 須為 1 至 100000 的整數。名稱及圖示不驗。既有的字串匯率仍可供購買讀取。 |
 | `agentLimits` | 恰有 `max_students_per_call`、`max_students_per_10min`、`max_points_per_tx`、`max_points_per_student_per_day`、`max_pending_held` 五鍵。各值為 1 至 100000 的整數。 |
 | `correctionOverdueGraceDays` | 0 至 365 的整數。 |
-| `dutyJobId` | JSON null 或本班未停用的職務編號。職務查找及有效性檢查排在設定版本之前。停用目前的值日職務會將這個設定清成 JSON null。 |
+| `dutyJobId` | JSON null 或本班未停用的職務編號。職務查找及有效性檢查排在設定版本之前。停用目前的值日職務會將這個設定清成 JSON null。OP-28 跳過這個職務，OP-30 取用它的現行薪資。 |
 | `currentSemester` | JSON null，或兩至三位數年份加 `-1` 或 `-2`。 |
 | `taskTypes` | 不重複的非空字串陣列。 |
 | `ruleCategories` | 物件陣列。 |
 | `semesterPeriods` | 各值皆為物件。有 `start` 或 `end` 時，各值須為 JSON null 或有效的 `YYYY-MM-DD` 日期。 |
 | `shopMeta` | 物件。 |
+
+## 職務、發薪、值日
+
+六種操作都只供老師呼叫。下表列出 `payload` 的完整允許鍵。必帶的 `expect` 用 `rev` 或 `after_op` 擇一，只有新建接受 `rev: 0`。禁帶時，傳 JSON null 也會被拒絕。日期採有效的 `YYYY-MM-DD`，可補發過去的期別。`include_legacy_periods` 只接受布林，預設為 `false`。
+
+| 操作 | `expect` | 輸入 | 目標檢查與成立結果 |
+|---|---|---|---|
+| OP-28 `payroll.run` | 禁帶 | `job_ids`，選填 `pay_date`、`include_legacy_periods` | 先查全部職務，任何一個查不到就拒絕整筆。依送來的職務順序發放，職務內依學生編號排序。省略日期時，用提交時間的臺灣日期。 |
+| OP-29 `duty.set` | 必帶，新建用 `rev: 0` | `date`、`student_ids` | 先查本班學生，再查當天名單的版本。依輸入順序新增或整份取代名單，允許空名單。保留已發的薪資。 |
+| OP-30 `duty.pay` | 禁帶 | `date`，選填 `include_legacy_periods` | 值日職務未設定、設定為空、指定日無名單列或名單為空，皆回 `INVALID_TRANSITION`。設定引用缺失的職務時拋出資料異常。依指定日期的名單按學生編號順序發放，金額取當下的值日職務薪資。 |
+| OP-35 `job.save` | 必帶，新建用 `rev: 0` | `job_id`、`title`、`salary`、`cycle`，選填 `icon`、`category` | 先查版本，再驗新建編號為小寫 UUID v4。整份存檔，更新時保留指派與來源。存檔可重新啟用停用職務，已發薪資保留。 |
+| OP-36 `job.retire` | 必帶 | `job_id` | 先查職務再查版本。停用並保留指派。若為目前的值日職務，同時清除設定並推進設定版本。 |
+| OP-37 `job.set_assignees` | 必帶 | `job_id`、`student_ids` | 依序查職務與學生是否存在、職務是否停用、職務版本。依輸入順序整份取代指派，允許空名單。 |
+
+設定型同值操作成立且保留資料列版本。OP-29、OP-35、OP-36、OP-37 不可撤銷。引用現有職務與學生時接受非空字串，含匯入編號。`job_ids` 至少含一項，職務與學生名單的項目都須是互不重複的非空字串。OP-29、OP-37 可保存轉出或封存學生。
+
+### 期別與切換日
+
+| 週期 | 期別 | 第一天 |
+|---|---|---|
+| `daily` | `YYYY-MM-DD` | 當天 |
+| `weekly` | ISO 年和週，例如 `2026-W53` | 該週星期一 |
+| `monthly` | `YYYY-MM` | 當月 1 日 |
+| `semester` | 依 `semester_at(pay_date)` 得學期代號 | 上學期從 8 月 1 日起，含翌年 1 月。下學期從 2 月 1 日起。 |
+| `once` | `once` | 無 |
+
+期別第一天早於班級 `cutover_date` 時，OP-28 預設保留待確認。OP-30 直接比指定日與切換日。同日可發；班級切換日為空時照常發放。一次性職務依來源判定，`origin = migration` 即須確認，含班級切換日為空的情況。帶 `include_legacy_periods: true` 可發給合格且尚未領取的學生。班級切換日與 `origin = migration` 由匯入程序寫入，現階段以測試資料驗證。舊版薪資與值日紀錄保留原樣，不建立薪資效果，也不供新版判定是否已發。
+
+### 發薪收據與防重
+
+每筆薪資寫一筆 `payroll` 交易及一筆效果。交易金額和 `earned_delta` 等於當下薪資，`occurred_at` 與 `effective_at` 同為該操作的提交時間。理由格式是「職稱 薪資 (期別或日期)」。一般發薪的效果事件是 `payroll`、對象種類是 `job_period`、對象鍵為 `<job_id>|<期別>`。值日薪資的效果事件是 `duty_pay`、對象種類是 `date`、鍵為指定日期。同班、同學生、同事件及對象已有有效效果才算已發。沖回後可再發。
+
+兩種發薪成立時都回 `result.paid` 與 `result.skipped`，沒有項目時為空陣列。已有同一期有效效果的學生優先列為 `already_paid`。交易與新增效果按寫入順序排列。帳戶變更依學生編號排序，同一學生多筆交易合併成一項。
+
+| 操作 | `paid` 項目 | `skipped` 項目與原因 |
+|---|---|---|
+| OP-28 | `{job_id, period, student_id, transaction_id, amount}` | `{job_id, period, student_id, reason}`。`duty_job` 每個職務一項，期別與學生為 null。`already_paid` 逐人列。跨切換日且未確認時，若有合格學生尚未領取，先逐人列 `already_paid`，再列一項 `legacy_period`，學生為 null。 |
+| OP-30 | `{student_id, date, transaction_id, amount}` | `{student_id, date, reason}`。逐人列出已發的 `already_paid`，或切換日前尚未發且未確認的 `legacy_period`，日期採送出的日期。 |
+
+一般發薪先略過停用職務，再列值日職務，接著略過零薪資。停用職務、兩種發薪的零薪資及轉出或封存學生均不列為待確認或已發。沒有交易時成立為 `noop`，`changes` 為空，仍取得班級序號。
+
+值日薪資由三個條件維持單一入口。
+
+1. OP-28 在班級鎖內讀取一次 `dutyJobId`，跳過該職務。
+2. OP-30 依指定日的值日名單發薪，以學生加日期為判定對象，職務指派不參與。
+3. 兩個入口共用班級列鎖，依序完成檢查與寫入。效果的唯一索引分別保護各事件與對象。
+
+### 已知限制
+
+- 兩次發薪間若清除或換掉目前的值日職務，舊職務可能改由 OP-28 發薪，同時在指派與值日名單上的學生可能另領一筆。
+- 發薪後改週期，新的週期可使用不同的期別鍵，可能對同一時段再發一次。
+- 切換日當天的日薪與值日薪資可以發放。若舊版當天已發薪，須在切換作業時核對存摺。
 
 ## 訂正輪次
 
@@ -207,7 +263,7 @@ OP-12 真的作廢且選沖回時，逐筆沖回仍有效的作業效果，依�
 | 無候選 | `legacy_unresolved` | 空 | 空 | 空 |
 | 候選被否決或試匯入未裁決 | `legacy_unresolved` | 空 | 空 | 候選交易編號 |
 
-匯入程序對有版本的列設 `rev = 1`、`last_op_id = NULL`。繳交另設 `basis_rev = 1`、`assignment_active = true`，把轉換出的狀態同步填入 `status` 與 `legacy_status_at_import`，之後保留匯入狀態原值。批次 `cutover_date` 會由匯入程序寫入班級，班級欄位由第 7 包建立。效果表的來源追溯資料去向由匯入工單決定。目前的驗收使用 SQL 建立上述匯入結果。
+匯入程序對有版本的列設 `rev = 1`、`last_op_id = NULL`。繳交另設 `basis_rev = 1`、`assignment_active = true`，把轉換出的狀態同步填入 `status` 與 `legacy_status_at_import`，之後保留匯入狀態原值。匯入程序會把批次 `cutover_date` 寫入班級欄位。效果表的來源追溯資料去向由匯入工單決定。目前的驗收使用 SQL 建立上述匯入結果。
 
 ## 撤銷 OP-50
 
@@ -230,6 +286,8 @@ OP-12 真的作廢且選沖回時，逐筆沖回仍有效的作業效果，依�
 | OP-24 `points.adjust` | 無。 | 用目前有效金額沖回原交易。已沖回時跳過。 |
 | OP-25 `points.apply_rule` | 無。 | 同 OP-24。規則金額與是否停用皆不影響沖回。 |
 | OP-26 `tx.correct` | 根交易在原更正之後，依班級序號查無後續更正或沖回。 | 寫一筆反向更正，沿用根交易的歸屬時間與累計加分口徑，理由加上「撤銷」前綴。原更正為零元備註時照樣寫零元反向更正。 |
+| OP-28 `payroll.run` | 無。 | 依原收據逐筆以現值沖回，含零元。結束連著的有效效果，快照記沖回前的有效金額。已沖回者跳過，金額改過或已沖回者帶提示。 |
+| OP-30 `duty.pay` | 無。 | 同 OP-28。同一天可重新發放已沖回的薪資。 |
 | OP-31 `shop.purchase` | 物品仍為 `held`。 | 依目前有效金額退點，物品改成 `returned`，商品庫存加一。物品、商品與帳戶推進版本。停用商品或轉出學生也可撤。金額改過時帶提示，改為零時寫零元沖回。 |
 | OP-32 `inventory.use` | 物品仍為 `used`。 | 物品回到 `held`，對原使用交易寫零元沖回，物品與帳戶推進版本。 |
 
@@ -241,12 +299,13 @@ OP-12 真的作廢且選沖回時，逐筆沖回仍有效的作業效果，依�
 
 ### 撤銷收據
 
-- 每筆成立的撤銷都含 `result.undo`，鍵為 `target_op_id`、`skipped`、`amount_changed`。原操作未改資料，或 OP-24／OP-25 的交易都已沖回時，撤銷成立並取得 `class_seq`，`result.noop` 是 true，`changes` 與新交易均為空。
+- 每筆成立的撤銷都含 `result.undo`，鍵為 `target_op_id`、`skipped`、`amount_changed`。原操作未改資料，或 OP-24、OP-25、OP-28、OP-30 的交易都已沖回時，撤銷成立並取得 `class_seq`，`result.noop` 是 true，`changes` 與新交易均為空。
 - OP-31 的 `changes` 依序是 `inventory_item`、`product`、`account`。OP-32 依序是 `inventory_item`、`account`。物品的前後值只列 `status`，商品只列 `stock`。OP-26 只列帳戶。
 - 原交易或效果已沖回而跳過，或以改過的金額沖回時，逐筆加上 `UNDO_EFFECT_MANUALLY_CHANGED`。物件有 `code`、`case`、`effect_id`、`lineage_id`、`transaction_id`、`changed_by_op_id`、`original_amount`、`amount`。純交易的效果與接替鏈編號為 null。
 - `case: already_reversed` 帶原操作記的根交易編號、執行沖回的操作編號及 `amount: null`。效果已接替時，取接替鏈最後一筆效果的沖回者，順序依建立該效果的班級序號，沒有建立操作的歷史效果排最前。
 - `case: amount_changed` 帶實際被沖回的根交易編號、該根交易最後一筆更正的操作編號及本次沖回前的有效金額。補回時金額已不同、而這筆根交易沒有更正時，`changed_by_op_id` 為 null。原操作記的效果金額，或純交易的根交易金額，放在 `original_amount`。
 - `result.undo.skipped` 和 `result.undo.amount_changed` 分別收錄上述兩種物件，省略 `code` 與 `case`。提示及這兩個陣列省略理由、規則名稱與操作者編號。撤銷的效果與新交易照常列在 `result`，交易依寫入順序。
+- OP-28、OP-30 的撤銷不受學生轉出或職務停用影響，`changes` 只列帳戶，每位學生合併為一項並依學生編號排序。效果快照的規則欄位為 null。兩種改動提示的 `effect_id` 與 `lineage_id` 都是 null，`transaction_id` 是原薪資交易編號。
 
 `UNDO_CONFLICT` 的 `current` 依原因回傳下列欄位。小野的 `actor` 只帶 `kind`。
 
@@ -284,6 +343,9 @@ OP-12 真的作廢且選沖回時，逐筆沖回仍有效的作業效果，依�
 - 訂正真改時推進版本與基準，撤銷時按原收據回復基準。作廢作業選沖回的範圍為作業效果。老師可用 OP-22 取消未結束的輪次並選沖回。
 - OP-52 的有效輸入日期接受補跑且沒有上限，呼叫端負責選擇日期。調整寬限天數只影響後續挑選，已保存的逾期日及已成立的效果保留。
 - 歷史效果的匯入形狀、檢查及收據如「歷史效果」所述。資料庫驗收以兩次提交驗證裁決與狀態變更的串接；同一 HTTP 請求承載兩筆操作由端點處理。畫面可用撤銷衝突的 `current.last_op_id` 查原操作種類。
+- 職稱限 1 至 100 字，OP-35 的薪資限 0 至 100000 的整數。圖示、分類選填字串，省略時存空值。匯入薪資由匯入流程處理，`jobs.salary` 可保存 numeric。職務重新啟用時，值日設定仍須另送 OP-43。
+- 指派和每日值日名單以陣列保存，寫入時查本班學生，並以整份陣列含順序比對是否同值。學生之後轉出時保留名單，發薪時才依在學狀態篩選。
+- 薪資期別、歷史期別旗標、收據與已知限制依「職務、發薪、值日」。事件列舉中的 `payroll`、`duty_pay` 留給效果表，OP-38 與規則表各自限制事件規則只能使用既有五種事件。
 
 ## 未實作清單
 
