@@ -85,8 +85,10 @@ async function assertTablePrivileges(client) {
   `, [applicationSchemas, checkedRoles, tablePrivileges, sequencePrivileges])
   expect(rows.some((row) => row.schema === 'ppt' && row.relkind !== 'S'), 'ppt 的資料表存在').toBe(true)
   for (const row of rows) {
-    const expected = row.relkind !== 'S' && row.schema === 'ppt'
-      && row.privilege === 'SELECT' && tableReaders.includes(row.role)
+    const expected = row.privilege === 'SELECT' && (
+      (row.relkind !== 'S' && row.schema === 'ppt' && tableReaders.includes(row.role))
+      || (row.relkind === 'v' && row.schema === 'ppt_agent' && row.role === 'ppt_agent')
+    )
     expect(row.allowed, `${row.role} ${row.privilege} ${row.object}`).toBe(expected)
   }
 }
@@ -231,6 +233,25 @@ describeDatabase('資料庫權限清點', () => {
 
   it('C04 只有指定連線角色可執行各自的入口或輔助函式', async () => {
     await assertExecutePrivileges(database().client)
+  })
+
+  it('C03 能抓到小野檢視表超出 SELECT 白名單的每種授權', async () => {
+    await withOwnerTransaction(database(), async (client) => {
+      await client.query('CREATE VIEW ppt_agent.test_view AS SELECT 1 AS sample')
+      await client.query('GRANT SELECT ON ppt_agent.test_view TO ppt_agent')
+      await assertTablePrivileges(client)
+
+      for (const role of ['ppt_web', 'ppt_backup', 'PUBLIC']) {
+        await client.query(`GRANT SELECT ON ppt_agent.test_view TO ${role}`)
+        await expect(assertTablePrivileges(client)).rejects.toThrow('SELECT ppt_agent.test_view')
+        await client.query(`REVOKE SELECT ON ppt_agent.test_view FROM ${role}`)
+      }
+      for (const privilege of tablePrivileges.filter((name) => name !== 'SELECT')) {
+        await client.query(`GRANT ${privilege} ON ppt_agent.test_view TO ppt_agent`)
+        await expect(assertTablePrivileges(client)).rejects.toThrow(`ppt_agent ${privilege} ppt_agent.test_view`)
+        await client.query(`REVOKE ${privilege} ON ppt_agent.test_view FROM ppt_agent`)
+      }
+    })
   })
 
   it('C05 只有三支函式以擁有者身分執行且每支皆固定搜尋順序', async () => {
