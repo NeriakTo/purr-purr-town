@@ -4,6 +4,7 @@ import { agentSubmit, authorizeAgent } from './agent.js'
 import { classSnapshot } from './checks.js'
 import { addClass, submit } from './operations.js'
 import { commitOperation, operation } from './schoolwork.js'
+import { setSetting } from './settings.js'
 
 export const payrollDay = '2026-12-07'
 
@@ -54,6 +55,19 @@ export async function addPayrollJob(client, classId, studentIds, { retired = fal
   const assigned = await commitOperation(client, assignJob(classId, jobId, studentIds))
   if (retired) await commitOperation(client, retireJob(classId, jobId, { after_op: assigned.op_id }))
   return jobId
+}
+
+export async function prepareDuty(client, {
+  students = ['enrolled', 'enrolled'], salary = 3, roster = [1, 0], assigned = [], day = payrollDay,
+} = {}) {
+  const fixture = await addClass(client, { students })
+  const { classId, studentIds } = fixture
+  const jobId = await addPayrollJob(client, classId, assigned.map((index) => studentIds[index]), {
+    title: '值日生', salary, cycle: 'daily',
+  })
+  await commitOperation(client, setSetting(classId, 'dutyJobId', jobId))
+  await commitOperation(client, setDuty(classId, day, roster.map((index) => studentIds[index])))
+  return { ...fixture, jobId }
 }
 
 export async function payrollRows(client, classId) {
