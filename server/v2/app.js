@@ -2,6 +2,7 @@ import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import { logError, RequestError, sendError } from './errors.js'
 import { sqlState } from './db.js'
+import { registerCancelRoute } from './ops/cancel.js'
 import { registerSubmitRoute } from './ops/submit.js'
 
 const bodyErrors = new Set([
@@ -33,6 +34,7 @@ export function buildV2App({ pool, config = {}, clock = () => new Date(), logger
   app.setErrorHandler(handleError)
   app.removeContentTypeParser('text/plain')
   registerSubmitRoute(app, { pool, config, clock, hooks })
+  registerCancelRoute(app, { pool, config, clock })
 
   function onPoolError(error) {
     const code = error?.code

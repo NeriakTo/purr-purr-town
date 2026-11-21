@@ -12,6 +12,15 @@ function isNonEmptyString(value) {
   return typeof value === 'string' && value.length > 0
 }
 
+export function validateClassEnvelope(body) {
+  if (!isObject(body) || !isNonEmptyString(body.class_id)) throw new RequestError('BAD_ENVELOPE')
+}
+
+export function validateCancelEnvelope(body) {
+  validateClassEnvelope(body)
+  if (typeof body.op_id !== 'string') throw new RequestError('BAD_ENVELOPE')
+}
+
 function validateOperations(ops) {
   const ids = new Set()
   for (const op of ops) {
