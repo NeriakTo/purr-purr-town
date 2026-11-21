@@ -31,11 +31,12 @@ function readCommentsConfig(config) {
     throw new RangeError('comments.retryDelaysMs 最多五項，每項必須是 0 到 60000 的整數')
   }
   const retryDelaysMs = [...delays]
+  const attemptCount = retryDelaysMs.length + 1
   const minimum = timeoutMs + retryDelaysMs.reduce((total, delay) => total + delay, 0)
-    + 4 * (config.statementTimeoutMs ?? 30000)
+    + attemptCount * (config.statementTimeoutMs ?? 30000)
   const sweepAfterMs = comments?.sweepAfterMs === undefined ? 600000 : comments.sweepAfterMs
   if (!Number.isSafeInteger(sweepAfterMs) || !(sweepAfterMs > minimum)) {
-    throw new RangeError('comments.sweepAfterMs 必須大於評語逾時、重送等待總和和四倍語句逾時之總和')
+    throw new RangeError('comments.sweepAfterMs 必須大於評語逾時、重送等待總和與語句逾時乘以送出次數（重送項數加一）之總和')
   }
   return { timeoutMs, retryDelaysMs, sweepAfterMs }
 }

@@ -209,14 +209,16 @@ describe.skipIf(!process.env.PPT_TEST_DATABASE_URL)('評語清掃與關閉', () 
   }, 3000)
 })
 
-test('清掃門檻必須嚴格大於逾時、全部重送等待和四倍語句逾時之和', async () => {
+test('清掃門檻必須嚴格大於逾時、全部重送等待和每次送出語句逾時之和', async () => {
   const pool = new EventEmitter()
   for (const settings of [
     { timeoutMs: 120000, retryDelaysMs: [1000, 2000, 4000], statementTimeoutMs: 30000 },
     { timeoutMs: 10000, retryDelaysMs: [2, 3, 5], statementTimeoutMs: 1234 },
+    { timeoutMs: 10000, retryDelaysMs: [2, 3, 5, 7, 11], statementTimeoutMs: 1234 },
   ]) {
     const { statementTimeoutMs, timeoutMs, retryDelaysMs } = settings
-    const limit = timeoutMs + retryDelaysMs.reduce((total, delay) => total + delay, 0) + 4 * statementTimeoutMs
+    const limit = timeoutMs + retryDelaysMs.reduce((total, delay) => total + delay, 0)
+      + (retryDelaysMs.length + 1) * statementTimeoutMs
     function build(sweepAfterMs) {
       return buildV2App({ pool, config: { statementTimeoutMs, comments: { timeoutMs, retryDelaysMs, sweepAfterMs } } })
     }
