@@ -22,6 +22,7 @@ const entrypointRoles = {
 const invokerFunctionRoles = {
   'ppt.can_access_class(text, jsonb)': 'ppt_web',
   'ppt.system_actor()': 'ppt_web',
+  'ppt_agent.mask_student_names(text, jsonb)': 'ppt_agent',
 }
 const executeRoles = { ...entrypointRoles, ...invokerFunctionRoles }
 
