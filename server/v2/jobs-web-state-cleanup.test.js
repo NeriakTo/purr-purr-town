@@ -172,7 +172,7 @@ describe.skipIf(!process.env.PPT_TEST_DATABASE_URL)('定期清除網站狀態', 
     const source = await readFile(new URL('index.js', import.meta.url), 'utf8')
     expect(source).toMatch(/startBackgroundJobs\(app,\s*\{\s*jobs:\s*createBackgroundJobList\(\)\s*\}\)/)
     const jobs = createBackgroundJobList()
-    expect(jobs.map(({ name }) => name)).toEqual(['correction_overdue', 'web_state_cleanup'])
+    expect(jobs.map(({ name }) => name)).toEqual(['correction_overdue', 'web_state_cleanup', 'comment_sweep'])
 
     const session = await createTestSession(client, 'test-teacher', { expiresAt: new Date(now - 31 * day) })
     await setupQueue()

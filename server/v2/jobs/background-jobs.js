@@ -1,3 +1,4 @@
+import { sweepStuckComments } from '../comments/sweep.js'
 import { RequestError } from '../errors.js'
 import { defaultTimers, readBackgroundConfig, validateTimers } from './config.js'
 import { createCorrectionOverdueJob } from './correction-overdue.js'
@@ -8,18 +9,19 @@ export function createBackgroundJobList() {
   return [
     { name: 'correction_overdue', run: createCorrectionOverdueJob() },
     { name: 'web_state_cleanup', run: cleanWebState },
+    { name: 'comment_sweep', run: sweepStuckComments },
   ]
 }
 
 export function startBackgroundJobs(app, options = {}) {
   const {
-    pool, config, clock = () => new Date(), timers = defaultTimers, hooks, jobs = [],
+    pool, config, clock = () => new Date(), timers = defaultTimers, hooks, commentGeneration, jobs = [],
   } = { ...app.backgroundJobContext, ...options }
   const settings = readBackgroundConfig(config)
   validateTimers(timers)
 
   const logger = app.log
-  const context = { pool, config: settings, clock, timers, logger, hooks }
+  const context = { pool, config: settings, clock, timers, logger, hooks, commentGeneration }
   let activeRound
   let timer = null
   let stopped = false
