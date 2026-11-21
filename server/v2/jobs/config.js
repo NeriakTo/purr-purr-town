@@ -21,11 +21,31 @@ export function readCleanupConfig(cleanup) {
   }
 }
 
+function readCommentsConfig(config) {
+  const { comments } = config
+  const timeoutMs = integerSetting(comments?.timeoutMs, 120000, 1000, 600000, 'comments.timeoutMs')
+  const configuredDelays = comments?.retryDelaysMs
+  const delays = configuredDelays === undefined ? [1000, 2000, 4000] : configuredDelays
+  if (!Array.isArray(delays) || delays.length > 5
+    || [...delays].some(delay => !Number.isInteger(delay) || delay < 0 || delay > 60000)) {
+    throw new RangeError('comments.retryDelaysMs 最多五項，每項必須是 0 到 60000 的整數')
+  }
+  const retryDelaysMs = [...delays]
+  const minimum = timeoutMs + retryDelaysMs.reduce((total, delay) => total + delay, 0)
+    + 4 * (config.statementTimeoutMs ?? 30000)
+  const sweepAfterMs = comments?.sweepAfterMs === undefined ? 600000 : comments.sweepAfterMs
+  if (!Number.isSafeInteger(sweepAfterMs) || !(sweepAfterMs > minimum)) {
+    throw new RangeError('comments.sweepAfterMs 必須大於評語逾時、重送等待總和和四倍語句逾時之總和')
+  }
+  return { timeoutMs, retryDelaysMs, sweepAfterMs }
+}
+
 export function readBackgroundConfig(config = {}) {
   return {
     ...config,
     jobs: { intervalMs: integerSetting(config.jobs?.intervalMs, 600000, 60000, 3600000, 'jobs.intervalMs') },
     cleanup: readCleanupConfig(config.cleanup),
+    comments: readCommentsConfig(config),
   }
 }
 
