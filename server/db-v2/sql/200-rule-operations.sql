@@ -23,7 +23,10 @@ BEGIN
     OR (p_payload->>'kind' = 'manual' AND p_payload ? 'event')
     OR (p_payload->>'kind' = 'event' AND (
       NOT has_nonempty_string(p_payload, 'event')
-      OR NOT (p_payload->>'event' = ANY(enum_range(NULL::rule_event)::text[]))
+      OR p_payload->>'event' NOT IN (
+        'submission.late', 'submission.missing', 'daily_quest.complete',
+        'correction.confirmed', 'correction.overdue'
+      )
     )) THEN
     PERFORM reject_operation('INVALID_PAYLOAD');
   END IF;

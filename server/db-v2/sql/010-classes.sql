@@ -1,6 +1,7 @@
 CREATE TABLE ppt.classes (
   class_id text PRIMARY KEY,
   status text NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'archived')),
+  cutover_date date,
   class_seq bigint NOT NULL DEFAULT 0 CHECK (class_seq >= 0),
   rev integer NOT NULL DEFAULT 1 CHECK (rev >= 1),
   last_op_id text
