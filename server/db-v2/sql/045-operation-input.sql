@@ -75,7 +75,7 @@ SET search_path = pg_catalog, ppt, pg_temp
 AS $$
 BEGIN
   CASE (SELECT expect_mode FROM operation_definition(p_op->'type'))
-    WHEN 'forbidden' THEN
+    WHEN 'forbidden', 'per_item' THEN
       IF p_op ? 'expect' THEN
         PERFORM reject_operation('INVALID_PAYLOAD');
       END IF;
