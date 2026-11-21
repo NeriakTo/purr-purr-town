@@ -6,10 +6,10 @@ export async function authorizeAgent(client, classId) {
   )
 }
 
-export async function agentSubmit(client, classId, ops, callId = randomUUID()) {
+export async function agentSubmit(client, classId, ops, callId = randomUUID(), note = null) {
   const { rows: [{ receipt }] } = await client.query(
     'SELECT ppt.agent_submit($1, $2, $3::jsonb, $4) AS receipt',
-    [classId, callId, JSON.stringify(ops), null],
+    [classId, callId, JSON.stringify(ops), note],
   )
   return receipt
 }

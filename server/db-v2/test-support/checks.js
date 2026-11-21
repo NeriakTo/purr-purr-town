@@ -22,7 +22,7 @@ export async function classSnapshot(client, classId, { ignoreClassSequence = fal
   const { rows: tables } = await client.query(`
     SELECT tablename, format('%I.%I', schemaname, tablename) AS qualified
     FROM pg_catalog.pg_tables
-    WHERE schemaname = 'ppt' AND tablename <> 'operations'
+    WHERE schemaname = 'ppt' AND tablename NOT IN ('operations', 'agent_calls')
     ORDER BY tablename
   `)
   const snapshot = createHash('sha256')
