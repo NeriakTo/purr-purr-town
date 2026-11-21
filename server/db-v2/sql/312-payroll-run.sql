@@ -24,8 +24,9 @@ LANGUAGE plpgsql
 SET search_path = pg_catalog, ppt, pg_temp
 AS $$
 BEGIN
-  IF NOT has_only_keys(p_payload, ARRAY['job_ids', 'pay_date'])
-    OR (p_payload ? 'pay_date' AND NOT valid_calendar_day(p_payload->'pay_date')) THEN
+  IF NOT has_only_keys(p_payload, ARRAY['job_ids', 'pay_date', 'include_legacy_periods'])
+    OR (p_payload ? 'pay_date' AND NOT valid_calendar_day(p_payload->'pay_date'))
+    OR (p_payload ? 'include_legacy_periods' AND jsonb_typeof(p_payload->'include_legacy_periods') <> 'boolean') THEN
     PERFORM reject_operation('INVALID_PAYLOAD');
   END IF;
   PERFORM validate_task_assignee_list(p_payload->'job_ids');
@@ -57,7 +58,7 @@ AS $$
 $$;
 
 CREATE FUNCTION ppt.apply_job_payroll(
-  p_outcome ppt.payroll_outcome, p_job ppt.jobs, p_op_id text, p_time timestamptz, p_period text
+  p_outcome ppt.payroll_outcome, p_job ppt.jobs, p_op_id text, p_time timestamptz, p_period text, p_legacy boolean
 )
 RETURNS ppt.payroll_outcome
 LANGUAGE plpgsql
@@ -68,6 +69,7 @@ DECLARE
   subject text := p_job.job_id || '|' || p_period;
   receipt_key jsonb;
   payment effect_write;
+  has_unpaid boolean := false;
 BEGIN
   FOR student_key IN SELECT student_id FROM payroll_students(p_job.class_id, p_job.assignee_ids) LOOP
     receipt_key := payroll_job_receipt_key(p_job.job_id, p_period, student_key);
@@ -75,11 +77,18 @@ BEGIN
       p_outcome.skipped := p_outcome.skipped || jsonb_build_array(
         receipt_key || jsonb_build_object('reason', 'already_paid')
       );
+    ELSIF p_legacy THEN
+      has_unpaid := true;
     ELSE
       payment := write_payroll_effect(p_job, student_key, p_op_id, p_time, 'payroll', 'job_period', subject, p_period);
       p_outcome := record_payroll_write(p_outcome, payment, student_key, receipt_key);
     END IF;
   END LOOP;
+  IF has_unpaid THEN
+    p_outcome.skipped := p_outcome.skipped || jsonb_build_array(
+      payroll_job_receipt_key(p_job.job_id, p_period, NULL) || jsonb_build_object('reason', 'legacy_period')
+    );
+  END IF;
   RETURN p_outcome;
 END;
 $$;
@@ -94,10 +103,15 @@ DECLARE
   payload jsonb := p_op->'payload';
   pay_day date := coalesce((payload->>'pay_date')::date, (p_time AT TIME ZONE 'Asia/Taipei')::date);
   duty_id text := duty_job_id(class_key);
+  cutover_day date;
+  include_legacy boolean := coalesce((payload->>'include_legacy_periods')::boolean, false);
   job jobs;
   job_period text;
+  first_day date;
+  is_legacy boolean;
   outcome payroll_outcome := empty_payroll_outcome();
 BEGIN
+  SELECT cutover_date INTO STRICT cutover_day FROM classes WHERE class_id = class_key;
   FOR job IN
     SELECT j.* FROM jsonb_array_elements_text(payload->'job_ids') WITH ORDINALITY AS requested(id, position)
     JOIN jobs AS j ON j.class_id = class_key AND j.job_id = requested.id
@@ -116,8 +130,11 @@ BEGIN
       CONTINUE;
     END IF;
 
-    SELECT period INTO STRICT job_period FROM job_payroll_period(job.cycle, pay_day);
-    outcome := apply_job_payroll(outcome, job, p_op->>'op_id', p_time, job_period);
+    SELECT period, period_info.first_day INTO STRICT job_period, first_day
+    FROM job_payroll_period(job.cycle, pay_day) AS period_info;
+    is_legacy := NOT include_legacy AND CASE WHEN job.cycle = 'once' THEN job.origin = 'migration'
+      ELSE coalesce(first_day < cutover_day, false) END;
+    outcome := apply_job_payroll(outcome, job, p_op->>'op_id', p_time, job_period, is_legacy);
   END LOOP;
   RETURN finish_payroll_outcome(outcome);
 END;
