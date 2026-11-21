@@ -1,6 +1,7 @@
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import { setTimeout as wait } from 'node:timers/promises'
+import { createAccountRateLimit } from './auth/account-rate-limit.js'
 import { registerLoginRoute } from './auth/login.js'
 import { comparePassword } from './auth/password.js'
 import { createRelayCheck } from './auth/relay.js'
@@ -36,7 +37,8 @@ export function buildV2App({
   pool, config = {}, clock = () => new Date(), logger, hooks, sleep = wait, verifyPassword = comparePassword,
 }) {
   const isGasRelay = createRelayCheck(config.relayKey)
-  const authenticateTeacher = createTeacherAuthentication({ pool, clock, isGasRelay })
+  const countAccountRequest = createAccountRateLimit(clock, config.accountRateLimit)
+  const authenticateTeacher = createTeacherAuthentication({ pool, clock, isGasRelay, countAccountRequest })
   const allowedOrigins = config.allowedOrigins ?? []
   const app = Fastify({
     bodyLimit: 512 * 1024,

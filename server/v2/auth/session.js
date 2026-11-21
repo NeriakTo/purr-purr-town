@@ -71,7 +71,7 @@ export async function requireTeacher(pool, authorization, clock) {
   return sessionActor(session)
 }
 
-export function createTeacherAuthentication({ pool, clock, isGasRelay }) {
+export function createTeacherAuthentication({ pool, clock, isGasRelay, countAccountRequest }) {
   return async function authenticateTeacher(request) {
     const tokenHash = requireTokenHash(request.headers.authorization)
     const now = clock()
@@ -79,6 +79,7 @@ export function createTeacherAuthentication({ pool, clock, isGasRelay }) {
       ? await markSessionRelayed(pool, tokenHash, now)
       : await extendDirectSession(pool, tokenHash, now)
     const expiresAt = requireActiveSession(session, clock)
+    countAccountRequest(session.teacher_id)
     request.teacherSession = { actor: sessionActor(session), tokenHash, expiresAt }
   }
 }
