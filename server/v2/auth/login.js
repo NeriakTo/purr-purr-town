@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto'
 import { readQuery, writeTransaction } from '../db.js'
 import { logError, RequestError } from '../errors.js'
 import { createDeviceMarker, readDeviceMarker } from './device-marker.js'
+import { createLoginBuckets } from './login-buckets.js'
 import { createPasswordCheck } from './password.js'
 import { hashSessionToken, sessionExpiresAt, sessionLifetimeMs } from './session.js'
 
@@ -52,17 +53,21 @@ function issueLogin({ pool, config, clock }, teacher, existingMarker, relayed) {
 export function registerLoginRoute(app, context) {
   const { pool, config, isGasRelay, verifyPassword } = context
   const verifyLoginPassword = createPasswordCheck(verifyPassword, config.login?.dummyHashCost)
+  const verifyInBucket = createLoginBuckets(context)
   app.post(loginPath, { bodyLimit: 4 * 1024 }, async request => {
     const { name, passcode, marker } = readLoginEnvelope(request.body)
     const relayed = isGasRelay(request.headers)
     const candidates = await readTeacherCandidates(pool, name)
-    if (candidates.length > 1) {
-      logError(app.log, loginPath, { code: 'DUPLICATE_LOGIN_NAME' })
-      throw new RequestError('LOGIN_FAILED')
-    }
-    const [teacher] = candidates
+    const teacher = candidates.length === 1 ? candidates[0] : undefined
     const existingMarker = await readDeviceMarker(pool, marker, teacher)
-    if (!await verifyLoginPassword(passcode, teacher)) throw new RequestError('LOGIN_FAILED')
+    const verified = await verifyInBucket({ name, marker: existingMarker, relayed, ip: request.ip }, () => {
+      if (candidates.length > 1) {
+        logError(app.log, loginPath, { code: 'DUPLICATE_LOGIN_NAME' })
+        return false
+      }
+      return verifyLoginPassword(passcode, teacher)
+    })
+    if (!verified) throw new RequestError('LOGIN_FAILED')
     return issueLogin(context, teacher, existingMarker, relayed)
   })
 }

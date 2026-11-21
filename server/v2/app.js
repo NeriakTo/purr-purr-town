@@ -29,7 +29,7 @@ function handleError(error, request, reply) {
   if (failure.code === 'INTERNAL_ERROR' || failure.code === 'SERVER_BUSY') {
     logError(request.server.log, request.routeOptions.url, failure)
   }
-  return sendError(reply, failure.code)
+  return sendError(reply, failure.code, failure.details)
 }
 
 export function buildV2App({
