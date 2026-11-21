@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { expect } from 'vitest'
 
 export const databaseRoles = ['ppt_owner', 'ppt_web', 'ppt_agent', 'ppt_backup']
@@ -14,4 +15,12 @@ export async function connectAsRole(database, role) {
     await client.end()
     throw error
   }
+}
+
+export async function agentSubmitAs(client, classId, ops, callId = randomUUID(), note = null) {
+  const { rows: [{ receipt }] } = await client.query(
+    'SELECT ppt_agent.agent_submit($1, $2, $3::jsonb, $4) AS receipt',
+    [classId, callId, JSON.stringify(ops), note],
+  )
+  return receipt
 }
