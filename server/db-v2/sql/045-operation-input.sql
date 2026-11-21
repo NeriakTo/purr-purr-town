@@ -14,6 +14,7 @@ AS $$
     ('"job.save"'::jsonb, ARRAY['teacher'], 'required'),
     ('"job.retire"'::jsonb, ARRAY['teacher'], 'required'),
     ('"job.set_assignees"'::jsonb, ARRAY['teacher'], 'required'),
+    ('"payroll.run"'::jsonb, ARRAY['teacher'], 'forbidden'),
     ('"product.save"'::jsonb, ARRAY['teacher'], 'required'),
     ('"product.retire"'::jsonb, ARRAY['teacher'], 'required'),
     ('"inventory.use"'::jsonb, ARRAY['teacher'], 'forbidden'),

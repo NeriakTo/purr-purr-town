@@ -1,5 +1,9 @@
 import { randomBytes, randomUUID } from 'node:crypto'
-import { operation } from './schoolwork.js'
+import { expect } from 'vitest'
+import { agentSubmit, authorizeAgent } from './agent.js'
+import { classSnapshot } from './checks.js'
+import { addClass, submit } from './operations.js'
+import { commitOperation, operation } from './schoolwork.js'
 
 export const payrollDay = '2026-12-07'
 
@@ -41,4 +45,38 @@ export async function addImportedJob(client, classId, {
     VALUES ($1, $2, '匯入職務', $3, $4, $5, $6)
   `, [classId, jobId, salary, cycle, origin, JSON.stringify(assigneeIds)])
   return jobId
+}
+
+export async function addPayrollJob(client, classId, studentIds, { retired = false, ...fields } = {}) {
+  const op = saveJob(classId, fields)
+  const jobId = op.payload.job_id
+  await commitOperation(client, op)
+  const assigned = await commitOperation(client, assignJob(classId, jobId, studentIds))
+  if (retired) await commitOperation(client, retireJob(classId, jobId, { after_op: assigned.op_id }))
+  return jobId
+}
+
+export async function payrollRows(client, classId) {
+  const { rows } = await client.query(
+    "SELECT * FROM ppt.transactions WHERE class_id = $1 AND kind = 'payroll' ORDER BY transaction_id", [classId],
+  )
+  return rows
+}
+
+export async function expectPayrollRejection(client, op, code) {
+  const before = await classSnapshot(client, op.class_id)
+  const receipt = await submit(client, op)
+  expect(receipt).toMatchObject({ status: 'rejected', code })
+  expect(await classSnapshot(client, op.class_id)).toBe(before)
+  return receipt
+}
+
+export async function expectPayrollRole(client, makeOp) {
+  const { classId } = await addClass(client)
+  await authorizeAgent(client, classId)
+  const { class_id: _classId, ...entry } = makeOp(classId)
+  const { receipts: [receipt] } = await agentSubmit(client, classId, [entry])
+  expect(receipt.code).toBe('FORBIDDEN_ROLE')
+  const { classId: archived } = await addClass(client, { status: 'archived' })
+  await expectPayrollRejection(client, makeOp(archived), 'CLASS_ARCHIVED')
 }

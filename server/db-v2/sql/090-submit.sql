@@ -50,6 +50,9 @@ BEGIN
     WHEN 'job.save', 'job.retire', 'job.set_assignees' THEN
       PERFORM validate_job_operation(p_op);
       PERFORM require_job_operation(p_op);
+    WHEN 'payroll.run' THEN
+      PERFORM validate_payroll_run(p_op->'payload');
+      PERFORM require_payroll_jobs(p_op->>'class_id', p_op->'payload'->'job_ids');
     WHEN 'product.save', 'product.retire' THEN
       PERFORM validate_product_operation(p_op);
       PERFORM require_product_version(p_op);
@@ -118,6 +121,7 @@ BEGIN
     WHEN 'setting.set' THEN RETURN apply_setting_set(p_op);
     WHEN 'job.save', 'job.set_assignees' THEN RETURN apply_job_operation(p_op);
     WHEN 'job.retire' THEN RETURN apply_job_retirement(p_op);
+    WHEN 'payroll.run' THEN RETURN apply_payroll_run(p_op, p_time);
     WHEN 'product.save', 'product.retire' THEN RETURN apply_product_operation(p_op);
     WHEN 'inventory.use' THEN RETURN apply_inventory_use(p_op, p_time);
     WHEN 'shop.purchase' THEN RETURN apply_shop_purchase(p_op, p_time);
