@@ -7,6 +7,10 @@ AS $$
   FROM (VALUES
     ('"class.update_info"'::jsonb, ARRAY['teacher'], 'required'),
     ('"class.set_status"'::jsonb, ARRAY['teacher'], 'required'),
+    ('"student.add"'::jsonb, ARRAY['teacher'], 'forbidden'),
+    ('"student.update_profile"'::jsonb, ARRAY['teacher'], 'required'),
+    ('"student.set_enrollment"'::jsonb, ARRAY['teacher'], 'required'),
+    ('"student.set_exempt_rules"'::jsonb, ARRAY['teacher'], 'required'),
     ('"op.undo"'::jsonb, ARRAY['teacher', 'agent'], 'forbidden'),
     ('"batch.undo"'::jsonb, ARRAY['teacher'], 'forbidden'),
     ('"tx.reverse"'::jsonb, ARRAY['teacher'], 'forbidden'),

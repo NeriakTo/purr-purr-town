@@ -33,6 +33,10 @@ BEGIN
   CASE p_op->>'type'
     WHEN 'class.update_info', 'class.set_status' THEN
       PERFORM check_class_change(p_op);
+    WHEN 'student.add' THEN
+      PERFORM check_student_add(p_op);
+    WHEN 'student.update_profile', 'student.set_enrollment', 'student.set_exempt_rules' THEN
+      PERFORM check_student_change(p_op);
     WHEN 'op.undo' THEN
       PERFORM validate_undo_payload(p_op->'payload');
       PERFORM check_undo_operation(p_op, p_actor);
@@ -125,6 +129,9 @@ AS $$
 BEGIN
   CASE p_op->>'type'
     WHEN 'class.update_info', 'class.set_status' THEN RETURN apply_class_change(p_op);
+    WHEN 'student.add' THEN RETURN apply_student_add(p_op);
+    WHEN 'student.update_profile', 'student.set_enrollment', 'student.set_exempt_rules' THEN
+      RETURN apply_student_change(p_op);
     WHEN 'op.undo' THEN RETURN apply_undo_operation(p_op, p_time);
     WHEN 'batch.undo' THEN RETURN apply_batch_undo_operation(p_op, p_actor, p_time);
     WHEN 'points.adjust' THEN RETURN apply_points_adjust(p_op, p_time);
