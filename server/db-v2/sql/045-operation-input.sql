@@ -5,6 +5,7 @@ SET search_path = pg_catalog, ppt, pg_temp
 AS $$
   SELECT definition.roles, definition.expect_mode
   FROM (VALUES
+    ('"class.create"'::jsonb, ARRAY['teacher'], 'forbidden'),
     ('"class.update_info"'::jsonb, ARRAY['teacher'], 'required'),
     ('"class.set_status"'::jsonb, ARRAY['teacher'], 'required'),
     ('"student.add"'::jsonb, ARRAY['teacher'], 'forbidden'),

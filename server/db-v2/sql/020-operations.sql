@@ -10,7 +10,7 @@ CREATE TYPE ppt.operation_code AS ENUM (
 
 CREATE TABLE ppt.operations (
   op_id text PRIMARY KEY,
-  class_id text NOT NULL REFERENCES ppt.classes (class_id),
+  class_id text NOT NULL,
   actor_kind text NOT NULL CHECK (actor_kind IN ('teacher', 'agent', 'scheduler', 'system')),
   actor_id text NOT NULL,
   type text,
