@@ -77,25 +77,37 @@
 
 ## HTTP 狀態與錯誤碼
 
-請求層級的失敗回 `{ "error": { "code": "…" } }`。HTTP 429 另帶整數秒數 `retry_after`，登入桶被佔住時也會帶 `reason: "bucket_busy"`。提交或放棄帶收據的回應均為 HTTP 200，送出端依收據中的結果碼處置。後端不自動重試，送出端遇暫時錯誤或回應遺失時以同一個編號重送。
+新版後端的請求層級錯誤回 `{ "error": { "code": "…" } }`。HTTP 429 另帶整數秒數 `retry_after`，登入桶忙碌時也會帶 `reason: "bucket_busy"`。提交、放棄與查詢回傳收據時使用 HTTP 200，送出端依收據結果碼處置。下表的新版路徑省略 `/api/v2/`。規格編號見 [操作規格 01 第 5 節](../../docs/revamp/operation-contract/01-操作規格-v0.4-總則.md#五錯誤碼表)。
 
-| HTTP 狀態 | 請求層級錯誤碼 | 條件 |
-| --- | --- | --- |
-| 400 | `BAD_ENVELOPE` | JSON 或信封不合法、內容型別不符、超出上限 |
-| 401 | `AUTH_REQUIRED` | 缺少有效格式的權杖或找不到工作階段 |
-| 401 | `AUTH_EXPIRED` | 找得到工作階段但已到期 |
-| 401 | `LOGIN_FAILED` | 帳號不存在、密碼錯誤或帳號名稱重複 |
-| 403 | `CLASS_FORBIDDEN` | 無班級存取權或班級不存在 |
-| 403 | `ORIGIN_FORBIDDEN` | 直連帶了站台未允許的 `Origin` |
-| 429 | `RATE_LIMITED` | 帳號本分鐘額度用盡，或登入達到桶或程序的同時處理、排隊或等待期限 |
-| 503 | `SERVER_BUSY` | 取不到連線、交易工作期間連線中斷、SQLSTATE `55P03` 或 `57014`、登入比對結果超出租約期限 |
-| 500 | `INTERNAL_ERROR` | 其他未預期錯誤或提交失敗 |
+| 規格編號 | 錯誤碼 | HTTP 狀態 | 端點與條件 |
+| --- | --- | --- | --- |
+| E-01 | `AUTH_REQUIRED` | 401；GAS 包裝見下 | 除 `auth/login` 外的九個新版端點。缺少有效權杖、工作階段查無或已登出。工作階段查詢的老師查無時也回此碼。GAS 可在轉送前回此碼。 |
+| E-02 | `AUTH_EXPIRED` | 401 | 除 `auth/login` 外的九個新版端點。工作階段仍保留但已到期。 |
+| E-03 | `CLASS_FORBIDDEN` | 403；提交單筆收據 200 | `ops`、`ops/cancel`、`ops/lookup`、`read/state`、`read/changes`、`read/export`。班級不存在或呼叫者無權存取。提交在班級鎖內失去權限時回單筆 `retry`。 |
+| E-04 | `RATE_LIMITED` | 429 | 十個新版端點。已登入端點依帳號限流，登入依桶與程序容量、排隊及等待期限限流。 |
+| E-05 | `SERVER_BUSY` | 503；提交單筆收據 200 | 十個新版端點。連線無法取得、交易工作期間連線中斷、等鎖或語句逾時。登入超過比對租約也回此碼。提交單筆交易遇到時回 `retry`。 |
+| E-06 | `UPSTREAM_UNREACHABLE` | GAS 包裝 | GAS 無法連上新版後端或後端逾時。 |
+| E-07 | `INTERNAL_ERROR` | 500；提交單筆收據 200 | 十個新版端點。未預期錯誤或提交交易失敗。提交單筆交易遇到時回 `retry`。 |
+| E-08 | `NOT_PROCESSED` | 提交單筆收據 200 | `ops`。同一請求前一筆操作得到會中止該批的暫時型結果，本筆未送入寫入程序。 |
+| E-09 | `BAD_ENVELOPE` | 400；提交單筆收據 200；GAS 包裝 | 十個新版端點可在解析或驗證請求本文時回 400。寫入程序可對 `ops` 單筆操作回此碼。GAS 在包裝不合法時也會回。 |
+| E-10 | `ROUTE_NOT_ALLOWED` | GAS 包裝 | GAS 轉送路徑不在白名單時回此碼。 |
+| E-11 | `INVALID_OP_ID` | 收據 200 | `ops`、`ops/cancel`。操作編號缺少、格式無效或版本不是第 4 版。 |
+| E-12 | `OP_ID_REUSED` | 收據 200 | `ops`、`ops/cancel`。提交的編號已用於不同內容、操作者或班級，或要放棄的編號已被其他操作者或班級用過。 |
+| E-13 | `PAIRING_INVALID` | 不適用 | 配對端點及此碼已移除。 |
+| E-14 | `LEGACY_WRITE_CLOSED` | 舊後端，HTTP 410 | `PUT /api/v1/snapshots/:classId`、`DELETE /api/v1/classes/:classId`、`POST /api/v1/classes`。`POST /api/v1/auth/register` 由獨立開關控制。 |
+| E-45 | `RELAY_FORBIDDEN` | GAS 包裝 | GAS 已啟用轉送通行碼，請求缺少或帶錯通行碼。 |
+| 後端新增 | `LOGIN_FAILED` | 401 | `auth/login`。帳號不存在、密碼錯誤或帳號名稱重複。後端新增，送出端處置待前端工單定。 |
+| 後端新增 | `ORIGIN_FORBIDDEN` | 403 | 十個新版端點。直連帶了站台未允許的 `Origin`。後端新增，送出端處置待前端工單定。 |
 
-提交端點在單筆交易中發生上述資料庫錯誤時，把對應碼放在該筆的 `retry` 收據。若交易的 `COMMIT` 回報失敗，結果可能不明，同編號重送可安全確認。逾時預設為等鎖 5,000 毫秒、語句 30,000 毫秒，可由 `config` 設定。HTTP 429 的計數依下方登入桶與帳號限流規則。
+「GAS 包裝」指 GAS 自己回錯時，外層 HTTP 為 200，本文 `http_status` 為 0，錯誤碼在 `gas_error`。寫入程序定案的操作層級結果依規格 01 第 5.2 節出現在提交收據。放棄與查詢也能帶回原有的定案收據。背景工作使用內部收據，沒有 HTTP 回應。
+
+單筆 `payload` 剛好 64 KiB 可能通過網站端檢查，卻因寫入程序的 JSONB 文字大小計法而得到單筆 `BAD_ENVELOPE`。送出端的單筆上限須留 1 KiB 餘裕，以 63 KiB 為上限。
+
+操作遇暫時錯誤或回應遺失時，送出端用同一編號重送。若交易的 `COMMIT` 回報失敗，結果可能不明，同編號重送可確認。寫入逾時由 `config.lockTimeoutMs`（預設 5,000 毫秒）與 `config.statementTimeoutMs`（預設 30,000 毫秒）設定。HTTP 429 的計數依下方登入桶與帳號限流規則。
 
 ## 網站帳號需要的權限
 
-執行時需要能使用 `ppt` 與 `ppt_web_state` schema。以下是路由直接使用的物件。
+執行時需要能使用 `ppt` 與 `ppt_web_state` schema。以下是路由與背景工作使用的物件。
 
 | 動作 | 物件與用途 |
 | --- | --- |
@@ -105,10 +117,14 @@
 | 讀取 | `ppt.operations` 的 `op_id`、`class_id`、`actor_kind`、`actor_id`、`type`、`receipt`，用於查詢原操作 |
 | 讀取 | `ppt.class_ownership`、`classes`、`students`、`accounts`、`submissions`、`tasks`、`rules`、`rule_versions`、`confirmations`、`corrections`、`products`、`inventory_items`、`settings_entries`、`jobs`、`daily_duties`、`groups`、`announcements`、`seating`、`comments`、`transactions`、`operations`、`effects`、`agent_calls`。由 `server/db-v2/sql/990-privileges.sql` 授予網站帳號 `SELECT`。 |
 | 讀寫 | `ppt_web_state.class_exports` 的 `SELECT`、`INSERT`、`UPDATE`，供班級清單與匯出使用。 |
+| 讀取 | `ppt.classes`、`ppt.operations`、`ppt.comments`、`ppt.students` 的 `SELECT`，供排程班級名單、評語請求、名冊及清掃使用。由 `server/db-v2/sql/990-privileges.sql:26` 授予。 |
+| 刪除 | `ppt_web_state.sessions`、`ppt_web_state.login_queue`、`ppt_web_state.bucket_busy_counts` 的 `DELETE`，供定期清除使用。由 `server/v2/sql/990-web-state-privileges.sql:5` 授予。 |
 | 執行授權查詢 | `ppt.can_access_class(text, jsonb)`，用於班級預先檢查 |
 | 執行寫入入口 | `ppt.submit_operation(jsonb, jsonb)` 與 `ppt.cancel_operation(text, text, jsonb)`，由寫入程序負責修改 `ppt` 資料 |
 
 先安裝 `server/db-v2/`，再以 `ppt_owner` 身分用 `server/v2/install.js` 安裝網站狀態。最後執行的 `server/v2/sql/990-web-state-privileges.sql` 授權網站角色並收回 PUBLIC 權限。小野與備份角色無權存取 `ppt_web_state`。T-605 負責 `ppt` 內的角色授權與寫入入口。
+
+排程與評語都沿用 `ppt.submit_operation`，第 5 版編號由 Node 計算。本包不需要新的函式執行權。
 
 ## 登入
 
@@ -186,6 +202,95 @@
 | 存摺交易 | `ppt.transactions.op_id` 可接到成立序號。 | 存摺交易的 op_id 接到成立序號 |
 | 效果建立與沖回 | `ppt.effects.created_op_id` 及 `reversed_op_id` 各接到對應的成立序號。 | 效果建立與沖回各自接到成立序號 |
 
-## 後續分包
+## 舊版整包寫入關閉
 
-- 第 4 包負責排程、評語產生的後端流程、舊版整包寫入關閉開關及收尾清點，包含過期工作階段、登入桶、排隊列與裝置標記的定期清理。
+舊後端的 `LEGACY_WRITE_CLOSED` 擋下儲存快照、刪班和建班或改班。原路徑為 `PUT /api/v1/snapshots/:classId`、`DELETE /api/v1/classes/:classId`、`POST /api/v1/classes`。`LEGACY_REGISTER_CLOSED` 獨立控制 `POST /api/v1/auth/register`。
+
+兩個環境變數都接受字面值 `true`（擋）、`false`（放行）與空字串（放行）。未設定也放行。其他值會使 `buildApp` 失敗。程式可用布林選項 `legacyWriteClosed`、`legacyRegisterClosed` 覆蓋個別環境變數。
+
+啟用時，受控路由在限流、驗權杖和查資料庫前回 HTTP 410。兩種本文如下。
+
+| 路由 | 本文 |
+| --- | --- |
+| 三條寫入路由 | `{ "success": false, "error": "舊版已停止寫入，請重新整理網頁改用新版", "code": "LEGACY_WRITE_CLOSED" }` |
+| 註冊路由 | `{ "success": false, "error": "舊版已停止開新帳號", "code": "LEGACY_WRITE_CLOSED" }` |
+
+舊版的班級清單、快照與版本讀取、登入、登出及工作階段查詢照常提供。
+
+## 逾期排程
+
+每個臺灣日期 00:10 起，依班級編號逐一對 `active` 班送 OP-52。臺灣日期按 UTC+8 計算。00:10 後啟動可補跑當日，下一次排程會涵蓋漏跑期間已逾期的訂正。每班各自交易，以 `scheduler` 身分提交。
+
+操作編號使用 UUID v5，命名空間為 `7d0f4c53-9a1e-4b7a-8f35-2c6e1b90a4d8`。名稱格式 `schedule.correction_overdue:<class_id>:<YYYY-MM-DD>` 已凍結。同一班同一臺灣日期在重啟及多個程序中會算出同一個編號。
+
+成立、重送、定案拒絕與 `CLASS_FORBIDDEN` 在程序內按日期結案。`SERVER_BUSY` 或 `INTERNAL_ERROR` 留到下一輪用原編號再送。單班失敗會記錄結果碼並繼續處理後續班級。匯入班級有排程授權列後才可成立。
+
+## 評語產生
+
+新成立的 OP-46 在提交後發動背景產生，包含成立但沒有改資料的請求。重送只回原收據，HTTP 回應無須等待產生完成。同一程序對同班、同學生、同學期只同時產生一次。學生與學期取自同班已成立的 OP-46，查不到時記錄結果碼。
+
+`buildV2App` 以選項 `walle` 注入非同步函式 `walle(input, { signal })`。提供給瓦力的 `input` 有四個鍵。
+
+| 鍵 | 值 |
+| --- | --- |
+| `observation` | 單一目標學生的觀察紀錄，已把名冊姓名換成代稱。 |
+| `student_label` | 目標學生的「N號」或「座號未定」。 |
+| `comment_locked` | 評語鎖定布林值。 |
+| `motto_locked` | 箴言鎖定布林值。 |
+
+班級編號、學生編號、學期與名冊留在後端。
+
+遮名用全班名冊，包含轉出、封存與在家自學的學生。先比長的拼法，依序考慮去空白的完整姓名、三字以上去第一字、四字以上取最後兩字。比對忽略英文字母大小寫和字間空白，空白包括半形、全形、定位字元、換行及其餘指定的 Unicode 空白。共用拼法的兩到三位學生依座號列出代稱，四位以上用「某位同學」，空座號用「座號未定」。綽號、錯字、單姓及兩字姓名只寫一字等寫法可能漏遮。常用詞若與姓名拼法相同會一併遮名。
+
+瓦力回傳四個字串 `comment`、`motto`、`analysis`、`model`。以 Unicode 字元計數，上限分別為 2,000、200、5,000、100，`model` 至少一字。禁止 U+0000 與不成對的代理字元。前三個欄位只還原目標學生的獨立座號代稱，其他數字前綴、目標無座號或拼法與其他學生重疊時保留代稱。還原後再驗一次長度與格式。
+
+後端以 `system` 身分提交 OP-47，UUID v5 名稱為 `comment.apply_generated:<request_op_id>`，使用與排程相同的命名空間。遇暫時型結果以設定的退避時間重送同一編號和內容。用完重送仍失敗時交給清掃。資料庫保留老師已修改的欄位，晚到的產生結果存成建議稿。鎖定欄位由寫入程序保護。
+
+| 情況 | 寫入 OP-47 的錯誤文字 |
+| --- | --- |
+| 計時到期，取消瓦力 | 評語產生逾時，請重按產生 |
+| 瓦力丟錯 | 評語產生失敗，請重按產生 |
+| 未注入瓦力 | 評語產生功能尚未啟用 |
+| 輸出格式或長度不合格 | 產生結果不符格式，請重按產生 |
+| 清掃中斷的產生 | 產生中斷，請重按產生 |
+
+清掃從未封存班的「產生中」評語找同班、同學生、同學期序號最大的已成立 OP-46。提交時間嚴格超過門檻、沒有該請求的 OP-47 紀錄，且本程序沒有正在產生時，才用同一套用編號寫入中斷結果。不同程序同時清掃時只成立一次。關閉 app 會取消進行中的瓦力呼叫並等待收尾，被關閉而中斷的產生由後續輪次清掃。
+
+## 背景工作與定期清除
+
+入口在開始接受請求後立即跑一輪，依序執行逾期排程、網站狀態清除、評語清掃。每輪結束後取離下次臺灣 00:10 的時間與設定間隔的較小值，安排下一輪。工作失敗會記錄安全的錯誤碼並繼續。關閉時等待背景工作停止後才關閉連線池。
+
+網站狀態清除讓三張表各自使用短交易，以注入的時鐘算界線。
+
+| 表 | 刪除條件 |
+| --- | --- |
+| `ppt_web_state.sessions` | 實際到期時間早於保留期界線。尚在保留期回 `AUTH_EXPIRED`，已清除回 `AUTH_REQUIRED`。 |
+| `ppt_web_state.login_queue` | 已過期超過五分鐘。 |
+| `ppt_web_state.bucket_busy_counts` | `last_at` 早於保留期界線。 |
+
+`login_buckets`、`device_markers`、`class_exports` 保留原列。
+
+| `buildV2App` 設定 | 預設 | 有效值 |
+| --- | --- | --- |
+| `config.jobs.intervalMs` | 600,000 | 60,000 至 3,600,000 毫秒的整數。 |
+| `config.cleanup.sessionRetentionMs` | 30 天 | 1 至 365 天，以整數毫秒填入。 |
+| `config.cleanup.busyCountRetentionMs` | 30 天 | 1 至 365 天，以整數毫秒填入。 |
+| `config.comments.timeoutMs` | 120,000 | 1,000 至 600,000 毫秒的整數。 |
+| `config.comments.retryDelaysMs` | `[1000, 2000, 4000]` | 最多五項，每項為 0 至 60,000 毫秒的整數。 |
+| `config.comments.sweepAfterMs` | 600,000 | 安全整數毫秒。須嚴格大於 `timeoutMs` 加上全部重送等待，再加上 `statementTimeoutMs × (retryDelaysMs.length + 1)`。 |
+| `config.statementTimeoutMs` | 30,000 | PostgreSQL 語句逾時，非負整數毫秒。入口也可用 `PPT_V2_STATEMENT_TIMEOUT_MS` 設定。 |
+| `config.lockTimeoutMs` | 5,000 | PostgreSQL 等鎖逾時，非負整數毫秒。入口也可用 `PPT_V2_LOCK_TIMEOUT_MS` 設定。 |
+
+背景工作與清掃使用 `clock` 和 `timers`，評語重送使用 `sleep`。預設採系統時鐘與 Node 計時器。建 app 時驗證工作及評語設定，工作在入口啟動。
+
+## 殘餘事項
+
+第 4 包是本工單最後一包。後續事項如下。
+
+- 實際瓦力連線留給第 3 階段工單。
+- T-605 第 3 包併入後，以網站帳號連線池重跑本包與第 3 包的資料庫測試，以及 `server/v2/web-state-privileges.test.js`、`server/db-v2/privileges-catalog.test.js`。另測相同合法名冊與文字在兩套遮名實作中的結果一致。不合法名冊各依其錯誤契約處理。
+- 正式站的舊版寫入開關由 T-613 切換。是否關閉註冊，留待 1D 切換規劃與 Kevin 一起決定新老師開帳號的方式。
+- T-609 先替登入桶及裝置標記加列數監看，清除策略另開工單。
+- 匯入舊班由匯入程序及 T-609 先跑 `server/db-v2/maintenance/backfill-scheduler-authorizations.sql`，補齊排程授權。
+- 新程式部署與 nginx 分流交 T-609。網站後端、小野、瓦力的系統帳號隔離是上線前提，由 T-605、T-606 處理。
+- T-607 全套以網站帳號連線池重跑，依主控排程執行。
