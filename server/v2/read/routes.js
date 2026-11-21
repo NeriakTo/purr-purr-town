@@ -17,14 +17,16 @@ export function registerReadRoutes(app, { pool, config, clock, hooks, authentica
   app.post('/api/v2/read/state', auth, async function readState(request) {
     const { classId } = readClassEnvelope(request.body)
     await precheckClassAccess(pool, classId, request.teacherSession.actor)
-    const state = await loadClassState(pool, config, classId, hooks)
-    return buildStateResponse(clock, state)
+    const readTime = clock()
+    const state = await loadClassState(pool, config, classId, readTime, hooks)
+    return buildStateResponse(readTime, state)
   })
 
   app.post('/api/v2/read/changes', auth, async function readChanges(request) {
     const { classId, sinceSeq } = readChangesEnvelope(request.body)
     await precheckClassAccess(pool, classId, request.teacherSession.actor)
-    const changes = await loadClassChanges(pool, config, classId, sinceSeq, hooks)
-    return buildChangesResponse(clock, changes)
+    const readTime = clock()
+    const changes = await loadClassChanges(pool, config, classId, sinceSeq, readTime, hooks)
+    return buildChangesResponse(readTime, changes)
   })
 }
