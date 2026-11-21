@@ -206,6 +206,41 @@ async function assertRoleSettings(client) {
   }
 }
 
+const expectedAgentViews = [
+  'accounts', 'agent_calls', 'classes', 'confirmations', 'corrections', 'daily_duties',
+  'groups', 'held_batches', 'job_assignees', 'jobs', 'operations', 'rule_versions', 'rules',
+  'students', 'submissions', 'tasks', 'transactions',
+]
+
+async function agentSchemaObjects(client) {
+  const { rows } = await client.query(`
+    WITH namespace AS (
+      SELECT oid FROM pg_catalog.pg_namespace WHERE nspname = 'ppt_agent'
+    ), relations AS (
+      SELECT c.* FROM pg_catalog.pg_class c JOIN namespace n ON n.oid = c.relnamespace
+    ), view_types AS (
+      SELECT reltype FROM relations WHERE relkind = 'v'
+    )
+    SELECT relkind::text || ':' || relname AS object FROM relations
+    UNION ALL
+    SELECT p.prokind::text || ':' || p.proname || '(' || pg_catalog.oidvectortypes(p.proargtypes) || ')'
+    FROM pg_catalog.pg_proc p JOIN namespace n ON n.oid = p.pronamespace
+    UNION ALL
+    SELECT 'type:' || t.typname
+    FROM pg_catalog.pg_type t JOIN namespace n ON n.oid = t.typnamespace
+    WHERE NOT EXISTS (SELECT 1 FROM view_types v WHERE v.reltype IN (t.oid, t.typelem))
+  `)
+  return rows.map(row => row.object).sort()
+}
+
+async function viewSelectAccess(client, view, roles) {
+  const { rows } = await client.query(`
+    SELECT role, pg_catalog.has_table_privilege(role, $1::regclass, 'SELECT') AS allowed
+    FROM pg_catalog.unnest($2::text[]) AS roles(role)
+  `, [view, roles])
+  return Object.fromEntries(rows.map(({ role, allowed }) => [role, allowed]))
+}
+
 describeDatabase('資料庫權限清點', () => {
   const database = useTestDatabase()
 
@@ -317,5 +352,52 @@ describeDatabase('資料庫權限清點', () => {
     } finally {
       await client.query('ROLLBACK')
     }
+  })
+
+  it('C09 每個小野檢視表都有 security_barrier=true', async () => {
+    const { rows } = await database().client.query(`
+      SELECT c.relname AS name, c.reloptions AS options
+      FROM pg_catalog.pg_class c
+      JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = 'ppt_agent' AND c.relkind = 'v'
+    `)
+    expect(rows.map(row => row.name).sort()).toEqual(expectedAgentViews)
+    for (const { name, options } of rows) {
+      expect(options ?? [], 'ppt_agent.' + name).toContain('security_barrier=true')
+    }
+  })
+
+  it('小野 schema 只包含契約的十七個檢視表與兩支函式', async () => {
+    expect(await agentSchemaObjects(database().client)).toEqual([
+      ...expectedAgentViews.map(name => 'v:' + name),
+      'f:agent_submit(text, text, jsonb, text)',
+      'f:mask_student_names(text, jsonb)',
+    ].sort())
+  })
+
+  it('新建小野檢視表預設不授予 PUBLIC 或三個連線角色 SELECT', async () => {
+    await withOwnerTransaction(database(), async (client) => {
+      const view = 'ppt_agent.test_view_default_select'
+      await client.query('CREATE VIEW ' + view + ' AS SELECT 1 AS sample')
+      expect(await viewSelectAccess(client, view, checkedRoles)).toEqual(
+        Object.fromEntries(checkedRoles.map(role => [role, false])),
+      )
+      await client.query('DROP VIEW ' + view)
+    })
+  })
+
+  it('重跑最終授權會收回每個既有小野檢視表的 PUBLIC SELECT', async () => {
+    const sql = await readFile(new URL('./sql/990-privileges.sql', import.meta.url), 'utf8')
+    await withOwnerTransaction(database(), async (client) => {
+      const views = expectedAgentViews.map(name => 'ppt_agent.' + name)
+      await client.query('GRANT SELECT ON ' + views.join(', ') + ' TO PUBLIC')
+      for (const view of views) expect(await viewSelectAccess(client, view, ['public']), view).toEqual({ public: true })
+      await client.query(sql)
+      for (const view of views) {
+        expect(await viewSelectAccess(client, view, checkedRoles), view).toEqual({
+          ppt_agent: true, ppt_web: false, ppt_backup: false, public: false,
+        })
+      }
+    })
   })
 })
