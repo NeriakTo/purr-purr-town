@@ -25,12 +25,14 @@ DECLARE
   class_status text;
 BEGIN
   SELECT status INTO STRICT class_status FROM classes WHERE class_id = p_op->>'class_id';
-  IF class_status = 'archived' THEN
+  IF class_status = 'archived' AND p_op->>'type' <> 'class.set_status' THEN
     PERFORM reject_operation('CLASS_ARCHIVED');
   END IF;
 
   PERFORM validate_operation_expect(p_op);
   CASE p_op->>'type'
+    WHEN 'class.update_info', 'class.set_status' THEN
+      PERFORM check_class_change(p_op);
     WHEN 'op.undo' THEN
       PERFORM validate_undo_payload(p_op->'payload');
       PERFORM check_undo_operation(p_op, p_actor);
@@ -122,6 +124,7 @@ SET search_path = pg_catalog, ppt, pg_temp
 AS $$
 BEGIN
   CASE p_op->>'type'
+    WHEN 'class.update_info', 'class.set_status' THEN RETURN apply_class_change(p_op);
     WHEN 'op.undo' THEN RETURN apply_undo_operation(p_op, p_time);
     WHEN 'batch.undo' THEN RETURN apply_batch_undo_operation(p_op, p_actor, p_time);
     WHEN 'points.adjust' THEN RETURN apply_points_adjust(p_op, p_time);
