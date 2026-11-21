@@ -170,8 +170,11 @@ async function assertFreshClass(client, target) {
   expect((await storedOperations(client, classId)).map(row => row.op_id)).toEqual([op.op_id])
   for (const table of [
     'daily_duties', 'announcements', 'transactions', 'tasks', 'submissions', 'comments',
-    'confirmations', 'class_authorizations', 'agent_calls', 'inventory_items', 'effects', 'corrections',
+    'confirmations', 'agent_calls', 'inventory_items', 'effects', 'corrections',
   ]) expect(await readRows(client, table, classId)).toEqual([])
+  expect(await readRows(client, 'class_authorizations', classId)).toEqual([
+    { class_id: classId, actor_kind: 'scheduler' },
+  ])
 }
 
 async function waitForSourceBlock(observer, waiter, locker) {
