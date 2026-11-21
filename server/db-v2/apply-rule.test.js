@@ -112,7 +112,6 @@ describeDatabase('OP-25 套用手動規則', () => {
   })
 
   test.each([
-    ['老師先套用', submit, submitAsAgent, 'teacher', 'agent'],
     ['小野先套用', submitAsAgent, submit, 'agent', 'teacher'],
   ])('%s，另一位收到六鍵提示且重送沿用原提示', async (_name, first, second, priorKind, actorKind) => {
     const { client } = database()
@@ -132,6 +131,28 @@ describeDatabase('OP-25 套用手動規則', () => {
     expect(actor.actor_kind).toBe(actorKind)
     const before = await classSnapshot(client, target.classId)
     expect(await second(client, op)).toEqual({ ...receipt, replayed: true })
+    expect(await classSnapshot(client, target.classId)).toBe(before)
+  })
+
+  test('老師先套用，小野同日再套暫緩且重送沿用暫緩收據', async () => {
+    const { client } = database()
+    const target = await addClass(client)
+    await authorizeAgent(client, target.classId)
+    const rule = saveRule(target.classId)
+    await commitOperation(client, rule)
+    await submit(client, applyRule(target, rule.payload))
+    const op = applyRule(target, rule.payload)
+    const receipt = await submitAsAgent(client, op)
+    expect(receipt).toMatchObject({
+      status: 'held', code: 'HELD_FOR_TEACHER', warnings: [],
+      result: { held_reason: 'rule_applied_today', transactions: [] },
+    })
+    const { rows } = await client.query('SELECT 1 FROM ppt.transactions WHERE op_id = $1', [op.op_id])
+    expect(rows).toEqual([])
+    const { rows: [actor] } = await client.query('SELECT actor_kind FROM ppt.operations WHERE op_id = $1', [op.op_id])
+    expect(actor.actor_kind).toBe('agent')
+    const before = await classSnapshot(client, target.classId)
+    expect(await submitAsAgent(client, op)).toEqual({ ...receipt, replayed: true })
     expect(await classSnapshot(client, target.classId)).toBe(before)
   })
 

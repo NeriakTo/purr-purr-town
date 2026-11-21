@@ -64,6 +64,8 @@ DECLARE
   entries jsonb;
   existing agent_calls;
   new_ops jsonb;
+  limits agent_limits;
+  attempt agent_batch_attempt;
   receipts jsonb;
 BEGIN
   SELECT jsonb_agg(op || context ORDER BY position) INTO ops
@@ -79,8 +81,15 @@ BEGIN
   END IF;
 
   new_ops := agent_new_operations(ops);
-  -- PPT-PENDING: agent_limits
-  receipts := execute_new_agent_operations(new_ops, p_actor);
+  limits := load_agent_limits(p_class_id);
+  attempt := try_agent_batch(p_class_id, new_ops, p_actor, call_time, limits);
+  receipts := attempt.receipts;
+  IF attempt.held_reason IS NOT NULL THEN
+    IF (SELECT count(*) FROM agent_pending_confirmations(p_class_id)) >= limits.max_pending_held THEN
+      RETURN agent_retry_receipt(p_call_id, 'HELD_QUEUE_FULL');
+    END IF;
+    receipts := store_held_agent_operations(new_ops, p_actor, call_time, attempt.held_reason);
+  END IF;
   PERFORM store_agent_call(p_class_id, p_call_id, p_note, entries, receipts, call_time);
   RETURN agent_batch_receipts(p_class_id, p_call_id, entries, p_actor, receipts);
 END;
