@@ -1,20 +1,52 @@
+import { randomUUID } from 'node:crypto'
 import { beforeAll, expect, it } from 'vitest'
+import { agentCallRow } from './test-support/agent-fixtures.js'
+import { heldMemberRows } from './test-support/agent-held.js'
 import {
-  addSchoolworkViewFixture, expectViewAccess, expectViewReadDenied, readAgentView, revokeViewAuthorization, withViewRole,
+  addOperationsViewFixture, addSchoolworkViewFixture, expectViewAccess, expectViewReadDenied,
+  makeViewHeldEntries, readAgentView, revokeViewAuthorization, viewMaxPendingHeld, withViewRole,
 } from './test-support/agent-views.js'
+import { confirm } from './test-support/confirmations.js'
+import { adjustment, cancel, submit } from './test-support/operations.js'
 import { agentSubmitAs } from './test-support/roles.js'
+import { commitOperation } from './test-support/schoolwork.js'
 import { setStatus, submissionRow } from './test-support/submissions.js'
 import { describeDatabase, useTestDatabase } from './test-support/suite.js'
+
+function teacherViewOperation(stored, seat) {
+  const { class_id, op_id, actor_kind, type, class_seq, committed_at } = stored
+  return {
+    class_id, op_id, actor_kind, type, class_seq, committed_at, target_seat_number: seat,
+    status: null, code: null, recorded_at: null, batch_id: null, payload: null, expect: null, receipt: null,
+  }
+}
+
+async function viewHeldItems(client, entries, status, code) {
+  const members = await heldMemberRows(client, entries)
+  expect(members).toHaveLength(entries.length)
+  return members.map(({ op_id, status: storedStatus, code: storedCode, receipt }, index) => {
+    expect({ op_id, status: storedStatus, code: storedCode }).toEqual({ op_id: entries[index].op_id, status, code })
+    return { op_id, status, code, receipt }
+  })
+}
+
+async function readHeldView(agent, classId, callId, proposalId) {
+  const rows = await readAgentView(agent, 'held_batches', classId)
+  expect(rows.some(row => row.confirmation_id === proposalId)).toBe(false)
+  return rows.find(row => row.batch_id === callId)
+}
 
 describeDatabase('小野檢視表的資料列', () => {
   const database = useTestDatabase()
   let visible
+  let operationsFixture
   let hidden
 
   beforeAll(async () => {
     const { client } = database()
     visible = await addSchoolworkViewFixture(database())
-    hidden = await addSchoolworkViewFixture(database())
+    operationsFixture = await addOperationsViewFixture(database())
+    hidden = await addOperationsViewFixture(database())
     await revokeViewAuthorization(client, hidden.classId)
   })
 
@@ -23,7 +55,7 @@ describeDatabase('小野檢視表的資料列', () => {
   }
 
   it('每個檢視表只列獲授權班，撤權後清空且還原授權後再出現', async () => {
-    await expectViewAccess(database(), visible.classId, hidden.classId)
+    await expectViewAccess(database(), operationsFixture.classId, hidden.classId)
   })
 
   it.each(['ppt_web', 'ppt_backup'])('%s 讀取每個檢視表都回 42501', async (role) => {
@@ -197,6 +229,105 @@ describeDatabase('小野檢視表的資料列', () => {
       expect(rows).toEqual([second, first, transferred].map((studentId, index) => ({
         class_id: classId, duty_date: dutyDate, position: String(index + 1), student_id: studentId,
       })))
+    })
+  })
+
+  it('操作只給小野自己的全文與老師成立操作的指定欄位及座號', async () => {
+    const { classId, adjustId, agentOps, heldEntries } = operationsFixture
+    const { client } = database()
+    const rejected = adjustment(operationsFixture, 0)
+    expect(await submit(client, rejected)).toMatchObject({ status: 'rejected', code: 'INVALID_PAYLOAD' })
+    const cancelledId = randomUUID()
+    expect(await cancel(client, classId, cancelledId)).toMatchObject({ status: 'cancelled' })
+    const { rows: base } = await client.query(`
+      SELECT class_id, op_id, actor_kind, type, status, code::text, class_seq, recorded_at,
+             committed_at, batch_id, payload, expect, receipt
+      FROM ppt.operations WHERE class_id = $1
+    `, [classId])
+    await asAgent(async (agent) => {
+      const rows = await readAgentView(agent, 'operations', classId)
+      const byId = new Map(rows.map(row => [row.op_id, row]))
+      for (const [op, status, seat] of [
+        [agentOps.committed, 'committed', 1], [agentOps.rejected, 'rejected', 1], [heldEntries[0], 'held', 2],
+      ]) {
+        const stored = base.find(row => row.op_id === op.op_id)
+        expect(stored).toMatchObject({ status, actor_kind: 'agent' })
+        expect(byId.get(op.op_id)).toEqual({ ...stored, target_seat_number: seat })
+      }
+      const teacherAdjust = base.find(row => row.op_id === adjustId)
+      const teacherRule = base.find(row => row.type === 'rule.save' && row.actor_kind === 'teacher')
+      for (const [stored, seat] of [[teacherAdjust, 1], [teacherRule, null]]) {
+        expect(byId.get(stored.op_id)).toEqual(teacherViewOperation(stored, seat))
+      }
+      expect(byId.has(rejected.op_id)).toBe(false)
+      expect(byId.has(cancelledId)).toBe(false)
+    })
+  })
+
+  it('待確認列兩種類型與對象座號，佇列滿時讀到的待確認數等於上限', async () => {
+    const fixture = await addOperationsViewFixture(database())
+    const { classId, proposalId, studentId, taskId, callId, heldEntries } = fixture
+    await asAgent(async (agent) => {
+      const rows = await readAgentView(agent, 'confirmations', classId)
+      expect(rows).toHaveLength(2)
+      expect(rows.find(row => row.confirmation_id === proposalId)).toMatchObject({
+        kind: 'leader_proposal', task_id: taskId, student_id: studentId, seat_number: 1,
+        status: 'pending', proposed_status: 'on_time',
+      })
+      expect(rows.find(row => row.confirmation_id === heldEntries[0].op_id)).toMatchObject({
+        kind: 'agent_held', status: 'pending', batch_id: callId, seat_number: null, proposed_status: null,
+      })
+      const next = await agentSubmitAs(agent, classId, makeViewHeldEntries(fixture))
+      expect(next.receipts).toMatchObject([{ status: 'held' }, { status: 'held' }])
+      expect(await agentSubmitAs(agent, classId, makeViewHeldEntries(fixture))).toMatchObject({
+        status: 'retry', code: 'HELD_QUEUE_FULL',
+      })
+      const { rows: [{ count }] } = await agent.query(`
+        SELECT count(*)::int AS count FROM ppt_agent.confirmations
+        WHERE class_id = $1 AND kind = 'agent_held' AND status = 'pending'
+      `, [classId])
+      expect(count).toBe(viewMaxPendingHeld)
+    })
+  })
+
+  it('暫緩批次保留明傳空值，只列新成員並在 OP-16 後更新狀態與收據', async () => {
+    const { classId, proposalId, callId, heldEntries, note } = await addOperationsViewFixture(database())
+    const { client } = database()
+    const confirmationId = heldEntries[0].op_id
+    const inputs = heldEntries.map(op => ({ ...op, class_id: classId, batch_id: callId }))
+    const beforeItems = await viewHeldItems(client, heldEntries, 'held', 'HELD_FOR_TEACHER')
+    await asAgent(async (agent) => {
+      const before = await readHeldView(agent, classId, callId, proposalId)
+      expect(before).toMatchObject({
+        confirmation_id: confirmationId, status: 'pending', processed_at: null, note,
+        held_inputs: inputs, items: beforeItems,
+      })
+      const processed = await withViewRole(database(), 'ppt_web', web =>
+        commitOperation(web, confirm(classId, confirmationId)),
+      )
+      const after = await readHeldView(agent, classId, callId, proposalId)
+      expect(after).toEqual({
+        ...before, status: 'confirmed', processed_at: new Date(processed.committed_at),
+        items: await viewHeldItems(client, heldEntries, 'committed', 'OK'),
+      })
+    })
+  })
+
+  it('小野呼叫保存說明、輸入與有序操作編號，內容雜湊留在底層', async () => {
+    const { classId, callId, note, heldEntries, agentOps } = operationsFixture
+    const stored = await agentCallRow(database().client, callId)
+    expect(stored.entries.every(entry => /^[a-f0-9]{64}$/.test(entry.content_hash))).toBe(true)
+    await asAgent(async (agent) => {
+      const row = (await readAgentView(agent, 'agent_calls', classId)).find(call => call.call_id === callId)
+      expect(row).toEqual({
+        class_id: classId, call_id: callId, created_at: stored.created_at, note,
+        entries: [
+          { op_id: heldEntries[0].op_id, is_new: true },
+          { op_id: agentOps.committed.op_id, is_new: false },
+          { op_id: heldEntries[1].op_id, is_new: true },
+        ],
+        held_inputs: heldEntries.map(op => ({ ...op, class_id: classId, batch_id: callId })),
+      })
     })
   })
 })

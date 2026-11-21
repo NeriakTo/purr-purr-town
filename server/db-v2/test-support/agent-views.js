@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto'
 import { expect } from 'vitest'
 import { authorizeAgent } from './agent.js'
-import { agentApplyRule } from './agent-fixtures.js'
+import { addManualRule, agentApplyRule, setAgentLimits } from './agent-fixtures.js'
 import { assignStudentGroups, saveGroup } from './class-student-group.js'
+import { propose } from './confirmations.js'
 import { createRound, requireRound } from './correction-rounds.js'
 import { addImportedEffect, resolveLegacyEffect } from './legacy-effects.js'
 import { addClass, adjustment } from './operations.js'
@@ -91,9 +92,8 @@ async function seedViewCorrections(database, { classId, studentIds }, taskId) {
   const note = '請王小明重寫'
   const teacherRound = await createRound(client, { classId, taskId, studentId: first }, { note })
   const agentOp = requireRound({ classId, taskId, studentId: second }, { note })
-  const { class_id: _classId, ...agentEntry } = agentOp
   const { receipts } = await withViewRole(database, 'ppt_agent', agent =>
-    agentSubmitAs(agent, classId, [agentEntry]),
+    agentSubmitAs(agent, classId, [agentViewEntry(agentOp)]),
   )
   expect(receipts).toMatchObject([{ status: 'committed', code: 'OK' }])
   const imported = randomUUID()
@@ -121,6 +121,62 @@ export async function addSchoolworkViewFixture(database) {
   const correctionIds = await seedViewCorrections(database, fixture, taskId)
   const duties = await seedViewDuties(client, fixture)
   return { ...fixture, taskId, correctionIds, ...duties }
+}
+
+export const viewMaxPendingHeld = 2
+
+export function makeViewHeldEntries(fixture) {
+  const { classId, studentIds: [first, second], heldRuleId } = fixture
+  return [
+    agentApplyRule({ classId, studentId: second }, heldRuleId),
+    { ...agentApplyRule({ classId, studentId: first }, heldRuleId), client_time: null },
+  ].map(agentViewEntry)
+}
+
+function agentViewEntry(op) {
+  const { class_id: _classId, ...entry } = op
+  return entry
+}
+
+async function seedAgentViewCall(database, fixture) {
+  const { classId } = fixture
+  const ruleId = await addManualRule(database.client, classId)
+  const committed = agentViewEntry(agentApplyRule(fixture, ruleId))
+  const rejected = agentViewEntry(adjustment(fixture, 5))
+  return withViewRole(database, 'ppt_agent', async (agent) => {
+    const { receipts } = await agentSubmitAs(agent, classId, [committed, rejected])
+    expect(receipts).toMatchObject([
+      { status: 'committed', code: 'OK' }, { status: 'rejected', code: 'FORBIDDEN_ROLE' },
+    ])
+    return { committed, rejected }
+  })
+}
+
+async function seedHeldViewCall(database, fixture, oldEntry) {
+  const { classId } = fixture
+  const heldRuleId = await addManualRule(database.client, classId, 201)
+  const heldEntries = makeViewHeldEntries({ ...fixture, heldRuleId })
+  const callId = randomUUID()
+  const note = '小野批次說明'
+  const { receipts } = await withViewRole(database, 'ppt_agent', agent =>
+    agentSubmitAs(agent, classId, [heldEntries[0], oldEntry, heldEntries[1]], callId, note),
+  )
+  expect(receipts).toMatchObject([
+    { status: 'held', code: 'HELD_FOR_TEACHER' }, { status: 'committed', replayed: true },
+    { status: 'held', code: 'HELD_FOR_TEACHER' },
+  ])
+  return { heldRuleId, heldEntries, callId, note }
+}
+
+export async function addOperationsViewFixture(database) {
+  const { client } = database
+  const fixture = await addSchoolworkViewFixture(database)
+  await setAgentLimits(client, fixture.classId, { max_pending_held: viewMaxPendingHeld })
+  const proposal = propose(fixture, 'on_time')
+  await commitOperation(client, proposal)
+  const agentOps = await seedAgentViewCall(database, fixture)
+  const held = await seedHeldViewCall(database, fixture, agentOps.committed)
+  return { ...fixture, ...held, proposalId: proposal.op_id, agentOps }
 }
 
 export async function revokeViewAuthorization(client, classId) {

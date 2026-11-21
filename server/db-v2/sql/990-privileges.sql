@@ -37,3 +37,5 @@ GRANT SELECT ON ppt_agent.classes, ppt_agent.students, ppt_agent.groups, ppt_age
   ppt_agent.transactions, ppt_agent.rules, ppt_agent.rule_versions TO ppt_agent;
 GRANT SELECT ON ppt_agent.tasks, ppt_agent.submissions, ppt_agent.corrections, ppt_agent.jobs,
   ppt_agent.job_assignees, ppt_agent.daily_duties TO ppt_agent;
+GRANT SELECT ON ppt_agent.confirmations, ppt_agent.held_batches, ppt_agent.operations,
+  ppt_agent.agent_calls TO ppt_agent;

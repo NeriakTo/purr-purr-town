@@ -45,6 +45,24 @@ const viewColumns = {
   },
   job_assignees: { class_id: 'text', job_id: 'text', position: 'int8', student_id: 'text' },
   daily_duties: { class_id: 'text', duty_date: 'date', position: 'int8', student_id: 'text' },
+  confirmations: {
+    class_id: 'text', confirmation_id: 'text', kind: 'text', status: 'text', created_at: 'timestamptz',
+    processed_at: 'timestamptz', task_id: 'text', student_id: 'text', seat_number: 'int4',
+    proposed_status: 'text', batch_id: 'text', held_reason: 'text',
+  },
+  held_batches: {
+    class_id: 'text', confirmation_id: 'text', batch_id: 'text', status: 'text', held_reason: 'text',
+    created_at: 'timestamptz', processed_at: 'timestamptz', note: 'text', held_inputs: 'jsonb', items: 'jsonb',
+  },
+  operations: {
+    class_id: 'text', op_id: 'text', actor_kind: 'text', type: 'text', status: 'text', code: 'text',
+    class_seq: 'int8', recorded_at: 'timestamptz', committed_at: 'timestamptz', batch_id: 'text',
+    target_seat_number: 'int4', payload: 'jsonb', expect: 'jsonb', receipt: 'jsonb',
+  },
+  agent_calls: {
+    class_id: 'text', call_id: 'text', created_at: 'timestamptz', note: 'text',
+    entries: 'jsonb', held_inputs: 'jsonb',
+  },
 }
 
 async function readViewColumns(client) {
