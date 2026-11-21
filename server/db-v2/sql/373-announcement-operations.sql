@@ -107,21 +107,16 @@ DECLARE
   target announcements;
   previous_value jsonb;
   next_value jsonb;
-  omitted text[];
   unchanged boolean;
 BEGIN
   SELECT * INTO previous FROM announcements WHERE class_id = class_key AND announcement_id = announcement_key;
   previous_value := announcement_value(previous);
   IF removing THEN
     next_value := previous_value || '{"removed": true}'::jsonb;
-    omitted := ARRAY['text', 'color', 'rotation'];
   ELSE
     next_value := jsonb_build_object(
       'text', payload->'text', 'color', payload->'color', 'rotation', payload->'rotation', 'removed', false
     );
-    SELECT ARRAY(
-      SELECT field FROM unnest(ARRAY['color', 'rotation', 'removed']) AS field WHERE NOT payload ? field
-    ) INTO omitted;
   END IF;
 
   unchanged := previous_value IS NOT DISTINCT FROM next_value;
@@ -130,9 +125,9 @@ BEGIN
   ELSE
     target := store_announcement_change(class_key, announcement_key, p_op->>'op_id', next_value, previous.rev);
   END IF;
-  IF previous.rev IS NOT NULL THEN
-    previous_value := previous_value - omitted;
-    next_value := next_value - omitted;
+  IF removing THEN
+    previous_value := jsonb_build_object('removed', previous.removed);
+    next_value := '{"removed": true}'::jsonb;
   END IF;
 
   RETURN (operation_result(p_noop => unchanged), jsonb_build_array(entity_change(

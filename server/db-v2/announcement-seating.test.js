@@ -25,7 +25,7 @@ describeDatabase('公告與座位', () => {
     const update = await commitOperation(client, saveAnnouncement(classId, fields, { rev: 1 }))
     expect(update.changes).toEqual([expect.objectContaining({
       entity: 'announcement', key: { announcement_id: announcementId }, prev_rev: 1, rev: 2,
-      value: { text: '更新公告', color: 'green', rotation: 15.5 },
+      value: { text: '更新公告', color: 'green', rotation: 15.5, removed: false },
     })])
     const before = await read()
     expect(before).toMatchObject({ text: '更新公告', color: 'green', rotation: '15.5', rev: 2 })
@@ -39,7 +39,11 @@ describeDatabase('公告與座位', () => {
     const repeated = await commitOperation(client, removeAnnouncement(classId, announcementId, { rev: 3 }))
     expect(repeated.result.noop).toBe(true)
     expect(await read()).toEqual(tombstone)
-    await commitOperation(client, saveAnnouncement(classId, { announcement_id: announcementId }, { rev: 3 }))
+    const restored = await commitOperation(client, saveAnnouncement(classId, { announcement_id: announcementId }, { rev: 3 }))
+    expect(restored.changes[0]).toMatchObject({
+      prev_value: { text: '更新公告', color: 'green', rotation: 15.5, removed: true },
+      value: { text: '測試公告', color: null, rotation: null, removed: false },
+    })
     expect(await read()).toMatchObject({ removed: false, rev: 4, color: null, rotation: null })
   })
 
