@@ -30,41 +30,57 @@ async function acquireClient(pool) {
   }
 }
 
-export async function readQuery(pool, sql, params) {
+async function withClient(pool, work) {
   const client = await acquireClient(pool)
+  let connectionError
   let failure
+  function recordConnectionError(error) {
+    connectionError ??= error
+  }
+
+  // pg-pool 只替在池中閒置的連線監聽 error。
+  client.on('error', recordConnectionError)
   try {
-    return await client.query(sql, params)
+    return await work(client, () => connectionError)
   } catch (error) {
-    failure = classifyDatabaseError(error)
-    throw failure
+    failure = error
+    throw error
   } finally {
-    client.release(failure)
+    client.off('error', recordConnectionError)
+    client.release(failure ?? connectionError)
   }
 }
 
-async function runTransaction(pool, begin, work) {
-  const client = await acquireClient(pool)
-  let phase = 'work'
-  let failure
-  try {
-    await client.query(begin)
-    const result = await work(client)
-    phase = 'commit'
-    const commit = await client.query('COMMIT')
-    if (commit.command !== 'COMMIT') throw new Error('交易未提交')
-    return result
-  } catch (error) {
-    failure = classifyDatabaseError(error, phase)
+export function readQuery(pool, sql, params) {
+  return withClient(pool, async (client, getConnectionError) => {
     try {
-      await client.query('ROLLBACK')
-    } catch {
-      // 保留原始失敗的分類。連線會在 finally 丟棄。
+      return await client.query(sql, params)
+    } catch (error) {
+      throw classifyDatabaseError(getConnectionError() ?? error)
     }
-    throw failure
-  } finally {
-    client.release(failure)
-  }
+  })
+}
+
+function runTransaction(pool, begin, work) {
+  return withClient(pool, async (client, getConnectionError) => {
+    let phase = 'work'
+    try {
+      await client.query(begin)
+      const result = await work(client)
+      phase = 'commit'
+      const commit = await client.query('COMMIT')
+      if (commit.command !== 'COMMIT') throw new Error('交易未提交')
+      return result
+    } catch (error) {
+      const failure = classifyDatabaseError(getConnectionError() ?? error, phase)
+      try {
+        await client.query('ROLLBACK')
+      } catch {
+        // 保留原始失敗的分類。withClient 會丟棄連線。
+      }
+      throw failure
+    }
+  })
 }
 
 function timeoutMilliseconds(value) {

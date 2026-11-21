@@ -2,6 +2,7 @@ import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import { logError, RequestError, sendError } from './errors.js'
 import { sqlState } from './db.js'
+import { registerSubmitRoute } from './ops/submit.js'
 
 const bodyErrors = new Set([
   'FST_ERR_CTP_BODY_TOO_LARGE',
@@ -17,20 +18,21 @@ function handleError(error, request, reply) {
     sqlState(error),
   )
   if (failure.code === 'INTERNAL_ERROR' || failure.code === 'SERVER_BUSY') {
-    logError(request.log, request.routeOptions.url, failure)
+    logError(request.server.log, request.routeOptions.url, failure)
   }
   return sendError(reply, failure.code)
 }
 
-export function buildV2App({ pool, config = {}, logger }) {
+export function buildV2App({ pool, config = {}, clock = () => new Date(), logger, hooks }) {
   const app = Fastify({
     bodyLimit: 512 * 1024,
     logController: new Fastify.LogController({ disableRequestLogging: true }),
-    ...(logger === true ? { logger: true } : { loggerInstance: logger }),
+    ...(logger === true ? { logger: { base: null } } : { loggerInstance: logger }),
   })
   app.register(cors, { origin: config.allowedOrigins ?? [] })
   app.setErrorHandler(handleError)
   app.removeContentTypeParser('text/plain')
+  registerSubmitRoute(app, { pool, config, clock, hooks })
 
   function onPoolError(error) {
     const code = error?.code
