@@ -2,8 +2,9 @@ import { randomUUID } from 'node:crypto'
 
 export const teacher = { kind: 'teacher', id: 'teacher-fixture' }
 
-export async function addClass(client, { owner = teacher, status = 'active', students = ['enrolled'] } = {}) {
-  const classId = randomUUID()
+export async function addClass(client, {
+  classId = randomUUID(), owner = teacher, status = 'active', students = ['enrolled'],
+} = {}) {
   await client.query('INSERT INTO ppt.classes (class_id, status) VALUES ($1, $2)', [classId, status])
   await client.query('INSERT INTO ppt.class_ownership (class_id, teacher_id) VALUES ($1, $2)', [classId, owner.id])
   const studentIds = []
