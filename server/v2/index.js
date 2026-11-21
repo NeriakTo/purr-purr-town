@@ -1,6 +1,6 @@
 import pg from 'pg'
 import { buildV2App } from './app.js'
-import { startBackgroundJobs } from './jobs/background-jobs.js'
+import { createBackgroundJobList, startBackgroundJobs } from './jobs/background-jobs.js'
 
 const {
   PPT_V2_DATABASE_URL,
@@ -40,7 +40,7 @@ app.addHook('onClose', async () => {
 })
 try {
   await app.listen({ host: PPT_V2_HOST, port })
-  backgroundJobs = startBackgroundJobs(app)
+  backgroundJobs = startBackgroundJobs(app, { jobs: createBackgroundJobList() })
 } catch {
   app.log.error({ code: 'STARTUP_FAILED' })
   await app.close()
