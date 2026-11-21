@@ -16,11 +16,6 @@ export function validateClassEnvelope(body) {
   if (!isObject(body) || !isNonEmptyString(body.class_id)) throw new RequestError('BAD_ENVELOPE')
 }
 
-export function validateCancelEnvelope(body) {
-  validateClassEnvelope(body)
-  if (typeof body.op_id !== 'string') throw new RequestError('BAD_ENVELOPE')
-}
-
 export function validateLookupEnvelope(body) {
   validateClassEnvelope(body)
   const ids = body.op_ids

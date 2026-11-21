@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { describe, expect, test } from 'vitest'
 import { adjustment, classSequence, submit } from '../db-v2/test-support/operations.js'
 import { cancelViaHttp, lookupViaHttp, sendOperationRequest } from './test-support/operation-http.js'
-import { assertNoOperationWrites, assertNoWrites, readOperation, useOpsFixtures } from './test-support/ops.js'
+import { assertNoOperationWrites, assertNoWrites, readOperation, retry, useOpsFixtures } from './test-support/ops.js'
 
 describe.skipIf(!process.env.PPT_TEST_DATABASE_URL)('放棄與查詢補齊四類驗收', () => {
   const fixture = useOpsFixtures()
@@ -70,12 +70,14 @@ describe.skipIf(!process.env.PPT_TEST_DATABASE_URL)('放棄與查詢補齊四類
     await assertNoOperationWrites(client, missingId)
   })
 
-  test('放棄的 op_id 不是字串時回 400 且無寫入', async () => {
+  test('放棄缺少 op_id 或編號不可用時回 INVALID_OP_ID 且無寫入', async () => {
     const context = fixture()
     const classId = context.target.classId
-    const response = await sendOperationRequest(context, 'cancel', { class_id: classId, op_id: 1 })
-    expect(response.statusCode).toBe(400)
-    expect(response.json()).toEqual({ error: { code: 'BAD_ENVELOPE' } })
+    for (const fields of [{}, { op_id: 1 }, { op_id: '無效\u0000編號' }]) {
+      const response = await sendOperationRequest(context, 'cancel', { class_id: classId, ...fields })
+      expect(response.statusCode).toBe(200)
+      expect(response.json().receipt).toEqual(retry(null, 'INVALID_OP_ID'))
+    }
     await assertNoWrites(context.client, classId)
   })
 })
