@@ -23,6 +23,10 @@ export async function queryOwnedClasses(client, teacherId) {
 export function buildClassesResponse(clock, classes) {
   return {
     server_time: clock().toISOString(),
-    classes: classes.map(row => ({ ...row, class_seq: Number(row.class_seq) })),
+    classes: classes.map(row => ({
+      ...row,
+      class_seq: Number(row.class_seq),
+      last_export_at: row.last_export_at === null ? null : new Date(row.last_export_at).toISOString(),
+    })),
   }
 }

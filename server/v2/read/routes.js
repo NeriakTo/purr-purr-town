@@ -2,7 +2,8 @@ import { readClassSnapshot } from '../db.js'
 import { precheckClassAccess } from '../ops/class-access.js'
 import { buildClassesResponse, queryOwnedClasses } from './classes.js'
 import { buildChangesResponse, loadClassChanges } from './changes.js'
-import { readChangesEnvelope, readStateEnvelope } from './envelope.js'
+import { readChangesEnvelope, readClassEnvelope, readStateEnvelope } from './envelope.js'
+import { buildExportResponse, loadClassExport, recordClassExport } from './export.js'
 import { buildStateResponse, loadClassState } from './state.js'
 
 export function registerReadRoutes(app, { pool, config, clock, hooks, authenticateTeacher }) {
@@ -28,5 +29,14 @@ export function registerReadRoutes(app, { pool, config, clock, hooks, authentica
     const readTime = clock()
     const changes = await loadClassChanges(pool, config, classId, sinceSeq, readTime, hooks)
     return buildChangesResponse(readTime, changes)
+  })
+
+  app.post('/api/v2/read/export', auth, async function readExport(request) {
+    const { classId } = readClassEnvelope(request.body)
+    await precheckClassAccess(pool, classId, request.teacherSession.actor)
+    const exportedAt = clock().toISOString()
+    const backup = await loadClassExport(pool, config, classId, hooks)
+    await recordClassExport(pool, config, classId, exportedAt, hooks)
+    return buildExportResponse(classId, exportedAt, backup)
   })
 }
