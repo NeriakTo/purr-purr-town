@@ -67,6 +67,7 @@ DECLARE
   limits agent_limits;
   attempt agent_batch_attempt;
   receipts jsonb;
+  held_inputs jsonb;
 BEGIN
   SELECT jsonb_agg(op || context ORDER BY position) INTO ops
   FROM jsonb_array_elements(p_ops) WITH ORDINALITY AS inputs(op, position);
@@ -89,8 +90,9 @@ BEGIN
       RETURN agent_retry_receipt(p_call_id, 'HELD_QUEUE_FULL');
     END IF;
     receipts := store_held_agent_operations(new_ops, p_actor, call_time, attempt.held_reason);
+    held_inputs := new_ops;
   END IF;
-  PERFORM store_agent_call(p_class_id, p_call_id, p_note, entries, receipts, call_time);
+  PERFORM store_agent_call(p_class_id, p_call_id, p_note, entries, receipts, call_time, held_inputs);
   RETURN agent_batch_receipts(p_class_id, p_call_id, entries, p_actor, receipts);
 END;
 $$;

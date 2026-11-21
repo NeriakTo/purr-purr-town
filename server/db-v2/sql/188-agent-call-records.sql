@@ -64,16 +64,17 @@ AS $$
 $$;
 
 CREATE FUNCTION ppt.store_agent_call(
-  p_class_id text, p_call_id text, p_note text, p_entries jsonb, p_receipts jsonb, p_time timestamptz
+  p_class_id text, p_call_id text, p_note text, p_entries jsonb, p_receipts jsonb, p_time timestamptz,
+  p_held_inputs jsonb
 )
 RETURNS void
 LANGUAGE sql
 SET search_path = pg_catalog, ppt, pg_temp
 AS $$
-  INSERT INTO agent_calls (class_id, call_id, note, entries, created_at)
+  INSERT INTO agent_calls (class_id, call_id, note, entries, created_at, held_inputs)
   SELECT p_class_id, p_call_id, p_note, jsonb_agg(entry || jsonb_build_object(
     'is_new', coalesce(receipt->>'status' <> 'retry' AND receipt->'replayed' = 'false'::jsonb, false)
-  ) ORDER BY position), p_time
+  ) ORDER BY position), p_time, p_held_inputs
   FROM jsonb_array_elements(p_entries) WITH ORDINALITY AS inputs(entry, position)
   CROSS JOIN LATERAL (SELECT p_receipts->(entry->>'op_id') AS receipt) AS result;
 $$;

@@ -27,10 +27,6 @@ BEGIN
   IF target.status <> 'pending' THEN
     PERFORM reject_operation('CONFIRMATION_NOT_PENDING');
   END IF;
-  IF target.kind = 'agent_held' THEN
-    -- PPT-PENDING: agent_held_confirmation
-    PERFORM pending_operation('agent_held_confirmation');
-  END IF;
   RETURN target;
 END;
 $$;
@@ -61,10 +57,16 @@ AS $$
 DECLARE
   op_key text := p_op->>'op_id';
   target confirmations := require_pending_confirmation(p_op->>'class_id', p_op->'payload'->>'confirmation_id');
+  rejecting boolean := p_op->>'type' = 'confirmation.reject';
   previous submissions;
   outcome operation_outcome;
 BEGIN
-  IF p_op->>'type' = 'confirmation.reject' THEN
+  IF target.kind = 'agent_held' THEN
+    RETURN apply_held_agent_confirmation(
+      target, CASE WHEN rejecting THEN 'rejected' ELSE 'confirmed' END::confirmation_status, op_key, p_time
+    );
+  END IF;
+  IF rejecting THEN
     RETURN (
       operation_result(), jsonb_build_array(store_confirmation_status(target, 'rejected', op_key, p_time)), '[]'::jsonb
     )::operation_outcome;

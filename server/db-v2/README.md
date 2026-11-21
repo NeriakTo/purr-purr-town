@@ -10,14 +10,14 @@
 | `class_ownership` | 班級與老師的對應，每班一位擁有者。 |
 | `class_authorizations` | 以班級與身分種類為鍵，保存小野與排程授權。測試由 SQL 建立授權列。 |
 | `operations` | 以全庫唯一的 `op_id` 保存操作者、輸入、內容雜湊、狀態和收據。`recorded_at` 記登記時間。只有成立的操作有 `class_seq` 與 `committed_at`。`operations_one_committed_undo` 是部分唯一索引，只收成立的 `op.undo`，鍵是 `class_id` 與 `payload->>'target_op_id'`。 |
-| `agent_calls` | 以全庫唯一的 `call_id` 保存班級、選填的說明、按輸入順序記錄的操作清單及呼叫時間。 |
+| `agent_calls` | 以全庫唯一的 `call_id` 保存班級、選填的說明、按輸入順序記錄的操作清單及呼叫時間。只有暫緩的呼叫會填 `held_inputs`，依原順序保存帶入外層班級與批次的完整新操作 JSONB。 |
 | `students` | 以班級與學生編號為鍵，保存座號、姓名、小組、在學狀態及版本。`exempt_rules` 預設為空陣列，每項有 `keyword` 與 `taskType`。 |
 | `accounts` | 每位學生一列，保存餘額、累計加分及版本。每寫一筆交易，帳戶版本加一並更新 `last_op_id`。 |
 | `transactions` | 以班級與交易編號為鍵的存摺。來源與操作／轉換批次的關係由資料庫檢查，每筆根交易至多沖回一次。觸發程序擋下更新、刪除及清空。規則產生的交易記 `rule_id` 與 `rule_rev`。程序依 `effective_at` 的臺灣日期填 `semester`，無歸屬時間時留空。撤銷補回的根交易另記 `restored_from_transaction_id`，指向快照記下的原根交易。 |
 | `rules`、`rule_versions` | 規則的 `rev` 指向現行版本。每班每個事件至多一條啟用規則，已發行的版本只能新增。建立規則與首版、調整現行版本與新增版本均須在同一交易完成。 |
 | `effects` | 記學生、事件、對象、規則版本、根交易、來源、接替鏈及產生／沖回的操作。未裁決和裁決為未扣分的歷史效果，事件與根交易為空。候選交易可另記在 `suggested_transaction_id`，供畫面排序。同一班內，同一學生同一事件同一對象、同一接替鏈，各至多一筆有效效果。`payroll` 與 `duty_pay` 只供效果使用，規則編號及版本皆空。 |
 | `tasks`、`submissions` | 作業列存標題、類型、可空的頁碼文字 `page_text`、發布日、截止日、學期及作廢狀態。繳交以班級、作業、學生為鍵，含狀態、版本、基準、是否參與及匯入時的狀態。 |
-| `confirmations` | 保存 `leader_proposal` 與預留的 `agent_held`。項目有作業、學生、提議狀態、建立及處理操作與時間，以及 `rev`、`last_op_id`。狀態是 `pending`、`confirmed`、`rejected` 或 `superseded`。部分唯一索引限制同一班、同一筆繳交最多有一筆尚未處理的 `leader_proposal`。 |
+| `confirmations` | 保存 `leader_proposal` 與 `agent_held`。學生提議帶作業、學生、提議狀態。小野暫緩批次帶 `batch_id` 與 `held_reason`。兩者都保存建立及處理操作與時間，以及 `rev`、`last_op_id`。狀態是 `pending`、`confirmed`、`rejected` 或 `superseded`。部分唯一索引限制同班同一筆繳交最多一筆尚未處理的學生提議，另一個部分唯一索引限制同班同批最多一筆小野暫緩項目。 |
 | `corrections` | 每輪一列，以班級與 `correction_id` 為主鍵，外鍵指向本班作業及學生。保存 `round`、`status`、可空的 `due_on`、`note`、`overdue_on` 及版本欄位。同班、同作業、同學生的輪次唯一，另有部分唯一索引保證至多一列為 `required` 或 `returned`。`basis_rev` 介於 0 和 `rev` 之間，基準為 0 時狀態須為 `cancelled`。 |
 | `products`、`inventory_items` | 商品列存價格、單位、庫存、可空的 `description` 及停用狀態。背包物品記購買時的名稱、圖示、購買交易編號及物品狀態。 |
 | `settings_entries` | 以班級與設定鍵定位一筆 JSONB 設定。購買使用 `currency`。 |
@@ -100,7 +100,7 @@ OP-15 至 OP-17 只供老師呼叫，禁帶 `expect`。既有實體的編號以�
 | OP-16 `confirmation.confirm` | `confirmation_id` | 先檢查項目存在且尚未處理，再查作業、學生及繳交是否符合點收條件。使用 OP-14 的繳交寫入與效果流程，並在同一筆操作把提議標成已確認。 |
 | OP-17 `confirmation.reject` | `confirmation_id` | 檢查項目存在且尚未處理後標成已退回，保留繳交與點數。 |
 
-已確認、退回或被取代的項目回 `CONFIRMATION_NOT_PENDING`。尚未處理的 `agent_held` 項目會拋出未實作例外。
+已確認、退回或被取代的項目回 `CONFIRMATION_NOT_PENDING`。小野暫緩批次確認時，依 `held_inputs` 原順序，以小野身分和 OP-16 的時間逐筆重跑一般檢查與寫入。確認略過小野的上限，對暫緩起已套用同一學生與規則的 OP-25 優先回 `HELD_OP_OUTDATED`。OP-17 將成員定案為 `CONFIRMATION_REJECTED`。兩者都更新待確認項目，外層收據的 `result.held` 含 `batch_id` 與原順序的 `items`，每項只列 `op_id`、`status`、`code`。呼叫或成員資料不完整時整筆回復。
 
 OP-14 與 OP-16 真的改動繳交時，在同一交易判定這位學生於作業截止日的每日任務，包含重新建立繳交。條件只看該日截止、未作廢且有參與中繳交的作業。全部為準時、補交、請假或免交，並至少有一筆準時，才算達成。
 
@@ -353,7 +353,6 @@ OP-12 真的作廢且選沖回時，逐筆沖回仍有效的作業效果，依�
 | 鍵 | 缺少的分支 | 補上的分包 |
 |---|---|---|
 | `actor_system` | 系統身分入口 | 第 9 包 |
-| `agent_held_confirmation` | 確認或退回小野暫緩批次 | 第 8 包 |
 | `class_create` | OP-01 在班級列尚不存在時的建班路徑 | 第 9 包 |
 
 第 8 包完成前，整合分支限小野無法呼叫的環境。正式資料庫的安裝須等資料庫角色與權限工單和規格 2.1 的上線前提完成。
