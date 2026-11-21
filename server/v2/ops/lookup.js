@@ -4,12 +4,14 @@ import { precheckClassAccess } from './class-access.js'
 import { validateLookupEnvelope } from './envelope.js'
 
 function readOwnOperations(pool, classId, opIds, actor) {
+  // PostgreSQL 的 text 無法保存 NUL，這些編號在回應組裝時會得到 unknown。
+  const searchableIds = opIds.filter(opId => !opId.includes('\u0000'))
   return readSnapshot(pool, async client => {
     const { rows } = await client.query(`
       SELECT op_id, type, receipt
       FROM ppt.operations
       WHERE class_id = $1 AND op_id = ANY($2::text[]) AND actor_kind = 'teacher' AND actor_id = $3
-    `, [classId, opIds, actor.id])
+    `, [classId, searchableIds, actor.id])
     return rows
   })
 }

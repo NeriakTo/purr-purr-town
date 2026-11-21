@@ -34,9 +34,10 @@ describe.skipIf(!process.env.PPT_TEST_DATABASE_URL)('查詢原操作', () => {
     expect((await cancelViaHttp(context, cancelledId)).statusCode).toBe(200)
     const cancelled = (await readOperation(client, cancelledId)).receipt
     const missing = randomUUID()
-    const opIds = [missing, cancelledId, op.op_id, cancelledId]
+    const unrepresentable = '查無\u0000編號'
+    const opIds = [missing, cancelledId, unrepresentable, op.op_id, cancelledId]
     expect(resultsOf(await lookupViaHttp(context, opIds))).toEqual([
-      unknown(missing), { ...cancelled, op_type: null }, { ...committed, op_type: op.type },
+      unknown(missing), { ...cancelled, op_type: null }, unknown(unrepresentable), { ...committed, op_type: op.type },
       { ...cancelled, op_type: null },
     ])
   })
