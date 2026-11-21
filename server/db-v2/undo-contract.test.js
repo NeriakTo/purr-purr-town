@@ -1,11 +1,13 @@
 import { expect, test } from 'vitest'
 import { agentSubmit, authorizeAgent } from './test-support/agent.js'
+import { removeAnnouncement, saveAnnouncement, saveSeating } from './test-support/announcement-seating.js'
 import { batchUndo, ruleBatch } from './test-support/batch-undo.js'
 import { classSnapshot } from './test-support/checks.js'
 import {
   addStudentOperation, assignStudentGroups, saveGroup, setClassStatus, setStudentEnrollment,
   setStudentExemptRules, updateClassInfo, updateStudentProfile,
 } from './test-support/class-student-group.js'
+import { applyComment, lockComment, requestComment, saveComment, system } from './test-support/comments.js'
 import { confirm, propose } from './test-support/confirmations.js'
 import { setCorrectionDueOperation, setupOpenRoundConflict } from './test-support/correction-rounds.js'
 import { useItem as inventoryUse } from './test-support/inventory.js'
@@ -162,6 +164,20 @@ const nonUndoable = [
     }])
   }],
   ['OP-09', (_client, target) => saveGroup(target.classId)],
+  ['OP-40', (_client, target) => saveAnnouncement(target.classId)],
+  ['OP-41', async (client, target) => {
+    const op = saveAnnouncement(target.classId)
+    await commitOperation(client, op)
+    return removeAnnouncement(target.classId, op.payload.announcement_id)
+  }],
+  ['OP-42', (_client, target) => saveSeating(target.classId)],
+  ['OP-44', (_client, target) => saveComment(target)],
+  ['OP-45', (_client, target) => lockComment(target)],
+  ['OP-46', (_client, target) => requestComment(target)],
+  ['OP-47', async (client, target) => {
+    const request = await commitOperation(client, requestComment(target))
+    return applyComment(target, request.op_id)
+  }, system],
 ]
 
 describeDatabase('撤銷乙段驗收', () => {
@@ -218,11 +234,20 @@ describeDatabase('撤銷乙段驗收', () => {
     await rejectUndoWithoutChanges(client, operation, 'INVALID_PAYLOAD')
   })
 
-  test.each(nonUndoable)('%s 成立後仍不可撤', async (_id, makeOperation) => {
+  test.each(nonUndoable.filter(([, , actor]) => actor === undefined))('%s 成立後仍不可撤', async (_id, makeOperation) => {
     const { client } = db()
     const target = await addClass(client)
     const op = await makeOperation(client, target)
     const original = await commitOperation(client, op)
+    await rejectUndoWithoutChanges(client, undo(target.classId, original.op_id), 'NOT_UNDOABLE')
+  })
+
+  test.each(nonUndoable.filter(([, , actor]) => actor === system))('%s 由系統成立後，老師仍不可撤', async (_id, makeOperation, actor) => {
+    const { client } = db()
+    const target = await addClass(client)
+    const op = await makeOperation(client, target)
+    const original = await submit(client, op, actor)
+    expect(original).toMatchObject({ status: 'committed', code: 'OK' })
     await rejectUndoWithoutChanges(client, undo(target.classId, original.op_id), 'NOT_UNDOABLE')
   })
 
