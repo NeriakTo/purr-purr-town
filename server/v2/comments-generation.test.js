@@ -332,6 +332,16 @@ describe.skipIf(!process.env.PPT_TEST_DATABASE_URL)('後端評語產生', () => 
       expect(entries).toContainEqual(expect.objectContaining({ ...invalidTarget, code: 'NOT_FOUND' }))
     }
 
+    // 同學生同學期、payload 也帶 student_id 與 semester 的 OP-44，拿掉類型條件時才會讀到評語列並呼叫瓦力
+    const saved = saveComment(context.target, { comment: '不是產生請求的存檔' }, { rev: 2 })
+    expect((await submit(context.client, saved, context.teacher)).status).toBe('committed')
+    const sameTargetOtherType = { class_id: context.target.classId, request_op_id: saved.op_id }
+    app.commentGeneration.trigger({ ...sameTargetOtherType, student_id: context.target.studentId, semester: '115-1' })
+    await app.whenIdle()
+    expect(walle).not.toHaveBeenCalled()
+    expect(entries).toHaveLength(4)
+    expect(entries).toContainEqual(expect.objectContaining({ ...sameTargetOtherType, code: 'NOT_FOUND' }))
+
     app.commentGeneration.trigger({
       class_id: context.target.classId, request_op_id: context.request.op_id, student_id: other.op_id, semester: '999-1',
     })
