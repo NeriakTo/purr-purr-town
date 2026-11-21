@@ -46,9 +46,17 @@ RETURNS SETOF ppt.effects
 LANGUAGE sql
 SET search_path = pg_catalog, ppt, pg_temp
 AS $$
-  SELECT * FROM effects
-  WHERE class_id = p_task.class_id AND subject_kind = 'task' AND subject_key = p_task.task_id AND status = 'active'
-  ORDER BY student_id COLLATE "C", event::text COLLATE "C";
+  SELECT effect.* FROM effects AS effect
+  WHERE effect.class_id = p_task.class_id AND effect.status = 'active'
+    AND (
+      (effect.subject_kind = 'task' AND effect.subject_key = p_task.task_id)
+      OR (effect.subject_kind = 'correction' AND EXISTS (
+        SELECT 1 FROM corrections AS round
+        WHERE round.class_id = effect.class_id AND round.task_id = p_task.task_id
+          AND round.correction_id = effect.subject_key AND round.student_id = effect.student_id
+      ))
+    )
+  ORDER BY effect.student_id COLLATE "C", effect.event::text COLLATE "C", effect.subject_key COLLATE "C";
 $$;
 
 CREATE FUNCTION ppt.reverse_task_effects(p_task ppt.tasks, p_op_id text, p_time timestamptz)
