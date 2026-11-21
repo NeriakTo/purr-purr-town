@@ -1,3 +1,4 @@
+import { commentRequestType } from '../comments/generation.js'
 import { readQuery, writeTransaction } from '../db.js'
 import { logError, RequestError } from '../errors.js'
 import { precheckClassAccess } from './class-access.js'
@@ -26,6 +27,16 @@ async function submitOne({ pool, config, hooks }, op, actor, logger) {
   }
 }
 
+function triggerCommentGeneration(generation, op, classId, receipt) {
+  if (op.type !== commentRequestType || receipt.status !== 'committed' || receipt.replayed === true) return
+  const source = { class_id: classId, request_op_id: receipt.op_id }
+  try {
+    generation.trigger(source)
+  } catch {
+    generation.reportTriggerFailure(source)
+  }
+}
+
 async function processOperations(context, envelope, actor, logger) {
   const receipts = []
   let stopped = false
@@ -34,6 +45,7 @@ async function processOperations(context, envelope, actor, logger) {
       ? retryReceipt(op.op_id, 'NOT_PROCESSED')
       : await submitOne(context, buildOperation(op, envelope), actor, logger)
     receipts.push(receipt)
+    triggerCommentGeneration(context.commentGeneration, op, envelope.class_id, receipt)
     stopped ||= receipt.status === 'retry' && stopCodes.has(receipt.code)
   }
   return receipts

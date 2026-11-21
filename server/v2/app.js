@@ -1,6 +1,7 @@
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import { setTimeout as wait } from 'node:timers/promises'
+import { createCommentGeneration } from './comments/generation.js'
 import { createAccountRateLimit } from './auth/account-rate-limit.js'
 import { registerLoginRoute } from './auth/login.js'
 import { scheduleLoginTimeout } from './auth/login-timers.js'
@@ -10,9 +11,12 @@ import { registerSessionRoutes } from './auth/session-routes.js'
 import { createTeacherAuthentication } from './auth/session.js'
 import { logError, RequestError, sendError } from './errors.js'
 import { sqlState } from './db.js'
+import { defaultTimers, readBackgroundConfig, validateTimers } from './jobs/config.js'
 import { registerCancelRoute } from './ops/cancel.js'
 import { registerLookupRoute } from './ops/lookup.js'
 import { registerSubmitRoute } from './ops/submit.js'
+import { registerReadRoutes } from './read/routes.js'
+import { readConfig } from './read/config.js'
 import { createOriginCheck, readTrustProxy } from './request-source.js'
 
 const bodyErrors = new Set([
@@ -37,7 +41,12 @@ function handleError(error, request, reply) {
 export function buildV2App({
   pool, config = {}, clock = () => new Date(), logger, hooks, sleep = wait, verifyPassword = comparePassword,
   scheduleLoginTimer = scheduleLoginTimeout,
+  timers = defaultTimers, walle,
 }) {
+  const read = readConfig(config.read)
+  const backgroundConfig = readBackgroundConfig(config)
+  validateTimers(timers)
+  if (walle !== undefined && typeof walle !== 'function') throw new RangeError('walle 必須是函式')
   const isGasRelay = createRelayCheck(config.relayKey)
   const countAccountRequest = createAccountRateLimit(clock, config.accountRateLimit)
   const authenticateTeacher = createTeacherAuthentication({ pool, clock, isGasRelay, countAccountRequest })
@@ -53,11 +62,22 @@ export function buildV2App({
   app.setErrorHandler(handleError)
   app.removeContentTypeParser('text/plain')
   app.decorateRequest('teacherSession', null)
+  function sleepBeforeCommentRetry(delay, signal) {
+    return sleep === wait ? wait(delay, undefined, { signal }) : sleep(delay)
+  }
+  const commentGeneration = createCommentGeneration({
+    pool, config: backgroundConfig, clock, timers, hooks, walle, sleep: sleepBeforeCommentRetry, logger: app.log,
+  })
+  app.decorate('whenIdle', commentGeneration.whenIdle)
+  app.decorate('commentGeneration', commentGeneration)
+  app.addHook('preClose', commentGeneration.close)
+  app.decorate('backgroundJobContext', { pool, config: backgroundConfig, clock, timers, hooks, commentGeneration })
   registerLoginRoute(app, { pool, config, clock, isGasRelay, sleep, verifyPassword, scheduleLoginTimer })
   registerSessionRoutes(app, { pool, clock, authenticateTeacher })
-  registerSubmitRoute(app, { pool, config, clock, hooks, authenticateTeacher })
+  registerSubmitRoute(app, { pool, config, clock, hooks, authenticateTeacher, commentGeneration })
   registerCancelRoute(app, { pool, config, clock, authenticateTeacher })
   registerLookupRoute(app, { pool, clock, authenticateTeacher })
+  registerReadRoutes(app, { pool, config: { ...config, read }, clock, hooks, authenticateTeacher })
 
   function onPoolError(error) {
     const code = error?.code

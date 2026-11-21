@@ -46,11 +46,33 @@ function makeRateLimiter() {
   return check
 }
 
+function readLegacySwitch(name) {
+  const value = process.env[name]
+  if (value === 'true') return true
+  if (value === undefined || value === '' || value === 'false') return false
+  throw new Error(`${name} 只接受 true、false 或空字串`)
+}
+
+function legacyClosedRoute(closed, error) {
+  if (!closed) return {}
+  return {
+    async onRequest(req, reply) {
+      return reply.code(410).send({ success: false, error, code: 'LEGACY_WRITE_CLOSED' })
+    },
+  }
+}
+
 /**
  * 建立 Fastify app（不呼叫 listen）。分離出來讓測試能以 app.inject 驅動，
  * 並在測試中以 vi.mock 替換 db / auth 依賴。
  */
-export async function buildApp({ logger = false } = {}) {
+export async function buildApp({
+  logger = false,
+  legacyWriteClosed = readLegacySwitch('LEGACY_WRITE_CLOSED'),
+  legacyRegisterClosed = readLegacySwitch('LEGACY_REGISTER_CLOSED'),
+} = {}) {
+  const legacyWrites = legacyClosedRoute(legacyWriteClosed, '舊版已停止寫入，請重新整理網頁改用新版')
+  const legacyRegister = legacyClosedRoute(legacyRegisterClosed, '舊版已停止開新帳號')
   const app = Fastify({ logger, bodyLimit: BODY_LIMIT, trustProxy: true })
   const checkRateLimit = makeRateLimiter()
 
@@ -70,7 +92,7 @@ export async function buildApp({ logger = false } = {}) {
 
   // --- Auth ---
 
-  app.post('/api/v1/auth/register', async (req, reply) => {
+  app.post('/api/v1/auth/register', legacyRegister, async (req, reply) => {
     if (!checkRateLimit(req.ip, 'auth', RATE_MAX_AUTH)) {
       return reply.status(429).send({ success: false, error: '請求過於頻繁，請稍後再試' })
     }
@@ -205,7 +227,7 @@ export async function buildApp({ logger = false } = {}) {
     return { success: true, data: result.rows }
   })
 
-  app.post('/api/v1/classes', async (req, reply) => {
+  app.post('/api/v1/classes', legacyWrites, async (req, reply) => {
     if (!checkRateLimit(req.ip, 'api', RATE_MAX_GENERAL)) {
       return reply.status(429).send({ success: false, error: '請求過於頻繁' })
     }
@@ -275,7 +297,7 @@ export async function buildApp({ logger = false } = {}) {
     return { success: true, data: { id } }
   })
 
-  app.delete('/api/v1/classes/:classId', async (req, reply) => {
+  app.delete('/api/v1/classes/:classId', legacyWrites, async (req, reply) => {
     if (!checkRateLimit(req.ip, 'api', RATE_MAX_GENERAL)) {
       return reply.status(429).send({ success: false, error: '請求過於頻繁' })
     }
@@ -316,7 +338,7 @@ export async function buildApp({ logger = false } = {}) {
     }
   })
 
-  app.put('/api/v1/snapshots/:classId', async (req, reply) => {
+  app.put('/api/v1/snapshots/:classId', legacyWrites, async (req, reply) => {
     if (!checkRateLimit(req.ip, 'api', RATE_MAX_GENERAL)) {
       return reply.status(429).send({ success: false, error: '請求過於頻繁' })
     }
