@@ -7,7 +7,7 @@ import { propose } from './confirmations.js'
 import { createRound, requireRound } from './correction-rounds.js'
 import { addImportedEffect, resolveLegacyEffect } from './legacy-effects.js'
 import { addClass, adjustment } from './operations.js'
-import { addPayrollJob, setDuty } from './payroll.js'
+import { addPayrollJob, saveJob, setDuty } from './payroll.js'
 import { agentSubmitAs, connectAsRole } from './roles.js'
 import { commitOperation, createTask, saveRule } from './schoolwork.js'
 import { addSubmission } from './submissions.js'
@@ -24,6 +24,53 @@ export const maskedViewColumns = {
 }
 
 export const sampleStudentNames = ['王小明', '陳大文', '歐陽小華', '司馬大中']
+
+function viewTextSource(view, columns, write, match = {}) {
+  return Object.fromEntries(columns.map((column) => [
+    column, { view, column, write, match },
+  ]))
+}
+
+async function writeMaskTask(client, { classId }, value) {
+  await commitOperation(client, createTask(classId, { title: value, task_type: value, page_text: value }))
+}
+
+async function writeMaskGroup(client, { classId, studentId }, value) {
+  await commitOperation(client, saveGroup(classId, { group_key: value, name: value }))
+  await commitOperation(client, assignStudentGroups(classId, [
+    { student_id: studentId, group_key: value, expect: { rev: 1 } },
+  ]))
+}
+
+async function writeMaskRule(client, fixture, value) {
+  const rule = saveRule(fixture.classId, { name: value, icon: value, category: value })
+  await commitOperation(client, rule)
+  await commitOperation(client, agentApplyRule(fixture, rule.payload.rule_id))
+  await commitOperation(client, saveRule(fixture.classId, {
+    ...rule.payload, amount: 8,
+  }, 1))
+}
+
+async function writeMaskJob(client, { classId }, value) {
+  await commitOperation(client, saveJob(classId, { title: value, icon: value, category: value }))
+}
+
+async function writeMaskCorrection(client, { classId, studentId }, value) {
+  const task = createTask(classId)
+  await commitOperation(client, task)
+  await createRound(client, { classId, studentId, taskId: task.payload.task_id }, { note: value })
+}
+
+export const maskedColumns = {
+  students: viewTextSource('students', ['group_key'], writeMaskGroup, { seat_number: 1 }),
+  groups: viewTextSource('groups', ['group_key', 'name'], writeMaskGroup),
+  transactions: viewTextSource('transactions', ['rule_name'], writeMaskRule, { rule_rev: 1 }),
+  rules: viewTextSource('rules', ['name', 'icon', 'category'], writeMaskRule, { rev: 2 }),
+  rule_versions: viewTextSource('rule_versions', ['name', 'icon', 'category'], writeMaskRule, { rev: 2 }),
+  tasks: viewTextSource('tasks', ['title', 'task_type', 'page_text'], writeMaskTask),
+  corrections: viewTextSource('corrections', ['note'], writeMaskCorrection),
+  jobs: viewTextSource('jobs', ['title', 'icon', 'category'], writeMaskJob),
+}
 
 export async function setViewStudentNames(client, { classId, studentIds }, names = sampleStudentNames) {
   for (const [index, studentId] of studentIds.entries()) {
