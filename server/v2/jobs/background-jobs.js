@@ -2,9 +2,13 @@ import { RequestError } from '../errors.js'
 import { defaultTimers, readBackgroundConfig, validateTimers } from './config.js'
 import { createCorrectionOverdueJob } from './correction-overdue.js'
 import { taiwanJobTime } from './taiwan-time.js'
+import { cleanWebState } from './web-state-cleanup.js'
 
 export function createBackgroundJobList() {
-  return [{ name: 'correction_overdue', run: createCorrectionOverdueJob() }]
+  return [
+    { name: 'correction_overdue', run: createCorrectionOverdueJob() },
+    { name: 'web_state_cleanup', run: cleanWebState },
+  ]
 }
 
 export function startBackgroundJobs(app, options = {}) {
