@@ -71,10 +71,6 @@ DECLARE
   target classes;
   changes jsonb;
 BEGIN
-  IF source_key IS NOT NULL THEN
-    RAISE EXCEPTION '此提交尚未支援建班承接';
-  END IF;
-
   INSERT INTO classes (class_id, school_year, name, teacher, alias, last_op_id)
   VALUES (class_key, payload->>'school_year', payload->>'name', payload->>'teacher_name', payload->>'alias', op_key)
   RETURNING * INTO STRICT target;
@@ -85,7 +81,11 @@ BEGIN
       || jsonb_build_object('status', target.status, 'cutover_date', target.cutover_date)));
   changes := changes || create_class_students(class_key, op_key, payload->'student_ids');
 
-  PERFORM store_class_defaults(class_key, op_key, p_time);
+  IF source_key IS NULL THEN
+    PERFORM store_class_defaults(class_key, op_key, p_time);
+  ELSE
+    PERFORM store_class_inheritance(class_key, source_key, op_key, p_time);
+  END IF;
   changes := changes || class_create_resource_changes(class_key, op_key);
   RETURN (operation_result() || jsonb_build_object('class', jsonb_build_object(
     'class_id', class_key, 'student_count', payload->'student_count', 'inherited_from', source_key
@@ -101,6 +101,7 @@ AS $$
 DECLARE
   class_key text := p_op->>'class_id';
   op_key text := CASE WHEN jsonb_typeof(p_op->'op_id') = 'string' THEN p_op->>'op_id' END;
+  payload jsonb := p_op->'payload';
 BEGIN
   IF NOT valid_v4_op_id(op_key) THEN
     RETURN retry_receipt(op_key, 'INVALID_OP_ID');
@@ -108,7 +109,12 @@ BEGIN
 
   PERFORM pg_advisory_xact_lock(hashtextextended('ppt.class.create:' || class_key, 0));
   PERFORM class_id FROM classes WHERE class_id = class_key FOR UPDATE;
-  IF FOUND AND NOT can_access_class(class_key, p_actor) THEN
+  IF FOUND THEN
+    IF NOT can_access_class(class_key, p_actor) THEN
+      RETURN retry_receipt(op_key, 'CLASS_FORBIDDEN');
+    END IF;
+  ELSIF has_nonempty_string(payload, 'inherit_from_class_id')
+    AND NOT lock_class_inherit_source(payload->>'inherit_from_class_id', p_actor) THEN
     RETURN retry_receipt(op_key, 'CLASS_FORBIDDEN');
   END IF;
 

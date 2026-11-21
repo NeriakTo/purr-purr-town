@@ -58,7 +58,35 @@ BEGIN
 END;
 $$;
 
-CREATE FUNCTION ppt.store_class_default_rules(p_class_id text, p_op_id text, p_time timestamptz)
+CREATE FUNCTION ppt.store_class_event_rules(
+  p_class_id text, p_op_id text, p_time timestamptz, p_source_id text DEFAULT NULL
+)
+RETURNS void
+LANGUAGE plpgsql
+SET search_path = pg_catalog, ppt, pg_temp
+AS $$
+DECLARE
+  item record;
+BEGIN
+  FOR item IN
+    SELECT defaults.event, defaults.name, coalesce(source.amount, defaults.amount) AS amount
+    FROM (VALUES
+      ('submission.late'::rule_event, '作業遲交', -10),
+      ('submission.missing'::rule_event, '作業缺交', -20),
+      ('daily_quest.complete'::rule_event, '每日任務獎勵', 50)
+    ) AS defaults(event, name, amount)
+    LEFT JOIN (
+      SELECT r.event, v.amount FROM rules r JOIN rule_versions v USING (class_id, rule_id, rev)
+      WHERE r.class_id = p_source_id AND r.kind = 'event' AND NOT r.disabled
+    ) AS source USING (event)
+  LOOP
+    PERFORM store_class_create_rule(p_class_id, class_default_id(p_class_id, 'rule', item.event::text),
+      item.event, item.name, item.amount, NULL, NULL, p_op_id, p_time);
+  END LOOP;
+END;
+$$;
+
+CREATE FUNCTION ppt.store_class_default_manual_rules(p_class_id text, p_op_id text, p_time timestamptz)
 RETURNS void
 LANGUAGE plpgsql
 SET search_path = pg_catalog, ppt, pg_temp
@@ -67,15 +95,12 @@ DECLARE
   item record;
 BEGIN
   FOR item IN SELECT * FROM (VALUES
-    ('submission.late', 'submission.late'::rule_event, '作業遲交', -10, NULL, NULL),
-    ('submission.missing', 'submission.missing'::rule_event, '作業缺交', -20, NULL, NULL),
-    ('daily_quest.complete', 'daily_quest.complete'::rule_event, '每日任務獎勵', 50, NULL, NULL),
-    ('rule_missing_hw', NULL, '作業缺交', -200, '📕', '作業'),
-    ('rule_good_speak', NULL, '發表優良', 100, '🌟', '課堂表現'),
-    ('rule_attendance', NULL, '全勤獎勵', 500, '🗓️', '秩序')
-  ) AS defaults(code, event, name, amount, icon, category)
+    ('rule_missing_hw', '作業缺交', -200, '📕', '作業'),
+    ('rule_good_speak', '發表優良', 100, '🌟', '課堂表現'),
+    ('rule_attendance', '全勤獎勵', 500, '🗓️', '秩序')
+  ) AS defaults(code, name, amount, icon, category)
   LOOP
-    PERFORM store_class_create_rule(p_class_id, class_default_id(p_class_id, 'rule', item.code), item.event,
+    PERFORM store_class_create_rule(p_class_id, class_default_id(p_class_id, 'rule', item.code), NULL,
       item.name, item.amount, item.icon, item.category, p_op_id, p_time);
   END LOOP;
 END;
@@ -142,7 +167,7 @@ BEGIN
 END;
 $$;
 
-CREATE FUNCTION ppt.store_class_defaults(p_class_id text, p_op_id text, p_time timestamptz)
+CREATE FUNCTION ppt.store_class_settings(p_class_id text, p_op_id text, p_source_id text DEFAULT NULL)
 RETURNS void
 LANGUAGE plpgsql
 SET search_path = pg_catalog, ppt, pg_temp
@@ -150,13 +175,28 @@ AS $$
 DECLARE
   item record;
 BEGIN
-  FOR item IN SELECT * FROM class_default_settings() LOOP
+  FOR item IN
+    SELECT d.key, d.value, source.value AS source_value
+    FROM class_default_settings() d
+    LEFT JOIN settings_entries source ON source.class_id = p_source_id AND source.key = d.key
+  LOOP
     IF valid_setting_value(item.key, item.value) IS DISTINCT FROM true THEN
       RAISE EXCEPTION '建班預設設定不合格式：%', item.key;
     END IF;
-    PERFORM store_setting(p_class_id, item.key, item.value, p_op_id);
+    PERFORM store_setting(p_class_id, item.key, coalesce(item.source_value, item.value), p_op_id);
   END LOOP;
-  PERFORM store_class_default_rules(p_class_id, p_op_id, p_time);
+END;
+$$;
+
+CREATE FUNCTION ppt.store_class_defaults(p_class_id text, p_op_id text, p_time timestamptz)
+RETURNS void
+LANGUAGE plpgsql
+SET search_path = pg_catalog, ppt, pg_temp
+AS $$
+BEGIN
+  PERFORM store_class_settings(p_class_id, p_op_id);
+  PERFORM store_class_event_rules(p_class_id, p_op_id, p_time);
+  PERFORM store_class_default_manual_rules(p_class_id, p_op_id, p_time);
   PERFORM store_class_default_jobs(p_class_id, p_op_id);
   PERFORM store_class_default_products(p_class_id, p_op_id);
   PERFORM store_seating_save(p_class_id, p_op_id, class_default_seating(), NULL);
