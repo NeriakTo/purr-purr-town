@@ -1,5 +1,4 @@
 import { expect, test } from 'vitest'
-import { classSnapshot } from './test-support/checks.js'
 import { addClass, adjustment, operationCount, submit } from './test-support/operations.js'
 import { saveProduct } from './test-support/products.js'
 import { commitOperation } from './test-support/schoolwork.js'
@@ -73,15 +72,16 @@ describeDatabase('OP-43 設定鍵', () => {
     }
   })
 
-  test('值日職務丟未實作例外，連操作紀錄都不留', async () => {
+  test('值日職務設成空值會成立並留下操作紀錄', async () => {
     const { client } = db()
     const { classId } = await addClass(client)
-    const before = await classSnapshot(client, classId)
     const count = await operationCount(client)
-    await expect(submit(client, setSetting(classId, 'dutyJobId', null)))
-      .rejects.toMatchObject({ code: '0A000', detail: 'setting_duty_job' })
-    expect(await classSnapshot(client, classId)).toBe(before)
-    expect(await operationCount(client)).toBe(count)
+    const receipt = await commitOperation(client, setSetting(classId, 'dutyJobId', null))
+    expect(receipt.changes).toEqual([{
+      entity: 'setting', key: { key: 'dutyJobId' }, prev_rev: 0, rev: 1,
+      last_op_id: receipt.op_id, prev_value: null, value: { value: null },
+    }])
+    expect(await operationCount(client)).toBe(count + 1)
   })
 
   test('舊字串匯率仍可購買並更新，換匯只影響後續交易', async () => {

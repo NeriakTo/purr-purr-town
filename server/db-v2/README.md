@@ -125,7 +125,7 @@ OP-14 與 OP-16 真的改動繳交時，在同一交易判定這位學生於作�
 | `currency` | 含 `base`、`tier1`、`tier2` 三個物件。後兩者的 `rate` 須為 1 至 100000 的整數。名稱及圖示不驗。既有的字串匯率仍可供購買讀取。 |
 | `agentLimits` | 恰有 `max_students_per_call`、`max_students_per_10min`、`max_points_per_tx`、`max_points_per_student_per_day`、`max_pending_held` 五鍵。各值為 1 至 100000 的整數。 |
 | `correctionOverdueGraceDays` | 0 至 365 的整數。 |
-| `dutyJobId` | 拋出未實作例外，鍵為 `setting_duty_job`。 |
+| `dutyJobId` | JSON null 或本班未停用的職務編號。職務查找及有效性檢查排在設定版本之前。停用目前的值日職務會將這個設定清成 JSON null。 |
 | `currentSemester` | JSON null，或兩至三位數年份加 `-1` 或 `-2`。 |
 | `taskTypes` | 不重複的非空字串陣列。 |
 | `ruleCategories` | 物件陣列。 |
@@ -295,7 +295,6 @@ OP-12 真的作廢且選沖回時，逐筆沖回仍有效的作業效果，依�
 | `agent_limits` | 小野操作上限、整批暫緩及待確認佇列，含 OP-25 的當日重複暫緩。也含小野撤銷自己的操作所寫的交易怎麼算進上限。含小野送 OP-18、OP-19 影響的學生數。 | 第 8 包 |
 | `agent_note` | 保存小野呼叫的 `note` | 第 8 包 |
 | `class_create` | OP-01 在班級列尚不存在時的建班路徑 | 第 9 包 |
-| `setting_duty_job` | 驗證 `dutyJobId` 指向本班職務 | 第 7 包 |
 | `undo_payroll` | 撤銷發薪操作 | 第 7 包 |
 
 第 8 包完成前，整合分支限小野無法呼叫的環境。正式資料庫的安裝須等資料庫角色與權限工單和規格 2.1 的上線前提完成。

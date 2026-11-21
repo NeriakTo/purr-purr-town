@@ -68,7 +68,8 @@ AS $$
     WHEN 'ruleCategories' THEN valid_setting_array(p_value, 'object')
     WHEN 'semesterPeriods' THEN valid_semester_periods(p_value)
     WHEN 'shopMeta' THEN is_json_object(p_value)
-    WHEN 'dutyJobId' THEN true
+    WHEN 'dutyJobId' THEN p_value = 'null'::jsonb
+      OR (jsonb_typeof(p_value) = 'string' AND p_value #>> '{}' <> '')
     ELSE false
   END;
 $$;
@@ -83,10 +84,6 @@ BEGIN
       OR NOT has_nonempty_string(p_payload, 'key') OR NOT p_payload ? 'value'
       OR NOT valid_setting_value(p_payload->>'key', p_payload->'value') THEN
     PERFORM reject_operation('INVALID_PAYLOAD');
-  END IF;
-  IF p_payload->>'key' = 'dutyJobId' THEN
-    -- PPT-PENDING: setting_duty_job
-    PERFORM pending_operation('setting_duty_job');
   END IF;
 END;
 $$;
