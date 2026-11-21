@@ -318,6 +318,30 @@ OP-12 真的作廢且選沖回時，逐筆沖回仍有效的作業效果，依�
 | `tx_changed_later` | `transaction_id`、`effective_amount`、`reversed`，以及最後更正或沖回的 `last_op_id`、`actor`、`committed_at`。 |
 | `item_state_changed` | `value`（只有 `status`）、`rev`、`last_op_id`、`actor`、`committed_at`。 |
 
+### 規格 16.2 與 16.3 的撤銷驗收
+
+以下測試都透過 `useTestDatabase`，每支結束後比對帳戶與交易加總，並查不參與的繳交是否留下有效的遲交或缺交效果。
+
+| 規格 | 測試檔 | 測試名稱 |
+|---|---|---|
+| 16.2 S1 | `undo-acceptance.test.js` | S1 連續撤銷先補回接替效果，再沖回該效果並回到原點 |
+| 16.2 S2 | `batch-undo-acceptance.test.js` | S2 同批缺交再補交，倒序撤銷逐步回復基準與餘額 |
+| 16.2 S3 | `undo-acceptance.test.js` | S3 兩次補交各自保留前基準，撤銷三筆後回到原點 |
+| 16.2 S4 | `undo-submission-flow.test.js` | S4 缺交不再參與後重新發獎，新獎勵另起接替鏈 |
+| 16.2 S5 | `legacy-effect-acceptance.test.js` | S5 補交後裁決會擋撤銷，改缺交退舊分並扣現行金額 |
+| 16.2 S6 | `correction-round-contract.test.js` | S6 與 16.3 第 5 條逐步驗收，第一輪確認受阻時保留獎勵且可用新編號重撤 |
+| 16.2 S7 | `daily-quest.test.js`、`undo-submission-flow.test.js` | S7 兩份準時後改缺交再改遲交，各步餘額及帳戶合併正確。S7 兩份作業分別撤銷，直到兩份都準時才補發一次。 |
+| 16.3 第 1 條 | `undo-effects.test.js` | 16.3 第 1 條撤補交後人工已退缺交，撤缺交只回復狀態 |
+| 16.3 第 2 條 | `undo-effects.test.js` | 16.3 第 2 條依快照補回改過的扣分，再按補回金額結束接替鏈 |
+| 16.3 第 3 條 | `undo-acceptance.test.js` | 16.3 第 3 條回到同值仍有新基準，不能撤第一筆缺交 |
+| 16.3 第 4 條 | `undo-submission-flow.test.js` | 16.3 第 4 條 S4 結尾重建成 %s |
+| 16.3 第 5 條 | `correction-round-contract.test.js` | S6 與 16.3 第 5 條逐步驗收，第一輪確認受阻時保留獎勵且可用新編號重撤 |
+| 16.3 第 6 條 | `batch-undo-acceptance.test.js` | 16.3 第 6 條第二筆沖回失敗使整批回復，同編號重送只成立一次 |
+| 16.3 第 7 條 | `undo-effects.test.js` | 16.3 第 7 條撤遲交按改過的金額沖回，後續撤更正被擋 |
+| 16.3 第 8 條 | `undo-submission-flow.test.js` | 16.3 第 8 條不參與繳交以 rev %i 重建為準時 |
+| 16.3 第 9 條 | `undo-effects.test.js` | 16.3 第 9 條恢復作業後能撤缺交，作廢已退的扣分只提示 |
+| 16.3 第 10 條 | `batch-undo-acceptance.test.js` | 16.3 第 10 條跳過小野的撤銷本身與已撤銷原操作 |
+
 ## 暫定做法
 
 - 資料庫以 `type`、`class_id`、`payload` 與 `expect` 組成 JSONB，轉成 UTF-8 文字後計算 SHA-256。鍵順序和輸入排版不影響比對，陣列順序會影響。省略 `expect` 和傳 JSON null 在雜湊中相同。新編號若帶 `expect`，包含 JSON null，累加型驗證會拒絕。已登記的編號先走重送比對。雜湊只供資料庫使用，中繼資料與傳送路徑不參與比對。
