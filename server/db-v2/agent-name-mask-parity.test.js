@@ -93,6 +93,9 @@ const cases = [
     { name: '虛甲乙', seat_number: 3 }, { name: '甲乙', seat_number: 5 },
     { name: '另虛', seat_number: 6 },
   ]],
+  ['同一位置的短拼法是長拼法的開頭', '王大明，王大', [
+    { name: '王大', seat_number: 1 }, { name: '王大明', seat_number: 2 },
+  ]],
   ['相連的姓名共用明字', '小明華強', [
     { name: '林小明', seat_number: 1 }, { name: '明華強', seat_number: 2 },
   ]],
