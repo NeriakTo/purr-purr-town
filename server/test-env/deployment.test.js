@@ -50,3 +50,11 @@ test('部署範本限制主機埠、秘密值、通道路由與映像標籤', as
   const { connectionParameters } = new pg.Client({ connectionString: buildDatabaseUrl(value, testPassword) })
   expect(connectionParameters).toMatchObject({ host: 'db', user: 'ppt_web', database: 'ppt_test', password: testPassword })
 })
+
+test('常駐服務設定自動重啟，一次性 setup 無重啟設定', async () => {
+  const { services } = await readYaml('compose.yaml')
+  for (const name of ['db', 'api', 'tunnel']) {
+    expect(services[name], name).toHaveProperty('restart', 'unless-stopped')
+  }
+  expect(services.setup).not.toHaveProperty('restart')
+})

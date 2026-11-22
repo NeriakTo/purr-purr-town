@@ -3,6 +3,7 @@ name: purrtown-test
 services:
   db:
     image: ${PPT_TEST_POSTGRES_IMAGE:-postgres:16-bookworm}
+    restart: unless-stopped
     command: ["postgres", "-p", "${PPT_TEST_DB_PORT:-5432}"]
     environment:
       POSTGRES_USER: postgres
@@ -24,6 +25,7 @@ services:
 
   api:
     image: ${PPT_TEST_API_IMAGE:-purrtown-test-api:local}
+    restart: unless-stopped
     build:
       context: ../..
       dockerfile: deploy/test-env/Dockerfile
@@ -50,6 +52,7 @@ services:
 
   tunnel:
     image: ${PPT_TEST_CLOUDFLARED_IMAGE:-cloudflare/cloudflared:2025.6.1}
+    restart: unless-stopped
     command: ["tunnel", "--config", "/etc/cloudflared/config.yml", "run"]
     group_add:
       - "${PPT_TEST_SECRETS_GID:-1000}"
