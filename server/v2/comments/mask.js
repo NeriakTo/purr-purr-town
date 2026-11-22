@@ -1,8 +1,12 @@
 const whitespace = '[\\u0009-\\u000D\\u0020\\u0085\\u00A0\\u1680\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000]'
 const whitespacePattern = new RegExp(whitespace, 'gu')
 
+function normalizeSpelling(name) {
+  return name.replace(whitespacePattern, '').toLowerCase()
+}
+
 function spellings(name) {
-  const compact = name.replace(whitespacePattern, '').replace(/[A-Z]/gu, letter => letter.toLowerCase())
+  const compact = normalizeSpelling(name)
   const characters = [...compact]
   if (!characters.length) return []
   const variants = [compact]
@@ -38,40 +42,26 @@ function sharedLabel(students) {
 }
 
 function spellingCharacter(character) {
-  if (/[a-z]/u.test(character)) return '[' + character + character.toUpperCase() + ']'
   return character.replace(/[.*+?^$(){}|[\]\\]/gu, '\\$&')
 }
 
-function compareSpellings(left, right) {
-  return right.characters.length - left.characters.length
-    || (left.spelling < right.spelling ? -1 : Number(left.spelling > right.spelling))
-}
-
-function matchingNames(observation, groups) {
-  const matches = []
-  const occupied = new Uint8Array(observation.length)
-  const names = Array.from(groups, ([spelling, students]) => ({ spelling, students, characters: [...spelling] }))
-  for (const { characters, students } of names.sort(compareSpellings)) {
-    const pattern = characters.map(spellingCharacter).join(whitespace + '*')
-    const label = sharedLabel(students)
-    // 保留重疊候選，讓較長的拼法先佔位置。
-    for (const match of observation.matchAll(new RegExp('(?=(' + pattern + '))', 'gu'))) {
-      const start = match.index
-      const end = start + match[1].length
-      if (occupied.subarray(start, end).includes(1)) continue
-      occupied.fill(1, start, end)
-      matches.push({ start, end, label })
-    }
-  }
-  return matches.sort((left, right) => left.start - right.start)
-}
-
 export function maskObservation(observation, roster) {
+  const groups = groupSpellings(roster)
+  if (groups.size === 0) return observation
+
+  // 全域比對先取最早的位置，再依交替式的順序取同一位置的最長拼法。
+  const alternatives = Array.from(groups.keys(), spelling => [...spelling])
+    .sort((left, right) => right.length - left.length)
+    .map(characters => characters.map(spellingCharacter).join(whitespace + '*'))
+  const pattern = new RegExp(alternatives.join('|'), 'giu')
+
   let result = ''
   let position = 0
-  for (const { start, end, label } of matchingNames(observation, groupSpellings(roster))) {
-    result += observation.slice(position, start) + label
-    position = end
+  for (const { 0: matched, index } of observation.matchAll(pattern)) {
+    const students = groups.get(normalizeSpelling(matched))
+    if (!students) return '（遮罩失敗）'
+    result += observation.slice(position, index) + sharedLabel(students)
+    position = index + matched.length
   }
   return result + observation.slice(position)
 }
