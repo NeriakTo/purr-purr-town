@@ -18,7 +18,10 @@ export async function withTestCluster(work) {
     // 各測試檔共用叢集角色與密碼。
     await admin.query('SELECT pg_advisory_lock(60916)')
     try {
-      await work({ admin, database, adminUrl, webPassword: testPassword() })
+      await work({
+        admin, database, adminUrl, webPassword: testPassword(),
+        teacherId: 'demo-teacher', demoPassword: testPassword(),
+      })
     } finally {
       await admin.query('DROP DATABASE IF EXISTS ' + pg.escapeIdentifier(database) + ' WITH (FORCE)')
     }
