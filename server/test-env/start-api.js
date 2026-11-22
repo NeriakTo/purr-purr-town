@@ -4,9 +4,16 @@ export function buildDatabaseUrl(base, password) {
   try {
     const url = new URL(base)
     if (!['postgresql:', 'postgres:'].includes(url.protocol) || !url.hostname
-      || !url.username || url.password || url.searchParams.has('password')) {
+      || url.password || url.searchParams.has('password')) {
       throw new Error()
     }
+    const queryUsers = url.searchParams.getAll('user')
+    if (queryUsers.length) {
+      if (url.username || queryUsers.length !== 1 || !queryUsers[0]) throw new Error()
+      url.username = encodeURIComponent(queryUsers[0])
+      url.searchParams.delete('user')
+    }
+    if (!url.username) throw new Error()
     url.password = encodeURIComponent(password)
     return url.href
   } catch {
