@@ -12,7 +12,12 @@
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "dev:revamp": "vite --config vite.revamp.config.js",
+    "build:revamp": "vite build --config vite.revamp.config.js",
+    "build:revamp:test": "vite build --config vite.revamp.config.js --mode test",
+    "preview:revamp:test": "vite preview --config vite.revamp.config.js --mode test --host 127.0.0.1 --strictPort",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

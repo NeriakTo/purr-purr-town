@@ -11,6 +11,12 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+# 新版網頁的建置產物（正式建置、測試建置）與瀏覽器測試輸出
+dist-revamp
+dist-revamp-test
+test-results
+playwright-report
+blob-report
 *.local
 
 
