@@ -53,6 +53,19 @@ describe('IndexedDB 小工具', () => {
     db.close()
   })
 
+  it('寫入請求非同步失敗時，呼叫端拿到的是錯誤物件而不是 null', async () => {
+    const db = await openDatabase({
+      factory,
+      name: 'scaffold-demo-unique',
+      version: 1,
+      upgrade: database => database.createObjectStore(STORE, { keyPath: 'id' }).createIndex('byCode', 'code', { unique: true }),
+    })
+    await putRecord(db, STORE, { id: 'a', code: 'same' })
+    await expect(putRecord(db, STORE, { id: 'b', code: 'same' })).rejects.toMatchObject({ name: 'ConstraintError' })
+    expect(await getRecord(db, STORE, 'b')).toBeUndefined()
+    db.close()
+  })
+
   it('參數不對時直接拒絕', async () => {
     await expect(openDatabase({ name: DB_NAME, version: 1, upgrade: () => {} })).rejects.toThrow('factory')
     await expect(openDatabase({ factory, name: '', version: 1, upgrade: () => {} })).rejects.toThrow('name')
