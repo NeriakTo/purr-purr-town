@@ -61,6 +61,9 @@ docker compose up -d db api
 
 setup 依序建立角色、建庫、安裝舊表與兩套新版 SQL、設定授權與登入、實際驗證語系和權限，最後才寫入示範老師。成功時結束碼為 0。失敗時依畫面上的步驟與錯誤碼排查。
 
+`db`、`api`、`tunnel` 都設有 `restart: unless-stopped`，主機重開後會自動啟動，但用 `docker compose stop` 手動停止的服務會保持停止。
+setup 失敗時請查看容器紀錄，`SETUP_ARGUMENTS_INVALID` 代表參數錯誤，`SETUP_FAILED` 代表設定步驟以外的非預期錯誤。
+
 先從同一個 Compose 網路跑完整冒煙測試。一次性容器會依序印出 11 個步驟的結果。
 
 ```sh
