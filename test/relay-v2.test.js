@@ -289,12 +289,16 @@ it.each([
   expect(requests).toHaveLength(1)
 })
 
-it.each(['PPT_RELAY_BACKEND_URL', 'PPT_V2_RELAY_KEY'])('缺少 %s 時回 UPSTREAM_UNREACHABLE 且不轉送', property => {
-  const fetchUpstream = vi.fn()
-  const post = makeGasPost(fetchUpstream, { [property]: null })
-  expect(post(envelope)).toEqual(gasError('UPSTREAM_UNREACHABLE'))
-  expect(fetchUpstream).not.toHaveBeenCalled()
-})
+it.each(['PPT_RELAY_BACKEND_URL', 'PPT_V2_RELAY_KEY'])(
+  '%s 未設定或為空字串時回 UPSTREAM_UNREACHABLE 且不轉送', property => {
+    const fetchUpstream = vi.fn()
+    for (const value of [null, '']) {
+      const post = makeGasPost(fetchUpstream, { [property]: value })
+      expect(post(envelope)).toEqual(gasError('UPSTREAM_UNREACHABLE'))
+      expect(fetchUpstream).not.toHaveBeenCalled()
+    }
+  },
+)
 
 it('後端位址的結尾斜線不會和轉送路徑重複', () => {
   const fetchUpstream = vi.fn(() => ({ getResponseCode: () => 200, getContentText: () => normalReply }))
