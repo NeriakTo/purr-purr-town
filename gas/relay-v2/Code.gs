@@ -43,7 +43,9 @@ function doPost(event) {
     return relayError('ROUTE_NOT_ALLOWED')
   }
   if (path === LOGIN_PATH) {
-    if (utf8Size(bodyText) > 4 * 1024) return relayError('BAD_ENVELOPE')
+    if (Object.hasOwn(envelope, 'token') || utf8Size(bodyText) > 4 * 1024) {
+      return relayError('BAD_ENVELOPE')
+    }
   } else if (typeof token !== 'string' || token.length !== 64 || /[^0-9a-f]/i.test(token)) {
     return relayError('AUTH_REQUIRED')
   }
@@ -53,7 +55,7 @@ function doPost(event) {
   if (!backendUrl || !relayKey) return upstreamUnreachable()
 
   const headers = { 'x-ppt-relay-key': relayKey }
-  if (typeof token === 'string' && token) headers.Authorization = 'Bearer ' + token
+  if (path !== LOGIN_PATH) headers.Authorization = 'Bearer ' + token
   let upstream
   try {
     upstream = UrlFetchApp.fetch(backendUrl.replace(/\/+$/, '') + path, {
