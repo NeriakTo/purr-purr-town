@@ -38,7 +38,7 @@ export default defineConfig([
   {
     files: ['src/revamp/**/*.{js,jsx}'],
     languageOptions: {
-      globals: { __APP_VERSION__: 'readonly' },
+      globals: { __APP_VERSION__: 'readonly', __PPT_TEST_HOOKS__: 'readonly' },
     },
   },
   // 建置設定、瀏覽器測試設定與端到端腳本（Node 環境）
