@@ -20,7 +20,7 @@ describe('只供測試的操作入口', () => {
     installTestHooks(target)
     const api = target[TEST_HOOK_GLOBAL]
 
-    expect(() => installTestHooks(target)).toThrow(TEST_HOOK_GLOBAL)
+    expect(() => installTestHooks(target)).toThrow(`${TEST_HOOK_GLOBAL} 已經安裝過`)
     expect(() => { target[TEST_HOOK_GLOBAL] = {} }).toThrow(TypeError)
     expect(target[TEST_HOOK_GLOBAL]).toBe(api)
     expect(Object.isFrozen(api)).toBe(true)
