@@ -17,7 +17,9 @@
     "build:revamp": "vite build --config vite.revamp.config.js",
     "build:revamp:test": "vite build --config vite.revamp.config.js --mode test",
     "preview:revamp:test": "vite preview --config vite.revamp.config.js --mode test --host 127.0.0.1 --strictPort",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:backend": "playwright test --config playwright.backend.config.js",
+    "e2e:backend": "node scripts/e2e/backend.js"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
