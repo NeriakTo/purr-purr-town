@@ -19,9 +19,9 @@ describe('評語遮名', () => {
     expect(maskObservation('保留' + spaces, [roster[1]])).toBe('保留' + spaces)
   })
 
-  test('較長的拼法優先於重疊的短拼法', () => {
+  test('由左往右、同一位置取最長的拼法', () => {
     const roster = [student('虛甲乙', 3), student('甲乙', 5), student('另虛', 6)]
-    expect(maskObservation('虛甲乙、另虛甲乙', roster)).toBe('3號、另3號')
+    expect(maskObservation('虛甲乙、另虛甲乙', roster)).toBe('3號、6號3號或5號')
   })
 
   test('多位學生共用拼法時依座號列出代稱，四位以上合併', () => {
@@ -71,5 +71,31 @@ describe('評語遮名', () => {
     const unseated = student('虛乙', null)
     expect(restoreStudentName('座號未定', unseated, [unseated])).toBe('座號未定')
     expect(restoreStudentName(input, target, [target, student('假樣試甲', 8)])).toBe(input)
+  })
+
+  test.each([
+    ['相連的姓名共用明字', '小明華強', [
+      student('林小明', 1), student('明華強', 2),
+    ], '1號2號'],
+    ['無分隔的等長姓名相接並共用大字', '王大大文，王大文', [
+      student('王大', 1), student('大文', 2),
+    ], '1號2號，1號文'],
+    ['較早的短英文名與後面的長英文名重疊', 'AmyBen', [
+      student('Amy', 3), student('MyBen', 5),
+    ], '3號B5號'],
+    ['較早的短中文名與跨全形空白的長姓名重疊', '王小　明華強', [
+      student('王小', 3), student('小明華強', 5),
+    ], '3號　5號'],
+    ['ASCII 與重音大寫開頭的英文名混用大小寫', 'aMy、éMiLE、ÉMiLE', [
+      student('Amy', 3), student('Émile', 5),
+    ], '3號、5號、5號'],
+    ['名冊用大寫分音字母、文字用小寫分音字母', 'Zoë、ZOË', [
+      student('ZOË', 8),
+    ], '8號、8號'],
+    ['全形英文名混用大小寫並保留半形英文', 'ＡＭＹ、Ａｍｙ、Amy', [
+      student('Ａｍｙ', 6),
+    ], '6號、6號、Amy'],
+  ])('%s', (_label, input, roster, expected) => {
+    expect(maskObservation(input, roster)).toBe(expected)
   })
 })

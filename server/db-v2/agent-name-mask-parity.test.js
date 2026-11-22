@@ -89,31 +89,31 @@ const cases = [
     { name: '王大', seat_number: 1 }, { name: '+(小)', seat_number: 2 },
     { name: '陳大文', seat_number: 3 },
   ]],
-]
-
-// 每筆最後兩欄依序是資料庫與後端的實測輸出。
-const knownDifferences = [
+  ['由左往右、同一位置取最長的拼法', '虛甲乙、另虛甲乙', [
+    { name: '虛甲乙', seat_number: 3 }, { name: '甲乙', seat_number: 5 },
+    { name: '另虛', seat_number: 6 },
+  ]],
   ['相連的姓名共用明字', '小明華強', [
     { name: '林小明', seat_number: 1 }, { name: '明華強', seat_number: 2 },
-  ], '1號2號', '小2號'],
+  ]],
   ['無分隔的等長姓名相接並共用大字', '王大大文，王大文', [
     { name: '王大', seat_number: 1 }, { name: '大文', seat_number: 2 },
-  ], '1號2號，1號文', '1號2號，王2號'],
+  ]],
   ['較早的短英文名與後面的長英文名重疊', 'AmyBen', [
     { name: 'Amy', seat_number: 3 }, { name: 'MyBen', seat_number: 5 },
-  ], '3號B5號', 'A5號'],
+  ]],
   ['較早的短中文名與跨全形空白的長姓名重疊', '王小　明華強', [
     { name: '王小', seat_number: 3 }, { name: '小明華強', seat_number: 5 },
-  ], '3號　5號', '王5號'],
+  ]],
   ['ASCII 與重音大寫開頭的英文名混用大小寫', 'aMy、éMiLE、ÉMiLE', [
     { name: 'Amy', seat_number: 3 }, { name: 'Émile', seat_number: 5 },
-  ], '3號、5號、5號', '3號、é5號、5號'],
+  ]],
   ['名冊用大寫分音字母、文字用小寫分音字母', 'Zoë、ZOË', [
     { name: 'ZOË', seat_number: 8 },
-  ], '8號、8號', 'Zoë、8號'],
+  ]],
   ['全形英文名混用大小寫並保留半形英文', 'ＡＭＹ、Ａｍｙ、Amy', [
     { name: 'Ａｍｙ', seat_number: 6 },
-  ], '6號、6號、Amy', 'ＡＭＹ、6號、Amy'],
+  ]],
 ]
 
 describeDatabase('資料庫與評語後端姓名遮罩一致性', () => {
@@ -123,23 +123,6 @@ describeDatabase('資料庫與評語後端姓名遮罩一致性', () => {
     const agent = await connectAsRole(database(), 'ppt_agent')
     try {
       expect(await mask(agent, text, roster)).toBe(maskObservation(text, roster))
-    } finally {
-      await agent.end()
-    }
-  })
-
-  it('保留已知差異與兩邊的實測輸出', async () => {
-    const agent = await connectAsRole(database(), 'ppt_agent')
-    try {
-      for (const [label, text, roster, expectedDatabase, expectedBackend] of knownDifferences) {
-        const databaseOutput = await mask(agent, text, roster)
-        const backendOutput = maskObservation(text, roster)
-        expect({ databaseOutput, backendOutput }, label).toEqual({
-          databaseOutput: expectedDatabase,
-          backendOutput: expectedBackend,
-        })
-        expect(databaseOutput, label).not.toBe(backendOutput)
-      }
     } finally {
       await agent.end()
     }
