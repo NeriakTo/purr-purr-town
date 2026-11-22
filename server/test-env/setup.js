@@ -299,14 +299,20 @@ export async function getStatus({ adminUrl, database = defaultDatabase }) {
 }
 
 async function main() {
-  const { values, positionals } = parseArgs({
-    allowPositionals: true,
-    options: {
-      database: { type: 'string' },
-      'teacher-id': { type: 'string' },
-      'teacher-name': { type: 'string' },
-    },
-  })
+  let args
+  try {
+    args = parseArgs({
+      allowPositionals: true,
+      options: {
+        database: { type: 'string' },
+        'teacher-id': { type: 'string' },
+        'teacher-name': { type: 'string' },
+      },
+    })
+  } catch {
+    throw new ConfigError('SETUP_ARGUMENTS_INVALID')
+  }
+  const { values, positionals } = args
   if (positionals.length > 1 || (positionals.length && positionals[0] !== 'status')) {
     throw new ConfigError('SETUP_ARGUMENTS_INVALID')
   }
@@ -326,11 +332,16 @@ async function main() {
   })
 }
 
-if (isEntryPoint(import.meta.url)) {
+export async function runCli(work, { stderr = console.error } = {}) {
   try {
-    await main()
+    await work()
+    return 0
   } catch (error) {
-    console.error(error instanceof SetupError || error instanceof ConfigError ? error.message : 'SETUP_ARGUMENTS_INVALID')
-    process.exitCode = 1
+    stderr(error instanceof SetupError || error instanceof ConfigError ? error.message : 'SETUP_FAILED')
+    return 1
   }
+}
+
+if (isEntryPoint(import.meta.url)) {
+  process.exitCode = await runCli(main)
 }

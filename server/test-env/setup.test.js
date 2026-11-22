@@ -1,10 +1,33 @@
+import { spawnSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 import pg from 'pg'
-import { expect, test } from 'vitest'
+import { expect, test, vi } from 'vitest'
 import { ensureRoles } from '../db-v2/roles.js'
 import { adminUrl, withTestCluster, withTestDatabase } from './database-fixture.js'
-import { setupDatabase } from './setup.js'
+import { runCli, setupDatabase } from './setup.js'
 
 const databaseTest = test.skipIf(!adminUrl)
+const setupScript = fileURLToPath(new URL('./setup.js', import.meta.url))
+
+test.each([
+  ['未知旗標', ['--unknown-flag']],
+  ['多餘的位置參數', ['status', 'extra']],
+])('CLI 拒絕%s並印出參數錯誤', (_, args) => {
+  const { status, stderr } = spawnSync(process.execPath, [setupScript, ...args], {
+    encoding: 'utf8',
+    env: {},
+  })
+  expect(status).toBe(1)
+  expect(stderr).toBe('SETUP_ARGUMENTS_INVALID\n')
+})
+
+test('CLI 遇到未預期錯誤時只印出 SETUP_FAILED', async () => {
+  const stderr = vi.fn()
+  const main = async () => { throw new Error('含 postgresql://u:p@h/db 的訊息') }
+
+  await expect(runCli(main, { stderr })).resolves.toBe(1)
+  expect(stderr.mock.calls).toEqual([['SETUP_FAILED']])
+})
 
 databaseTest('從空叢集安裝舊表及兩套新版 schema 並完成登入授權', async () => {
   await withTestCluster(async options => {
