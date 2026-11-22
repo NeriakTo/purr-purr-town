@@ -1,0 +1,119 @@
+name: purrtown-test
+
+services:
+  db:
+    image: ${PPT_TEST_POSTGRES_IMAGE:-postgres:16-bookworm}
+    command: ["postgres", "-p", "${PPT_TEST_DB_PORT:-5432}"]
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.UTF-8"
+    secrets:
+      - postgres_password
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-p", "${PPT_TEST_DB_PORT:-5432}", "-U", "postgres", "-d", "postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    mem_limit: 768m
+    networks:
+      - backend
+
+  api:
+    image: ${PPT_TEST_API_IMAGE:-purrtown-test-api:local}
+    build:
+      context: ../..
+      dockerfile: deploy/test-env/Dockerfile
+      args:
+        NODE_IMAGE: ${PPT_TEST_NODE_IMAGE:-node:22-bookworm-slim}
+    command: ["node", "test-env/start-api.js"]
+    group_add:
+      - "${PPT_TEST_SECRETS_GID:-1000}"
+    environment:
+      PPT_V2_HOST: "0.0.0.0"
+      PPT_V2_PORT: "${PPT_TEST_API_PORT:-3011}"
+      PPT_V2_TRUST_PROXY: "${PPT_TEST_TUNNEL_IP:-172.31.209.10}"
+      PPT_V2_ALLOWED_ORIGINS: "${PPT_TEST_ALLOWED_ORIGINS:-}"
+      PPT_V2_DATABASE_PASSWORD_FILE: /run/secrets/web_password
+      PPT_V2_DATABASE_URL_NO_PASSWORD: "postgresql://db:${PPT_TEST_DB_PORT:-5432}/${PPT_TEST_DB_NAME:-ppt_test}?user=ppt_web"
+    secrets:
+      - web_password
+    depends_on:
+      db:
+        condition: service_healthy
+    mem_limit: 384m
+    networks:
+      - backend
+
+  tunnel:
+    image: ${PPT_TEST_CLOUDFLARED_IMAGE:-cloudflare/cloudflared:2025.6.1}
+    command: ["tunnel", "--config", "/etc/cloudflared/config.yml", "run"]
+    group_add:
+      - "${PPT_TEST_SECRETS_GID:-1000}"
+    volumes:
+      - type: bind
+        source: ./secrets/cloudflared-config.yml
+        target: /etc/cloudflared/config.yml
+        read_only: true
+        bind:
+          create_host_path: false
+    secrets:
+      - tunnel_credentials
+    mem_limit: 128m
+    networks:
+      backend:
+        ipv4_address: "${PPT_TEST_TUNNEL_IP:-172.31.209.10}"
+      egress: {}
+
+  setup:
+    image: ${PPT_TEST_API_IMAGE:-purrtown-test-api:local}
+    profiles: [setup]
+    entrypoint: ["node", "test-env/setup.js"]
+    command:
+      - "--database"
+      - "${PPT_TEST_DB_NAME:-ppt_test}"
+      - "--teacher-id"
+      - "${PPT_TEST_DEMO_TEACHER_ID:-demo-teacher}"
+      - "--teacher-name"
+      - "${PPT_TEST_DEMO_TEACHER_NAME:-demo-teacher}"
+    group_add:
+      - "${PPT_TEST_SECRETS_GID:-1000}"
+    environment:
+      PPT_SETUP_ADMIN_URL_FILE: /run/secrets/setup_admin_url
+      PPT_WEB_PASSWORD_FILE: /run/secrets/web_password
+      PPT_DEMO_TEACHER_PASSWORD_FILE: /run/secrets/demo_teacher_password
+    secrets:
+      - setup_admin_url
+      - web_password
+      - demo_teacher_password
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - backend
+
+volumes:
+  db_data:
+
+networks:
+  backend:
+    internal: true
+    ipam:
+      config:
+        - subnet: "${PPT_TEST_SUBNET:-172.31.209.0/24}"
+  egress: {}
+
+secrets:
+  postgres_password:
+    file: ./secrets/postgres-password
+  setup_admin_url:
+    file: ./secrets/setup-admin-url
+  web_password:
+    file: ./secrets/web-password
+  demo_teacher_password:
+    file: ./secrets/demo-teacher-password
+  tunnel_credentials:
+    file: ./secrets/tunnel-credentials.json

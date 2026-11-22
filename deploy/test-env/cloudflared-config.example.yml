@@ -1,0 +1,7 @@
+tunnel: <TUNNEL_ID>
+credentials-file: /run/secrets/tunnel_credentials
+ingress:
+  - hostname: ppt-test.example.com
+    path: ^/api/v2/
+    service: http://api:3011
+  - service: http_status:404
