@@ -55,6 +55,65 @@ const cases = [
     { name: 'Amy', seat_number: 7 }, { name: '', seat_number: 1 },
     { name: '\t　', seat_number: 2 }, { name: '丁', seat_number: 5 },
   ]],
+  ['同一中文姓名出現四次並夾雜不同空白', '王小明 王\t小明\n王小　明 王\u00a0小\u2009明', [
+    { name: '王小明', seat_number: 3 },
+  ]],
+  ['同一英文名出現三次並夾雜不同空白', 'bEN、B\u202feN、b\u2003e\tN', [
+    { name: 'Ben', seat_number: 8 },
+  ]],
+  ['表情符號前後各緊鄰一個姓名', '王小明😀陳大文', [
+    { name: '王小明', seat_number: 3 }, { name: '陳大文', seat_number: 5 },
+  ]],
+  ['姓名緊鄰多個補充平面字元', '𠮷林小華🦊歐陽大文𠮷', [
+    { name: '林小華', seat_number: 6 }, { name: '歐陽大文', seat_number: 9 },
+  ]],
+  ['兩字全名撞上三字姓名的去姓寫法', '小明，王小明', [
+    { name: '小明', seat_number: 8 }, { name: '王小明', seat_number: 3 },
+  ]],
+  ['兩字全名撞上四字姓名的末兩字', '華強與歐陽華強', [
+    { name: '華強', seat_number: 9 }, { name: '歐陽華強', seat_number: 2 },
+  ]],
+  ['一個空座號與兩個已定座號撞名', '大文', [
+    { name: '王大文', seat_number: null }, { name: '林大文', seat_number: 12 },
+    { name: '陳大文', seat_number: 3 },
+  ]],
+  ['五位撞名含空座號', '小華、林小華', [
+    { name: '王小華', seat_number: null }, { name: '林小華', seat_number: 9 },
+    { name: '陳小華', seat_number: 3 }, { name: '許小華', seat_number: 7 },
+    { name: '歐陽小華', seat_number: 5 },
+  ]],
+  ['含小數點的假名與英文名緊鄰', 'A.BBen、AxBBen', [
+    { name: 'A.B', seat_number: 3 }, { name: 'Ben', seat_number: 5 },
+  ]],
+  ['含加號和括號的假名緊鄰前後兩個姓名', '王大+(小)陳大文', [
+    { name: '王大', seat_number: 1 }, { name: '+(小)', seat_number: 2 },
+    { name: '陳大文', seat_number: 3 },
+  ]],
+]
+
+// 每筆最後兩欄依序是資料庫與後端的實測輸出。
+const knownDifferences = [
+  ['相連的姓名共用明字', '小明華強', [
+    { name: '林小明', seat_number: 1 }, { name: '明華強', seat_number: 2 },
+  ], '1號2號', '小2號'],
+  ['無分隔的等長姓名相接並共用大字', '王大大文，王大文', [
+    { name: '王大', seat_number: 1 }, { name: '大文', seat_number: 2 },
+  ], '1號2號，1號文', '1號2號，王2號'],
+  ['較早的短英文名與後面的長英文名重疊', 'AmyBen', [
+    { name: 'Amy', seat_number: 3 }, { name: 'MyBen', seat_number: 5 },
+  ], '3號B5號', 'A5號'],
+  ['較早的短中文名與跨全形空白的長姓名重疊', '王小　明華強', [
+    { name: '王小', seat_number: 3 }, { name: '小明華強', seat_number: 5 },
+  ], '3號　5號', '王5號'],
+  ['ASCII 與重音大寫開頭的英文名混用大小寫', 'aMy、éMiLE、ÉMiLE', [
+    { name: 'Amy', seat_number: 3 }, { name: 'Émile', seat_number: 5 },
+  ], '3號、5號、5號', '3號、é5號、5號'],
+  ['名冊用大寫分音字母、文字用小寫分音字母', 'Zoë、ZOË', [
+    { name: 'ZOË', seat_number: 8 },
+  ], '8號、8號', 'Zoë、8號'],
+  ['全形英文名混用大小寫並保留半形英文', 'ＡＭＹ、Ａｍｙ、Amy', [
+    { name: 'Ａｍｙ', seat_number: 6 },
+  ], '6號、6號、Amy', 'ＡＭＹ、6號、Amy'],
 ]
 
 describeDatabase('資料庫與評語後端姓名遮罩一致性', () => {
@@ -64,6 +123,23 @@ describeDatabase('資料庫與評語後端姓名遮罩一致性', () => {
     const agent = await connectAsRole(database(), 'ppt_agent')
     try {
       expect(await mask(agent, text, roster)).toBe(maskObservation(text, roster))
+    } finally {
+      await agent.end()
+    }
+  })
+
+  it('保留已知差異與兩邊的實測輸出', async () => {
+    const agent = await connectAsRole(database(), 'ppt_agent')
+    try {
+      for (const [label, text, roster, expectedDatabase, expectedBackend] of knownDifferences) {
+        const databaseOutput = await mask(agent, text, roster)
+        const backendOutput = maskObservation(text, roster)
+        expect({ databaseOutput, backendOutput }, label).toEqual({
+          databaseOutput: expectedDatabase,
+          backendOutput: expectedBackend,
+        })
+        expect(databaseOutput, label).not.toBe(backendOutput)
+      }
     } finally {
       await agent.end()
     }
