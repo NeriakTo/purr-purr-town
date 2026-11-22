@@ -1,0 +1,19 @@
+{
+  "server_time": "2026-11-22T08:00:00.000Z",
+  "classes": [
+    {
+      "class_id": "00000000-0000-4000-8000-000000000001",
+      "class_seq": 15,
+      "rev": 1,
+      "value": {
+        "name": "測試班級",
+        "alias": "測試班",
+        "status": "active",
+        "school_year": "115",
+        "cutover_date": null,
+        "teacher_name": "測試老師"
+      },
+      "last_export_at": "2026-11-22T08:00:00.000Z"
+    }
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "server_time": "2026-11-22T08:00:00.000Z",
+  "class_seq": 4,
+  "receipts": [
+    {
+      "code": "STALE_STATE",
+      "op_id": "00000000-0000-4000-8000-000000000104",
+      "result": {
+        "noop": false,
+        "transactions": [],
+        "effects_added": [],
+        "effects_reversed": []
+      },
+      "status": "rejected",
+      "changes": [],
+      "current": {
+        "rev": 1,
+        "actor": {
+          "id": "sample-teacher",
+          "kind": "teacher"
+        },
+        "value": {
+          "status": "missing",
+          "assignment_active": true
+        },
+        "last_op_id": "00000000-0000-4000-8000-000000000102",
+        "committed_at": "2026-11-22T07:59:00.000003+00:00"
+      },
+      "replayed": false,
+      "warnings": [],
+      "class_seq": null,
+      "committed_at": null
+    },
+    {
+      "code": "STALE_STATE",
+      "op_id": "00000000-0000-4000-8000-000000000105",
+      "result": {
+        "noop": false,
+        "transactions": [],
+        "effects_added": [],
+        "effects_reversed": []
+      },
+      "status": "rejected",
+      "changes": [],
+      "current": {
+        "items": [
+          {
+            "rev": 1,
+            "actor": {
+              "id": "sample-teacher",
+              "kind": "teacher"
+            },
+            "value": {
+              "group_key": null
+            },
+            "last_op_id": "00000000-0000-4000-8000-000000000100",
+            "student_id": "00000000-0000-4000-8000-000000000002",
+            "committed_at": "2026-11-22T07:59:00.000001+00:00"
+          }
+        ]
+      },
+      "replayed": false,
+      "warnings": [],
+      "class_seq": null,
+      "committed_at": null
+    },
+    {
+      "code": "INVALID_PAYLOAD",
+      "op_id": "00000000-0000-4000-8000-000000000106",
+      "result": {
+        "noop": false,
+        "transactions": [],
+        "effects_added": [],
+        "effects_reversed": []
+      },
+      "status": "rejected",
+      "changes": [],
+      "replayed": false,
+      "warnings": [],
+      "class_seq": null,
+      "committed_at": null
+    }
+  ]
+}

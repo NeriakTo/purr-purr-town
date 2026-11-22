@@ -1,0 +1,190 @@
+{
+  "server_time": "2026-11-22T08:00:00.000Z",
+  "class_seq": 3,
+  "receipts": [
+    {
+      "code": "OK",
+      "op_id": "00000000-0000-4000-8000-000000000101",
+      "result": {
+        "noop": false,
+        "transactions": [],
+        "effects_added": [],
+        "effects_reversed": []
+      },
+      "status": "committed",
+      "changes": [
+        {
+          "key": {
+            "task_id": "00000000-0000-4000-8000-000000000008"
+          },
+          "rev": 1,
+          "value": {
+            "title": "測試作業",
+            "due_on": "2026-11-22",
+            "voided": false,
+            "semester": "115-1",
+            "page_text": null,
+            "task_type": "作業",
+            "published_on": "2026-11-21"
+          },
+          "entity": "task",
+          "prev_rev": 0,
+          "last_op_id": "00000000-0000-4000-8000-000000000101",
+          "prev_value": null
+        },
+        {
+          "key": {
+            "task_id": "00000000-0000-4000-8000-000000000008",
+            "student_id": "00000000-0000-4000-8000-000000000003"
+          },
+          "rev": 1,
+          "value": {
+            "status": "pending",
+            "assignment_active": true
+          },
+          "entity": "submission",
+          "prev_rev": 0,
+          "basis_rev": 1,
+          "last_op_id": "00000000-0000-4000-8000-000000000101",
+          "prev_value": null,
+          "prev_basis_rev": 0
+        },
+        {
+          "key": {
+            "task_id": "00000000-0000-4000-8000-000000000008",
+            "student_id": "00000000-0000-4000-8000-000000000004"
+          },
+          "rev": 1,
+          "value": {
+            "status": "pending",
+            "assignment_active": true
+          },
+          "entity": "submission",
+          "prev_rev": 0,
+          "basis_rev": 1,
+          "last_op_id": "00000000-0000-4000-8000-000000000101",
+          "prev_value": null,
+          "prev_basis_rev": 0
+        },
+        {
+          "key": {
+            "task_id": "00000000-0000-4000-8000-000000000008",
+            "student_id": "00000000-0000-4000-8000-000000000005"
+          },
+          "rev": 1,
+          "value": {
+            "status": "pending",
+            "assignment_active": true
+          },
+          "entity": "submission",
+          "prev_rev": 0,
+          "basis_rev": 1,
+          "last_op_id": "00000000-0000-4000-8000-000000000101",
+          "prev_value": null,
+          "prev_basis_rev": 0
+        },
+        {
+          "key": {
+            "task_id": "00000000-0000-4000-8000-000000000008",
+            "student_id": "00000000-0000-4000-8000-000000000006"
+          },
+          "rev": 1,
+          "value": {
+            "status": "pending",
+            "assignment_active": true
+          },
+          "entity": "submission",
+          "prev_rev": 0,
+          "basis_rev": 1,
+          "last_op_id": "00000000-0000-4000-8000-000000000101",
+          "prev_value": null,
+          "prev_basis_rev": 0
+        },
+        {
+          "key": {
+            "task_id": "00000000-0000-4000-8000-000000000008",
+            "student_id": "00000000-0000-4000-8000-000000000007"
+          },
+          "rev": 1,
+          "value": {
+            "status": "pending",
+            "assignment_active": true
+          },
+          "entity": "submission",
+          "prev_rev": 0,
+          "basis_rev": 1,
+          "last_op_id": "00000000-0000-4000-8000-000000000101",
+          "prev_value": null,
+          "prev_basis_rev": 0
+        }
+      ],
+      "replayed": false,
+      "warnings": [],
+      "class_seq": 2,
+      "committed_at": "2026-11-22T07:59:00.000002+00:00"
+    },
+    {
+      "code": "OK",
+      "op_id": "00000000-0000-4000-8000-000000000102",
+      "result": {
+        "noop": false,
+        "transactions": [
+          "00000000-0000-4000-8000-000000009000"
+        ],
+        "effects_added": [
+          {
+            "event": "submission.missing",
+            "amount": -20,
+            "effect_id": "00000000-0000-4000-8000-000000009001",
+            "lineage_id": "00000000-0000-4000-8000-000000009001",
+            "subject_key": "00000000-0000-4000-8000-000000000008",
+            "subject_kind": "task",
+            "root_transaction_id": "00000000-0000-4000-8000-000000009000"
+          }
+        ],
+        "effects_reversed": []
+      },
+      "status": "committed",
+      "changes": [
+        {
+          "key": {
+            "task_id": "00000000-0000-4000-8000-000000000008",
+            "student_id": "00000000-0000-4000-8000-000000000002"
+          },
+          "rev": 1,
+          "value": {
+            "status": "missing",
+            "assignment_active": true
+          },
+          "entity": "submission",
+          "prev_rev": 0,
+          "basis_rev": 1,
+          "last_op_id": "00000000-0000-4000-8000-000000000102",
+          "prev_value": null,
+          "prev_basis_rev": 0
+        },
+        {
+          "key": {
+            "student_id": "00000000-0000-4000-8000-000000000002"
+          },
+          "rev": 2,
+          "value": {
+            "balance": -20,
+            "total_earned": -20
+          },
+          "entity": "account",
+          "prev_rev": 1,
+          "last_op_id": "00000000-0000-4000-8000-000000000102",
+          "prev_value": {
+            "balance": 0,
+            "total_earned": 0
+          }
+        }
+      ],
+      "replayed": false,
+      "warnings": [],
+      "class_seq": 3,
+      "committed_at": "2026-11-22T07:59:00.000003+00:00"
+    }
+  ]
+}

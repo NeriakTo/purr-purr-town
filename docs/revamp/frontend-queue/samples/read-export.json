@@ -1,0 +1,1111 @@
+{
+  "server_time": "2026-11-22T08:00:00.000Z",
+  "export_v": 1,
+  "exported_at": "2026-11-22T08:00:00.000Z",
+  "class_id": "00000000-0000-4000-8000-000000000001",
+  "class_seq": 15,
+  "rows": [
+    {
+      "entity": "account",
+      "key": {
+        "student_id": "00000000-0000-4000-8000-000000000002"
+      },
+      "rev": 6,
+      "value": {
+        "balance": 17,
+        "total_earned": 20
+      }
+    },
+    {
+      "entity": "account",
+      "key": {
+        "student_id": "00000000-0000-4000-8000-000000000003"
+      },
+      "rev": 1,
+      "value": {
+        "balance": 0,
+        "total_earned": 0
+      }
+    },
+    {
+      "entity": "account",
+      "key": {
+        "student_id": "00000000-0000-4000-8000-000000000004"
+      },
+      "rev": 1,
+      "value": {
+        "balance": 0,
+        "total_earned": 0
+      }
+    },
+    {
+      "entity": "account",
+      "key": {
+        "student_id": "00000000-0000-4000-8000-000000000005"
+      },
+      "rev": 1,
+      "value": {
+        "balance": 0,
+        "total_earned": 0
+      }
+    },
+    {
+      "entity": "account",
+      "key": {
+        "student_id": "00000000-0000-4000-8000-000000000006"
+      },
+      "rev": 1,
+      "value": {
+        "balance": 0,
+        "total_earned": 0
+      }
+    },
+    {
+      "entity": "account",
+      "key": {
+        "student_id": "00000000-0000-4000-8000-000000000007"
+      },
+      "rev": 1,
+      "value": {
+        "balance": 0,
+        "total_earned": 0
+      }
+    },
+    {
+      "entity": "announcement",
+      "key": {
+        "announcement_id": "00000000-0000-4000-8000-000000000013"
+      },
+      "rev": 1,
+      "value": {
+        "text": "測試公告",
+        "color": null,
+        "removed": false,
+        "rotation": null
+      }
+    },
+    {
+      "entity": "class",
+      "key": {
+        "class_id": "00000000-0000-4000-8000-000000000001"
+      },
+      "rev": 1,
+      "value": {
+        "name": "測試班級",
+        "alias": "測試班",
+        "status": "active",
+        "school_year": "115",
+        "cutover_date": null,
+        "teacher_name": "測試老師"
+      }
+    },
+    {
+      "entity": "comment",
+      "key": {
+        "semester": "115-1",
+        "student_id": "00000000-0000-4000-8000-000000000002"
+      },
+      "rev": 1,
+      "value": {
+        "model": null,
+        "motto": "",
+        "comment": "測試評語",
+        "analysis": null,
+        "suggestion": null,
+        "observation": "",
+        "motto_locked": false,
+        "comment_locked": false,
+        "generation_error": null,
+        "generation_status": "idle"
+      }
+    },
+    {
+      "entity": "confirmation",
+      "key": {
+        "confirmation_id": "00000000-0000-4000-8000-000000000120"
+      },
+      "rev": 1,
+      "value": {
+        "kind": "agent_held",
+        "status": "pending",
+        "task_id": null,
+        "batch_id": "00000000-0000-4000-8000-000000000112",
+        "created_at": "2026-11-22T07:59:00.000006+00:00",
+        "student_id": null,
+        "held_reason": "max_students_per_call",
+        "processed_at": null,
+        "created_op_id": "00000000-0000-4000-8000-000000000120",
+        "processed_op_id": null,
+        "proposed_status": null
+      }
+    },
+    {
+      "entity": "correction",
+      "key": {
+        "correction_id": "00000000-0000-4000-8000-000000000012"
+      },
+      "rev": 1,
+      "value": {
+        "note": null,
+        "round": 1,
+        "due_on": null,
+        "status": "required",
+        "task_id": "00000000-0000-4000-8000-000000000009",
+        "overdue_on": null,
+        "student_id": "00000000-0000-4000-8000-000000000002"
+      }
+    },
+    {
+      "entity": "duty",
+      "key": {
+        "date": "2026-11-22"
+      },
+      "rev": 1,
+      "value": {
+        "student_ids": [
+          "00000000-0000-4000-8000-000000000002"
+        ]
+      }
+    },
+    {
+      "entity": "group",
+      "key": {
+        "group_key": "組甲"
+      },
+      "rev": 1,
+      "value": {
+        "name": "測試小組",
+        "leader_student_id": null
+      }
+    },
+    {
+      "entity": "inventory_item",
+      "key": {
+        "item_id": "00000000-0000-4000-8000-000000000011"
+      },
+      "rev": 1,
+      "value": {
+        "status": "held",
+        "product_id": "00000000-0000-4000-8000-000000000010",
+        "student_id": "00000000-0000-4000-8000-000000000002",
+        "product_icon": null,
+        "product_name": "測試商品",
+        "purchase_transaction_id": "00000000-0000-4000-8000-000000009003"
+      }
+    },
+    {
+      "entity": "job",
+      "key": {
+        "job_id": "c484edc9-f5cc-5207-baa9-bfebf236bd9c"
+      },
+      "rev": 1,
+      "value": {
+        "icon": "🧹",
+        "cycle": "weekly",
+        "title": "衛生長",
+        "salary": 200,
+        "category": "cleaning",
+        "disabled": false,
+        "assignee_ids": []
+      }
+    },
+    {
+      "entity": "job",
+      "key": {
+        "job_id": "eb84ff73-6e05-537b-a555-d94d828997c4"
+      },
+      "rev": 1,
+      "value": {
+        "icon": "🚶",
+        "cycle": "weekly",
+        "title": "路隊長",
+        "salary": 100,
+        "category": "cadre",
+        "disabled": false,
+        "assignee_ids": []
+      }
+    },
+    {
+      "entity": "job",
+      "key": {
+        "job_id": "f04eb5ba-20fb-5d7c-b2ec-45c7d738a253"
+      },
+      "rev": 1,
+      "value": {
+        "icon": "👑",
+        "cycle": "weekly",
+        "title": "班長",
+        "salary": 300,
+        "category": "cadre",
+        "disabled": false,
+        "assignee_ids": []
+      }
+    },
+    {
+      "entity": "product",
+      "key": {
+        "product_id": "00000000-0000-4000-8000-000000000010"
+      },
+      "rev": 2,
+      "value": {
+        "icon": null,
+        "name": "測試商品",
+        "price": 3,
+        "stock": 2,
+        "disabled": false,
+        "price_unit": "point",
+        "description": null,
+        "initial_stock": 3
+      }
+    },
+    {
+      "entity": "product",
+      "key": {
+        "product_id": "34bb474c-13f6-5276-b156-5dae6c0bd082"
+      },
+      "rev": 1,
+      "value": {
+        "icon": "😴",
+        "name": "午休免睡卡",
+        "price": 2,
+        "stock": 5,
+        "disabled": false,
+        "price_unit": "cookie",
+        "description": null,
+        "initial_stock": 5
+      }
+    },
+    {
+      "entity": "product",
+      "key": {
+        "product_id": "616fdf08-e5ae-53f1-b684-aa8b2bac5c03"
+      },
+      "rev": 1,
+      "value": {
+        "icon": "📖",
+        "name": "午休閱讀卡",
+        "price": 3,
+        "stock": 5,
+        "disabled": false,
+        "price_unit": "cookie",
+        "description": null,
+        "initial_stock": 5
+      }
+    },
+    {
+      "entity": "product",
+      "key": {
+        "product_id": "99998862-8e86-50ae-b9cc-bcd45e066b8c"
+      },
+      "rev": 1,
+      "value": {
+        "icon": "📱",
+        "name": "午休平板卡",
+        "price": 6,
+        "stock": 1,
+        "disabled": false,
+        "price_unit": "cookie",
+        "description": null,
+        "initial_stock": 1
+      }
+    },
+    {
+      "entity": "product",
+      "key": {
+        "product_id": "b4e9c91e-3274-57f2-82ba-c8f56c86019d"
+      },
+      "rev": 1,
+      "value": {
+        "icon": "🎲",
+        "name": "午休桌遊卡",
+        "price": 4,
+        "stock": 3,
+        "disabled": false,
+        "price_unit": "cookie",
+        "description": null,
+        "initial_stock": 3
+      }
+    },
+    {
+      "entity": "product",
+      "key": {
+        "product_id": "f6616562-6fb6-56cf-b37c-675029f591fe"
+      },
+      "rev": 1,
+      "value": {
+        "icon": "📝",
+        "name": "減功課卡",
+        "price": 1,
+        "stock": 10,
+        "disabled": false,
+        "price_unit": "cookie",
+        "description": null,
+        "initial_stock": 10
+      }
+    },
+    {
+      "entity": "product",
+      "key": {
+        "product_id": "ff7c0c47-5a52-5ff5-88ca-899869899bf9"
+      },
+      "rev": 1,
+      "value": {
+        "icon": "⛺",
+        "name": "午休露營卡",
+        "price": 5,
+        "stock": 1,
+        "disabled": false,
+        "price_unit": "cookie",
+        "description": null,
+        "initial_stock": 1
+      }
+    },
+    {
+      "entity": "rule",
+      "key": {
+        "rule_id": "1524038d-f35c-5bc6-821a-b10c81a43099"
+      },
+      "rev": 1,
+      "value": {
+        "icon": null,
+        "kind": "event",
+        "name": "作業遲交",
+        "event": "submission.late",
+        "amount": -10,
+        "category": null,
+        "disabled": false
+      }
+    },
+    {
+      "entity": "rule",
+      "key": {
+        "rule_id": "431d357c-0f9b-5208-8ca3-060ec8288791"
+      },
+      "rev": 1,
+      "value": {
+        "icon": "🌟",
+        "kind": "manual",
+        "name": "發表優良",
+        "event": null,
+        "amount": 100,
+        "category": "課堂表現",
+        "disabled": false
+      }
+    },
+    {
+      "entity": "rule",
+      "key": {
+        "rule_id": "458c05c9-a05f-5995-8d69-b6a19cb79c8c"
+      },
+      "rev": 1,
+      "value": {
+        "icon": null,
+        "kind": "event",
+        "name": "作業缺交",
+        "event": "submission.missing",
+        "amount": -20,
+        "category": null,
+        "disabled": false
+      }
+    },
+    {
+      "entity": "rule",
+      "key": {
+        "rule_id": "91e2681f-9691-5bc1-8057-11c5b0db5686"
+      },
+      "rev": 1,
+      "value": {
+        "icon": "🗓️",
+        "kind": "manual",
+        "name": "全勤獎勵",
+        "event": null,
+        "amount": 500,
+        "category": "秩序",
+        "disabled": false
+      }
+    },
+    {
+      "entity": "rule",
+      "key": {
+        "rule_id": "d12f2948-9da0-56bd-9c0e-7fc0a1ff0c02"
+      },
+      "rev": 1,
+      "value": {
+        "icon": "📕",
+        "kind": "manual",
+        "name": "作業缺交",
+        "event": null,
+        "amount": -200,
+        "category": "作業",
+        "disabled": false
+      }
+    },
+    {
+      "entity": "rule",
+      "key": {
+        "rule_id": "ff7a03d7-3b96-5dd6-826c-9b147865f0a9"
+      },
+      "rev": 1,
+      "value": {
+        "icon": null,
+        "kind": "event",
+        "name": "每日任務獎勵",
+        "event": "daily_quest.complete",
+        "amount": 50,
+        "category": null,
+        "disabled": false
+      }
+    },
+    {
+      "entity": "seating",
+      "key": {
+        "class_id": "00000000-0000-4000-8000-000000000001"
+      },
+      "rev": 1,
+      "value": {
+        "cols": 8,
+        "rows": 6,
+        "view": "teacher",
+        "seats": {},
+        "objects": {},
+        "custom_objects": []
+      }
+    },
+    {
+      "entity": "setting",
+      "key": {
+        "key": "currency"
+      },
+      "rev": 1,
+      "value": {
+        "value": {
+          "base": {
+            "icon": "💎",
+            "name": "積分"
+          },
+          "tier1": {
+            "icon": "🐟",
+            "name": "小魚乾",
+            "rate": 100
+          },
+          "tier2": {
+            "icon": "🍪",
+            "name": "貓餅乾",
+            "rate": 1000
+          }
+        }
+      }
+    },
+    {
+      "entity": "setting",
+      "key": {
+        "key": "ruleCategories"
+      },
+      "rev": 1,
+      "value": {
+        "value": [
+          {
+            "id": "cat_homework",
+            "icon": "📚",
+            "name": "作業"
+          },
+          {
+            "id": "cat_discipline",
+            "icon": "📏",
+            "name": "秩序"
+          },
+          {
+            "id": "cat_class",
+            "icon": "🎯",
+            "name": "課堂表現"
+          },
+          {
+            "id": "cat_hygiene",
+            "icon": "🧹",
+            "name": "整潔"
+          }
+        ]
+      }
+    },
+    {
+      "entity": "setting",
+      "key": {
+        "key": "shopMeta"
+      },
+      "rev": 1,
+      "value": {
+        "value": {
+          "icon": "🐱",
+          "name": "橘喵商店"
+        }
+      }
+    },
+    {
+      "entity": "setting",
+      "key": {
+        "key": "taskTypes"
+      },
+      "rev": 1,
+      "value": {
+        "value": [
+          "作業",
+          "訂正",
+          "攜帶物品",
+          "考試",
+          "通知單",
+          "回條"
+        ]
+      }
+    },
+    {
+      "entity": "student",
+      "key": {
+        "student_id": "00000000-0000-4000-8000-000000000002"
+      },
+      "rev": 1,
+      "value": {
+        "name": "1號村民",
+        "avatar": null,
+        "group_key": null,
+        "seat_number": 1,
+        "exempt_rules": [],
+        "enrollment_status": "enrolled"
+      }
+    },
+    {
+      "entity": "student",
+      "key": {
+        "student_id": "00000000-0000-4000-8000-000000000003"
+      },
+      "rev": 1,
+      "value": {
+        "name": "2號村民",
+        "avatar": null,
+        "group_key": null,
+        "seat_number": 2,
+        "exempt_rules": [],
+        "enrollment_status": "enrolled"
+      }
+    },
+    {
+      "entity": "student",
+      "key": {
+        "student_id": "00000000-0000-4000-8000-000000000004"
+      },
+      "rev": 1,
+      "value": {
+        "name": "3號村民",
+        "avatar": null,
+        "group_key": null,
+        "seat_number": 3,
+        "exempt_rules": [],
+        "enrollment_status": "enrolled"
+      }
+    },
+    {
+      "entity": "student",
+      "key": {
+        "student_id": "00000000-0000-4000-8000-000000000005"
+      },
+      "rev": 1,
+      "value": {
+        "name": "4號村民",
+        "avatar": null,
+        "group_key": null,
+        "seat_number": 4,
+        "exempt_rules": [],
+        "enrollment_status": "enrolled"
+      }
+    },
+    {
+      "entity": "student",
+      "key": {
+        "student_id": "00000000-0000-4000-8000-000000000006"
+      },
+      "rev": 1,
+      "value": {
+        "name": "5號村民",
+        "avatar": null,
+        "group_key": null,
+        "seat_number": 5,
+        "exempt_rules": [],
+        "enrollment_status": "enrolled"
+      }
+    },
+    {
+      "entity": "student",
+      "key": {
+        "student_id": "00000000-0000-4000-8000-000000000007"
+      },
+      "rev": 1,
+      "value": {
+        "name": "6號村民",
+        "avatar": null,
+        "group_key": null,
+        "seat_number": 6,
+        "exempt_rules": [],
+        "enrollment_status": "enrolled"
+      }
+    },
+    {
+      "entity": "submission",
+      "key": {
+        "task_id": "00000000-0000-4000-8000-000000000008",
+        "student_id": "00000000-0000-4000-8000-000000000002"
+      },
+      "rev": 2,
+      "value": {
+        "status": "pending",
+        "assignment_active": false
+      }
+    },
+    {
+      "entity": "submission",
+      "key": {
+        "task_id": "00000000-0000-4000-8000-000000000008",
+        "student_id": "00000000-0000-4000-8000-000000000003"
+      },
+      "rev": 1,
+      "value": {
+        "status": "pending",
+        "assignment_active": true
+      }
+    },
+    {
+      "entity": "submission",
+      "key": {
+        "task_id": "00000000-0000-4000-8000-000000000008",
+        "student_id": "00000000-0000-4000-8000-000000000004"
+      },
+      "rev": 1,
+      "value": {
+        "status": "pending",
+        "assignment_active": true
+      }
+    },
+    {
+      "entity": "submission",
+      "key": {
+        "task_id": "00000000-0000-4000-8000-000000000008",
+        "student_id": "00000000-0000-4000-8000-000000000005"
+      },
+      "rev": 1,
+      "value": {
+        "status": "pending",
+        "assignment_active": true
+      }
+    },
+    {
+      "entity": "submission",
+      "key": {
+        "task_id": "00000000-0000-4000-8000-000000000008",
+        "student_id": "00000000-0000-4000-8000-000000000006"
+      },
+      "rev": 1,
+      "value": {
+        "status": "pending",
+        "assignment_active": true
+      }
+    },
+    {
+      "entity": "submission",
+      "key": {
+        "task_id": "00000000-0000-4000-8000-000000000008",
+        "student_id": "00000000-0000-4000-8000-000000000007"
+      },
+      "rev": 1,
+      "value": {
+        "status": "pending",
+        "assignment_active": true
+      }
+    },
+    {
+      "entity": "submission",
+      "key": {
+        "task_id": "00000000-0000-4000-8000-000000000009",
+        "student_id": "00000000-0000-4000-8000-000000000002"
+      },
+      "rev": 1,
+      "value": {
+        "status": "pending",
+        "assignment_active": true
+      }
+    },
+    {
+      "entity": "submission",
+      "key": {
+        "task_id": "00000000-0000-4000-8000-000000000009",
+        "student_id": "00000000-0000-4000-8000-000000000003"
+      },
+      "rev": 1,
+      "value": {
+        "status": "pending",
+        "assignment_active": true
+      }
+    },
+    {
+      "entity": "submission",
+      "key": {
+        "task_id": "00000000-0000-4000-8000-000000000009",
+        "student_id": "00000000-0000-4000-8000-000000000004"
+      },
+      "rev": 1,
+      "value": {
+        "status": "pending",
+        "assignment_active": true
+      }
+    },
+    {
+      "entity": "submission",
+      "key": {
+        "task_id": "00000000-0000-4000-8000-000000000009",
+        "student_id": "00000000-0000-4000-8000-000000000005"
+      },
+      "rev": 1,
+      "value": {
+        "status": "pending",
+        "assignment_active": true
+      }
+    },
+    {
+      "entity": "submission",
+      "key": {
+        "task_id": "00000000-0000-4000-8000-000000000009",
+        "student_id": "00000000-0000-4000-8000-000000000006"
+      },
+      "rev": 1,
+      "value": {
+        "status": "pending",
+        "assignment_active": true
+      }
+    },
+    {
+      "entity": "submission",
+      "key": {
+        "task_id": "00000000-0000-4000-8000-000000000009",
+        "student_id": "00000000-0000-4000-8000-000000000007"
+      },
+      "rev": 1,
+      "value": {
+        "status": "pending",
+        "assignment_active": true
+      }
+    },
+    {
+      "entity": "submission",
+      "key": {
+        "task_id": "sample-legacy-task",
+        "student_id": "00000000-0000-4000-8000-000000000002"
+      },
+      "rev": 1,
+      "value": {
+        "status": "missing",
+        "assignment_active": true
+      }
+    },
+    {
+      "entity": "task",
+      "key": {
+        "task_id": "00000000-0000-4000-8000-000000000008"
+      },
+      "rev": 1,
+      "value": {
+        "title": "測試作業",
+        "due_on": "2026-11-22",
+        "voided": false,
+        "semester": "115-1",
+        "page_text": null,
+        "task_type": "作業",
+        "published_on": "2026-11-21"
+      }
+    },
+    {
+      "entity": "task",
+      "key": {
+        "task_id": "00000000-0000-4000-8000-000000000009"
+      },
+      "rev": 1,
+      "value": {
+        "title": "測試作業",
+        "due_on": "2026-11-22",
+        "voided": false,
+        "semester": "115-1",
+        "page_text": null,
+        "task_type": "作業",
+        "published_on": "2026-11-21"
+      }
+    },
+    {
+      "entity": "task",
+      "key": {
+        "task_id": "sample-legacy-task"
+      },
+      "rev": 1,
+      "value": {
+        "title": "測試舊作業",
+        "due_on": "2026-11-20",
+        "voided": false,
+        "semester": "115-1",
+        "page_text": null,
+        "task_type": "作業",
+        "published_on": "2026-11-19"
+      }
+    }
+  ],
+  "transactions": [
+    {
+      "kind": "adjust",
+      "op_id": "00000000-0000-4000-8000-000000000126",
+      "amount": 10,
+      "origin": "op",
+      "reason": "測試加分",
+      "voided": false,
+      "rule_id": null,
+      "batch_id": null,
+      "rule_rev": null,
+      "semester": "115-1",
+      "class_seq": 15,
+      "legacy_id": null,
+      "student_id": "00000000-0000-4000-8000-000000000002",
+      "occurred_at": "2026-11-22T07:59:00.000010+00:00",
+      "source_path": null,
+      "chain_broken": false,
+      "earned_delta": 10,
+      "effective_at": "2026-11-22T07:59:00.000010+00:00",
+      "transaction_id": "00000000-0000-4000-8000-000000009004",
+      "legacy_semantics": null,
+      "transaction_type": null,
+      "root_transaction_id": null,
+      "corrected_transaction_id": null,
+      "restored_from_transaction_id": null
+    },
+    {
+      "kind": "shop_purchase",
+      "op_id": "00000000-0000-4000-8000-000000000115",
+      "amount": -3,
+      "origin": "op",
+      "reason": "購買測試商品",
+      "voided": false,
+      "rule_id": null,
+      "batch_id": null,
+      "rule_rev": null,
+      "semester": "115-1",
+      "class_seq": 9,
+      "legacy_id": null,
+      "student_id": "00000000-0000-4000-8000-000000000002",
+      "occurred_at": "2026-11-22T07:59:00.000008+00:00",
+      "source_path": null,
+      "chain_broken": false,
+      "earned_delta": 0,
+      "effective_at": "2026-11-22T07:59:00.000008+00:00",
+      "transaction_id": "00000000-0000-4000-8000-000000009003",
+      "legacy_semantics": null,
+      "transaction_type": null,
+      "root_transaction_id": null,
+      "corrected_transaction_id": null,
+      "restored_from_transaction_id": null
+    },
+    {
+      "kind": "adjust",
+      "op_id": "00000000-0000-4000-8000-000000000113",
+      "amount": 10,
+      "origin": "op",
+      "reason": "測試加分",
+      "voided": false,
+      "rule_id": null,
+      "batch_id": null,
+      "rule_rev": null,
+      "semester": "115-1",
+      "class_seq": 7,
+      "legacy_id": null,
+      "student_id": "00000000-0000-4000-8000-000000000002",
+      "occurred_at": "2026-11-22T07:59:00.000007+00:00",
+      "source_path": null,
+      "chain_broken": false,
+      "earned_delta": 10,
+      "effective_at": "2026-11-22T07:59:00.000007+00:00",
+      "transaction_id": "00000000-0000-4000-8000-000000009005",
+      "legacy_semantics": null,
+      "transaction_type": null,
+      "root_transaction_id": null,
+      "corrected_transaction_id": null,
+      "restored_from_transaction_id": null
+    },
+    {
+      "kind": "reversal",
+      "op_id": "00000000-0000-4000-8000-000000000107",
+      "amount": 20,
+      "origin": "op",
+      "reason": "沖回作業缺交",
+      "voided": false,
+      "rule_id": null,
+      "batch_id": null,
+      "rule_rev": null,
+      "semester": "115-1",
+      "class_seq": 5,
+      "legacy_id": null,
+      "student_id": "00000000-0000-4000-8000-000000000002",
+      "occurred_at": "2026-11-22T07:59:00.000005+00:00",
+      "source_path": null,
+      "chain_broken": false,
+      "earned_delta": 20,
+      "effective_at": "2026-11-22T07:59:00.000003+00:00",
+      "transaction_id": "00000000-0000-4000-8000-000000009002",
+      "legacy_semantics": null,
+      "transaction_type": null,
+      "root_transaction_id": "00000000-0000-4000-8000-000000009000",
+      "corrected_transaction_id": null,
+      "restored_from_transaction_id": null
+    },
+    {
+      "kind": "rule_auto",
+      "op_id": "00000000-0000-4000-8000-000000000102",
+      "amount": -20,
+      "origin": "op",
+      "reason": "作業缺交",
+      "voided": false,
+      "rule_id": "458c05c9-a05f-5995-8d69-b6a19cb79c8c",
+      "batch_id": null,
+      "rule_rev": 1,
+      "semester": "115-1",
+      "class_seq": 3,
+      "legacy_id": null,
+      "student_id": "00000000-0000-4000-8000-000000000002",
+      "occurred_at": "2026-11-22T07:59:00.000003+00:00",
+      "source_path": null,
+      "chain_broken": false,
+      "earned_delta": -20,
+      "effective_at": "2026-11-22T07:59:00.000003+00:00",
+      "transaction_id": "00000000-0000-4000-8000-000000009000",
+      "legacy_semantics": null,
+      "transaction_type": null,
+      "root_transaction_id": null,
+      "corrected_transaction_id": null,
+      "restored_from_transaction_id": null
+    },
+    {
+      "kind": "legacy_general",
+      "op_id": null,
+      "amount": -6,
+      "origin": "migration",
+      "reason": "作業缺交",
+      "voided": false,
+      "rule_id": null,
+      "batch_id": "測試匯入批次",
+      "rule_rev": null,
+      "semester": "115-1",
+      "class_seq": null,
+      "legacy_id": null,
+      "student_id": "00000000-0000-4000-8000-000000000002",
+      "occurred_at": "2026-11-20T04:00:00+00:00",
+      "source_path": null,
+      "chain_broken": false,
+      "earned_delta": -6,
+      "effective_at": "2026-11-20T04:00:00+00:00",
+      "transaction_id": "sample-legacy-transaction",
+      "legacy_semantics": null,
+      "transaction_type": null,
+      "root_transaction_id": null,
+      "corrected_transaction_id": null,
+      "restored_from_transaction_id": null
+    }
+  ],
+  "effects": [
+    {
+      "event": null,
+      "origin": "legacy",
+      "status": "legacy_unresolved",
+      "rule_id": null,
+      "class_id": "00000000-0000-4000-8000-000000000001",
+      "rule_rev": null,
+      "effect_id": "00000000-sample-legacy-effect",
+      "lineage_id": "00000000-sample-legacy-effect",
+      "student_id": "00000000-0000-4000-8000-000000000002",
+      "subject_key": "sample-legacy-task",
+      "subject_kind": "task",
+      "created_op_id": null,
+      "reversed_op_id": null,
+      "root_transaction_id": null,
+      "suggested_transaction_id": null
+    },
+    {
+      "event": "submission.missing",
+      "origin": "op",
+      "status": "reversed",
+      "rule_id": "458c05c9-a05f-5995-8d69-b6a19cb79c8c",
+      "class_id": "00000000-0000-4000-8000-000000000001",
+      "rule_rev": 1,
+      "effect_id": "00000000-0000-4000-8000-000000009001",
+      "lineage_id": "00000000-0000-4000-8000-000000009001",
+      "student_id": "00000000-0000-4000-8000-000000000002",
+      "subject_key": "00000000-0000-4000-8000-000000000008",
+      "subject_kind": "task",
+      "created_op_id": "00000000-0000-4000-8000-000000000102",
+      "reversed_op_id": "00000000-0000-4000-8000-000000000107",
+      "root_transaction_id": "00000000-0000-4000-8000-000000009000",
+      "suggested_transaction_id": null
+    }
+  ],
+  "rule_versions": [
+    {
+      "rev": 1,
+      "icon": null,
+      "name": "作業遲交",
+      "amount": -10,
+      "rule_id": "1524038d-f35c-5bc6-821a-b10c81a43099",
+      "category": null,
+      "class_id": "00000000-0000-4000-8000-000000000001",
+      "effective_at": "2026-11-22T07:59:00.000001+00:00"
+    },
+    {
+      "rev": 1,
+      "icon": "🌟",
+      "name": "發表優良",
+      "amount": 100,
+      "rule_id": "431d357c-0f9b-5208-8ca3-060ec8288791",
+      "category": "課堂表現",
+      "class_id": "00000000-0000-4000-8000-000000000001",
+      "effective_at": "2026-11-22T07:59:00.000001+00:00"
+    },
+    {
+      "rev": 1,
+      "icon": null,
+      "name": "作業缺交",
+      "amount": -20,
+      "rule_id": "458c05c9-a05f-5995-8d69-b6a19cb79c8c",
+      "category": null,
+      "class_id": "00000000-0000-4000-8000-000000000001",
+      "effective_at": "2026-11-22T07:59:00.000001+00:00"
+    },
+    {
+      "rev": 1,
+      "icon": "🗓️",
+      "name": "全勤獎勵",
+      "amount": 500,
+      "rule_id": "91e2681f-9691-5bc1-8057-11c5b0db5686",
+      "category": "秩序",
+      "class_id": "00000000-0000-4000-8000-000000000001",
+      "effective_at": "2026-11-22T07:59:00.000001+00:00"
+    },
+    {
+      "rev": 1,
+      "icon": "📕",
+      "name": "作業缺交",
+      "amount": -200,
+      "rule_id": "d12f2948-9da0-56bd-9c0e-7fc0a1ff0c02",
+      "category": "作業",
+      "class_id": "00000000-0000-4000-8000-000000000001",
+      "effective_at": "2026-11-22T07:59:00.000001+00:00"
+    },
+    {
+      "rev": 1,
+      "icon": null,
+      "name": "每日任務獎勵",
+      "amount": 50,
+      "rule_id": "ff7a03d7-3b96-5dd6-826c-9b147865f0a9",
+      "category": null,
+      "class_id": "00000000-0000-4000-8000-000000000001",
+      "effective_at": "2026-11-22T07:59:00.000001+00:00"
+    }
+  ]
+}

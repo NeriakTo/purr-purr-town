@@ -1,0 +1,120 @@
+{
+  "server_time": "2026-11-22T08:00:00.000Z",
+  "results": [
+    {
+      "code": "OK",
+      "op_id": "00000000-0000-4000-8000-000000000102",
+      "result": {
+        "noop": false,
+        "transactions": [
+          "00000000-0000-4000-8000-000000009000"
+        ],
+        "effects_added": [
+          {
+            "event": "submission.missing",
+            "amount": -20,
+            "effect_id": "00000000-0000-4000-8000-000000009001",
+            "lineage_id": "00000000-0000-4000-8000-000000009001",
+            "subject_key": "00000000-0000-4000-8000-000000000008",
+            "subject_kind": "task",
+            "root_transaction_id": "00000000-0000-4000-8000-000000009000"
+          }
+        ],
+        "effects_reversed": []
+      },
+      "status": "committed",
+      "changes": [
+        {
+          "key": {
+            "task_id": "00000000-0000-4000-8000-000000000008",
+            "student_id": "00000000-0000-4000-8000-000000000002"
+          },
+          "rev": 1,
+          "value": {
+            "status": "missing",
+            "assignment_active": true
+          },
+          "entity": "submission",
+          "prev_rev": 0,
+          "basis_rev": 1,
+          "last_op_id": "00000000-0000-4000-8000-000000000102",
+          "prev_value": null,
+          "prev_basis_rev": 0
+        },
+        {
+          "key": {
+            "student_id": "00000000-0000-4000-8000-000000000002"
+          },
+          "rev": 2,
+          "value": {
+            "balance": -20,
+            "total_earned": -20
+          },
+          "entity": "account",
+          "prev_rev": 1,
+          "last_op_id": "00000000-0000-4000-8000-000000000102",
+          "prev_value": {
+            "balance": 0,
+            "total_earned": 0
+          }
+        }
+      ],
+      "replayed": false,
+      "warnings": [],
+      "class_seq": 3,
+      "committed_at": "2026-11-22T07:59:00.000003+00:00",
+      "op_type": "submission.set_status"
+    },
+    {
+      "code": "OP_CANCELLED",
+      "op_id": "00000000-0000-4000-8000-000000000109",
+      "result": {
+        "noop": false,
+        "transactions": [],
+        "effects_added": [],
+        "effects_reversed": []
+      },
+      "status": "cancelled",
+      "changes": [],
+      "replayed": false,
+      "warnings": [],
+      "class_seq": null,
+      "committed_at": null,
+      "op_type": null
+    },
+    {
+      "op_id": "00000000-0000-4000-8000-000000000110",
+      "status": "unknown"
+    },
+    {
+      "code": "STALE_STATE",
+      "op_id": "00000000-0000-4000-8000-000000000104",
+      "result": {
+        "noop": false,
+        "transactions": [],
+        "effects_added": [],
+        "effects_reversed": []
+      },
+      "status": "rejected",
+      "changes": [],
+      "current": {
+        "rev": 1,
+        "actor": {
+          "id": "sample-teacher",
+          "kind": "teacher"
+        },
+        "value": {
+          "status": "missing",
+          "assignment_active": true
+        },
+        "last_op_id": "00000000-0000-4000-8000-000000000102",
+        "committed_at": "2026-11-22T07:59:00.000003+00:00"
+      },
+      "replayed": false,
+      "warnings": [],
+      "class_seq": null,
+      "committed_at": null,
+      "op_type": "submission.set_status"
+    }
+  ]
+}

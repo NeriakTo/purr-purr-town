@@ -1,0 +1,77 @@
+{
+  "server_time": "2026-11-22T08:00:00.000Z",
+  "class_seq": 22,
+  "receipts": [
+    {
+      "code": "OK",
+      "op_id": "00000000-0000-4000-8000-000000000128",
+      "result": {
+        "held": {
+          "items": [
+            {
+              "code": "OK",
+              "op_id": "00000000-0000-4000-8000-000000000120",
+              "status": "committed"
+            },
+            {
+              "code": "OK",
+              "op_id": "00000000-0000-4000-8000-000000000121",
+              "status": "committed"
+            },
+            {
+              "code": "OK",
+              "op_id": "00000000-0000-4000-8000-000000000122",
+              "status": "committed"
+            },
+            {
+              "code": "OK",
+              "op_id": "00000000-0000-4000-8000-000000000123",
+              "status": "committed"
+            },
+            {
+              "code": "OK",
+              "op_id": "00000000-0000-4000-8000-000000000124",
+              "status": "committed"
+            },
+            {
+              "code": "OK",
+              "op_id": "00000000-0000-4000-8000-000000000125",
+              "status": "committed"
+            }
+          ],
+          "batch_id": "00000000-0000-4000-8000-000000000112"
+        },
+        "noop": false,
+        "transactions": [],
+        "effects_added": [],
+        "effects_reversed": []
+      },
+      "status": "committed",
+      "changes": [
+        {
+          "key": {
+            "confirmation_id": "00000000-0000-4000-8000-000000000120"
+          },
+          "rev": 2,
+          "value": {
+            "status": "confirmed",
+            "processed_at": "2026-11-22T07:59:00.000011+00:00",
+            "processed_op_id": "00000000-0000-4000-8000-000000000128"
+          },
+          "entity": "confirmation",
+          "prev_rev": 1,
+          "last_op_id": "00000000-0000-4000-8000-000000000128",
+          "prev_value": {
+            "status": "pending",
+            "processed_at": null,
+            "processed_op_id": null
+          }
+        }
+      ],
+      "replayed": false,
+      "warnings": [],
+      "class_seq": 22,
+      "committed_at": "2026-11-22T07:59:00.000011+00:00"
+    }
+  ]
+}

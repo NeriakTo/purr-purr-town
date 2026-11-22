@@ -1,0 +1,34 @@
+{
+  "server_time": "2026-11-22T08:00:00.000Z",
+  "class_seq": 15,
+  "stream": "transactions",
+  "items": [
+    {
+      "kind": "shop_purchase",
+      "op_id": "00000000-0000-4000-8000-000000000115",
+      "amount": -3,
+      "origin": "op",
+      "reason": "購買測試商品",
+      "voided": false,
+      "rule_id": null,
+      "batch_id": null,
+      "rule_rev": null,
+      "semester": "115-1",
+      "class_seq": 9,
+      "legacy_id": null,
+      "student_id": "00000000-0000-4000-8000-000000000002",
+      "occurred_at": "2026-11-22T07:59:00.000008+00:00",
+      "source_path": null,
+      "chain_broken": false,
+      "earned_delta": 0,
+      "effective_at": "2026-11-22T07:59:00.000008+00:00",
+      "transaction_id": "00000000-0000-4000-8000-000000009003",
+      "legacy_semantics": null,
+      "transaction_type": null,
+      "root_transaction_id": null,
+      "corrected_transaction_id": null,
+      "restored_from_transaction_id": null
+    }
+  ],
+  "next": "eyJzdHJlYW0iOiJ0cmFuc2FjdGlvbnMiLCJrZXkiOls5LCIyMDI2LTExLTIyVDA3OjU5OjAwLjAwMDAwOCswMDowMCIsIjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwOTAwMyJdfQ"
+}

@@ -19,11 +19,23 @@ test('每份樣本皆為合法 JSON 且包含對照表的必有欄位', async ()
 
   for (const [, file, path, fields] of requirements) {
     const location = path === '$' ? [] : path.replace(/^\$\./, '').split('.')
-    const value = location.reduce((parent, key) => parent?.[key], samples.get(file))
-    expect(value, file + ' ' + path).toBeTypeOf('object')
-    expect(value, file + ' ' + path).not.toBeNull()
-    for (const field of fields.split(' ')) {
-      expect(Object.hasOwn(value, field), file + ' ' + path + '.' + field).toBe(true)
+    let values = [samples.get(file)]
+    for (const segment of location) {
+      if (segment === '*') {
+        for (const value of values) {
+          expect(Array.isArray(value) && value.length > 0, file + ' ' + path).toBe(true)
+        }
+        values = values.flat()
+      } else {
+        values = values.map(value => value?.[segment])
+      }
+    }
+    for (const value of values) {
+      expect(value, file + ' ' + path).toBeTypeOf('object')
+      expect(value, file + ' ' + path).not.toBeNull()
+      for (const field of fields.split(' ')) {
+        expect(Object.hasOwn(value, field), file + ' ' + path + '.' + field).toBe(true)
+      }
     }
   }
 })
