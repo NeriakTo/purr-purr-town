@@ -46,7 +46,7 @@ function doPost(event) {
     if (Object.hasOwn(envelope, 'token') || utf8Size(bodyText) > 4 * 1024) {
       return relayError('BAD_ENVELOPE')
     }
-  } else if (typeof token !== 'string' || token.length !== 64 || /[^0-9a-f]/i.test(token)) {
+  } else if (typeof token !== 'string' || token.length !== 64 || /[^0-9a-f]/.test(token)) {
     return relayError('AUTH_REQUIRED')
   }
 
