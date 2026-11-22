@@ -56,9 +56,8 @@ function doPost(event) {
 
   const headers = { 'x-ppt-relay-key': relayKey }
   if (path !== LOGIN_PATH) headers.Authorization = 'Bearer ' + token
-  let upstream
   try {
-    upstream = UrlFetchApp.fetch(backendUrl.replace(/\/+$/, '') + path, {
+    const upstream = UrlFetchApp.fetch(backendUrl.replace(/\/+$/, '') + path, {
       method: 'post',
       contentType: 'application/json',
       payload: bodyText,
@@ -66,14 +65,14 @@ function doPost(event) {
       followRedirects: false,
       muteHttpExceptions: true,
     })
+    // GAS 的請求是同步呼叫，本機替身以非同步方式取得相同的回應介面。
+    if (typeof upstream.then === 'function') {
+      return upstream.then(wrapUpstream).catch(upstreamUnreachable)
+    }
+    return wrapUpstream(upstream)
   } catch {
     return upstreamUnreachable()
   }
-  // GAS 的請求是同步呼叫，本機替身以非同步方式取得相同的回應介面。
-  if (typeof upstream.then === 'function') {
-    return upstream.then(wrapUpstream, upstreamUnreachable)
-  }
-  return wrapUpstream(upstream)
 }
 
 function utf8Size(text) {
