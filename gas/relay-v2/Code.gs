@@ -43,7 +43,7 @@ function doPost(event) {
     return relayError('ROUTE_NOT_ALLOWED')
   }
   if (path === LOGIN_PATH) {
-    if (Object.hasOwn(envelope, 'token') || utf8Size(bodyText) > 4 * 1024) {
+    if (Object.prototype.hasOwnProperty.call(envelope, 'token') || utf8Size(bodyText) > 4 * 1024) {
       return relayError('BAD_ENVELOPE')
     }
   } else if (typeof token !== 'string' || token.length !== 64 || /[^0-9a-f]/.test(token)) {
