@@ -47,7 +47,8 @@ function requestResult(request) {
 function transactionDone(transaction) {
   return new Promise((resolve, reject) => {
     transaction.oncomplete = () => resolve()
-    transaction.onerror = () => reject(transaction.error)
-    transaction.onabort = () => reject(transaction.error ?? new Error('IndexedDB 交易已中止'))
+    // 請求失敗的事件冒泡到交易時，transaction.error 可能還沒填，先取請求本身的錯誤。
+    transaction.onerror = event => reject(event.target?.error ?? transaction.error ?? new Error('IndexedDB 交易失敗'))
+    transaction.onabort = event => reject(transaction.error ?? event.target?.error ?? new Error('IndexedDB 交易已中止'))
   })
 }
