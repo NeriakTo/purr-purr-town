@@ -45,20 +45,6 @@ export async function listenForeign401() {
   return { port: server.address().port, close: () => close(server) }
 }
 
-// 只監聽、不回應的服務。
-export async function listenSilent() {
-  const sockets = new Set()
-  const server = net.createServer(socket => sockets.add(socket))
-  await listen(server)
-  return {
-    port: server.address().port,
-    close: () => {
-      for (const socket of sockets) socket.destroy()
-      return close(server)
-    },
-  }
-}
-
 // 取一個目前沒人用的埠（開了馬上關）。
 export async function freePort() {
   const server = await listen(net.createServer())

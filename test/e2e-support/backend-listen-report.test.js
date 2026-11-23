@@ -21,9 +21,9 @@ function envFor(apiPort) {
   }
 }
 
-function startWithRealChild(apiPort, mode) {
+function startWithRealChild(apiPort) {
   const fake = createFakeDeps({ waitForReady: undefined, timeouts: { database: 1000, api: 10_000, backendStop: 2000 } })
-  const spawn = createBackendSpawner({ entry, cwd: fixturesDir, args: [mode], stdout: null, stderr: null })
+  const spawn = createBackendSpawner({ entry, cwd: fixturesDir, stdout: null, stderr: null })
   fake.deps.spawnBackend = env => {
     const child = spawn(env)
     fake.children.push(child)
@@ -44,7 +44,7 @@ function settle(fake, run, timeoutMs) {
 describe.skipIf(!loopback)('本機後端腳本：用真的子程序確認就緒來自自己', () => {
   it('埠空著：自己的後端監聽成功後印就緒，停止時只停自己的後端', async () => {
     const port = await freePort()
-    const { fake, run } = startWithRealChild(port, 'serve')
+    const { fake, run } = startWithRealChild(port)
 
     expect(await settle(fake, run, 8000)).toBe('印出就緒')
     run.signal('SIGTERM')
@@ -56,7 +56,7 @@ describe.skipIf(!loopback)('本機後端腳本：用真的子程序確認就緒�
   it('埠被別的服務占用（也回 401）：自己的後端綁不上而結束，不印就緒、判失敗', async () => {
     const foreign = await listenForeign401()
     try {
-      const { fake, run } = startWithRealChild(foreign.port, 'serve')
+      const { fake, run } = startWithRealChild(foreign.port)
       const outcome = await settle(fake, run, 8000)
       if (outcome !== '結束碼 1') {
         run.signal('SIGTERM')
