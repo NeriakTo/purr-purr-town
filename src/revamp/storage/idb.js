@@ -8,14 +8,49 @@ export async function openDatabase({ factory, name, version, upgrade } = {}) {
   if (!Number.isInteger(version) || version < 1) throw new TypeError('openDatabase 需要正整數 version')
   if (typeof upgrade !== 'function') throw new TypeError('openDatabase 需要 upgrade 函式')
 
-  const request = factory.open(name, version)
-  request.onupgradeneeded = event => {
-    upgrade(request.result, event.oldVersion, request.transaction)
-  }
-  const db = await requestResult(request)
+  const db = await new Promise((resolve, reject) => {
+    const request = factory.open(name, version)
+    let settled = false
+    request.onupgradeneeded = event => {
+      // 已經回報被擋住的這次開啟，等舊連線關掉後不在背後自己升版。
+      if (settled) {
+        request.transaction.abort()
+        return
+      }
+      upgrade(request.result, event.oldVersion, request.transaction)
+    }
+    request.onsuccess = () => {
+      if (settled) {
+        request.result.close()
+        return
+      }
+      settled = true
+      resolve(request.result)
+    }
+    request.onerror = event => {
+      // 已回報失敗後被中止的升版也會走到這裡，不再重複回報，也不讓錯誤往外冒。
+      event?.preventDefault?.()
+      if (settled) return
+      settled = true
+      reject(request.error)
+    }
+    // 別的分頁還開著舊版連線且不讓出時，不會自己結束，直接告訴呼叫端。
+    request.onblocked = event => {
+      if (settled) return
+      settled = true
+      reject(new DatabaseBlockedError(name, event.oldVersion, event.newVersion ?? version))
+    }
+  })
   // 別的分頁要升版時先讓出連線，避免對方一直卡在 blocked。
   db.onversionchange = () => db.close()
   return db
+}
+
+export class DatabaseBlockedError extends Error {
+  constructor(name, oldVersion, newVersion) {
+    super(`資料庫 ${name} 要從第 ${oldVersion} 版升到第 ${newVersion} 版，但被其他分頁仍開著的連線擋住；請關閉其他分頁後重試`)
+    this.name = 'DatabaseBlockedError'
+  }
 }
 
 // 交易完成（complete）才算寫入成功；請求成功但交易之後中止時，呼叫端會拿到失敗。
