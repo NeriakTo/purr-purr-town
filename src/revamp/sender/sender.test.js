@@ -196,6 +196,52 @@ it('兩個分頁只有持鎖者送出，停止後交棒', async () => {
   expect((await second.call(0)).ids).toEqual([op.op_id])
 })
 
+it('停止期間多次開始，等在途請求結束後只接手一次', async () => {
+  const [head] = await add()
+  const requestLock = vi.spyOn(locks, 'request')
+  const f = setup()
+  f.sender.start()
+  const first = await f.call(0)
+
+  const stopped = f.sender.stop()
+  f.sender.start()
+  f.sender.start()
+  await new Promise(resolve => setImmediate(resolve))
+  expect(requestLock).toHaveBeenCalledTimes(1)
+  expect(f.calls).toHaveLength(1)
+  expect(f.sender.getState().hasLock).toBe(true)
+
+  first.response.resolve(lost)
+  await stopped
+  await until(() => f.calls.length > 1 || f.sender.getState().status === 'stopped')
+  expect(f.calls.map(call => call.ids)).toEqual([[head.op_id], [head.op_id]])
+  expect(f.sender.getState()).toMatchObject({ hasLock: true, status: 'running' })
+  f.calls[1].response.resolve(submit(saved(head.op_id)))
+  await ready()
+  expect(await operations()).toEqual([])
+  expect(requestLock).toHaveBeenCalledTimes(2)
+})
+
+it('停止期間排定的開始可由下一次停止取消', async () => {
+  const [head] = await add()
+  const requestLock = vi.spyOn(locks, 'request')
+  const f = setup()
+  f.sender.start()
+  const first = await f.call(0)
+
+  const stopped = f.sender.stop()
+  f.sender.start()
+  const cancelled = f.sender.stop()
+  first.response.resolve(lost)
+  await Promise.all([stopped, cancelled])
+  await new Promise(resolve => setImmediate(resolve))
+
+  expect(f.sender.getState()).toMatchObject({ hasLock: false, status: 'stopped' })
+  expect(requestLock).toHaveBeenCalledTimes(1)
+  expect(f.calls.map(call => call.ids)).toEqual([[head.op_id]])
+  expect(await operations()).toMatchObject([{ op_id: head.op_id }])
+})
+
 it('持鎖分頁消失後先重設所有本帳號班級再同編號重送', async () => {
   const [head] = await add()
   await makeSingle(head)
