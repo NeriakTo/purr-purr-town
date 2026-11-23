@@ -136,8 +136,22 @@ function classKey({ accountId, classId }) {
 }
 
 export function serializeEntityKey(key) {
-  // 規格的列鍵是物件，欄位值為純量。
-  return JSON.stringify(key, Object.keys(key).sort())
+  if (key === null || typeof key !== 'object' || Array.isArray(key)) throw new TypeError('列鍵須為純物件')
+  const prototype = Object.getPrototypeOf(key)
+  if (prototype !== Object.prototype && prototype !== null) throw new TypeError('列鍵須為純物件')
+
+  const properties = Reflect.ownKeys(key)
+  if (properties.length === 0) throw new TypeError('列鍵至少需要一個屬性')
+  const fields = Object.create(null)
+  for (const property of properties) {
+    if (typeof property !== 'string') throw new TypeError(`列鍵屬性 ${String(property)} 須以字串命名`)
+    const value = key[property]
+    if (typeof value !== 'string' && typeof value !== 'boolean' && !Number.isFinite(value)) {
+      throw new TypeError(`列鍵屬性 ${property} 須為字串、有限數字或布林值`)
+    }
+    fields[property] = value
+  }
+  return JSON.stringify(fields, properties.sort())
 }
 
 export function getLocalLoginInTransaction(tx) {
