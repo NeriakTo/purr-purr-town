@@ -1,6 +1,6 @@
 import {
   getDeviceSetting, getLocalLogin, getLocalLoginInTransaction, runStorageTransaction,
-  saveLocalLoginInTransaction, saveDeviceSettingInTransaction,
+  saveDeviceSetting, saveDeviceSettingInTransaction, saveLocalLoginInTransaction,
 } from '../storage/queue-storage.js'
 
 export const BUCKET_BUSY_MESSAGE = '有人正在嘗試這個帳號的密碼。請先用登入過的裝置。這台電腦一定要登入時，請通知維護者'
@@ -168,5 +168,47 @@ export async function querySession({ db, transport, clock }) {
     return applied ? { kind: 'success', checkedAt: clock.now() } : { kind: 'stale_session' }
   } catch {
     return { kind: 'storage_error' }
+  }
+}
+
+const RELAY_SESSION_MS = 24 * 60 * 60 * 1000
+const NOT_SENT = new Set(['invalid_path', 'invalid_request', 'invalid_url', 'relay_pass_failed'])
+
+export function trackRelaySession({ db, transport, clock }) {
+  return {
+    getRememberedRoute: transport.getRememberedRoute,
+    async send(request) {
+      const { token } = request
+      // 連線介面只回報走過哪條路，用請求起始時間作為本機提早提醒的依據。
+      const sentAt = token ? clock.now() : null
+      const result = await transport.send(request)
+      if (token && (result.via === 'gas' || result.attemptedGas) &&
+          !(result.kind === 'lost' && NOT_SENT.has(result.reason))) {
+        try {
+          await updateMatchingLogin(db, token, current =>
+            current.firstRelayedAt == null ? { firstRelayedAt: sentAt } : null,
+          )
+        } catch {
+          // 儲存失敗時仍交回原連線結果，伺服器會判定權杖效期。
+        }
+      }
+      return result
+    },
+  }
+}
+
+export function getLocalSessionState(record, now) {
+  if (!record) return 'no_login'
+  if (record.requiresLogin || !isTimestamp(record.expiresAt)) return 'expired'
+  const expiresAt = Date.parse(record.expiresAt)
+  const relayExpiresAt = record.firstRelayedAt == null ? Infinity : record.firstRelayedAt + RELAY_SESSION_MS
+  return now >= Math.min(expiresAt, relayExpiresAt) ? 'expired' : 'valid'
+}
+
+export function createIndexedDbRelayPassStore({ db }) {
+  const key = 'relay_pass'
+  return {
+    read: async () => (await getDeviceSetting(db, key)) ?? null,
+    write: value => saveDeviceSetting(db, key, value),
   }
 }
