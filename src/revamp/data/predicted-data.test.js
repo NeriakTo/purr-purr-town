@@ -85,16 +85,17 @@ it('待送移到需要處理後從同一班級快照重算', async () => {
     ])
     await updateOperation(db, scope, second.op_id, { status: 'sending' })
     const before = await readProjectedRows(db, scope, projectors)
-    expect(before.rows).toMatchObject([
-      { rev: 5, value: { balance: 36 }, pendingOperations: [
+    expect(before.rows).toHaveLength(2)
+    expect(before.rows).toEqual(expect.arrayContaining([
+      expect.objectContaining({ ...target, rev: 5, value: { balance: 36, total_earned: 20 }, pendingOperations: [
         { op_id: first.op_id, status: 'queued' }, { op_id: second.op_id, status: 'sending' },
-      ] },
-      { ...other, value: { balance: 0 }, pendingOperations: [] },
-    ])
+      ] }),
+      expect.objectContaining({ ...other, value: { balance: 0 }, pendingOperations: [] }),
+    ]))
     await removeOperation(db, scope, first.op_id, { reason: '測試拒絕' })
     expect(await listNeedsAttention(db, scope)).toMatchObject([{ op_id: first.op_id }])
     const after = await readProjectedRows(db, scope, projectors)
-    expect(after.rows[0]).toMatchObject({
+    expect(after.rows.find(item => item.key.student_id === target.key.student_id)).toMatchObject({
       rev: 5, value: { balance: 30 }, pendingOperations: [{ op_id: second.op_id, status: 'sending' }],
     })
   } finally {

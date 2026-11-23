@@ -110,7 +110,7 @@ it('拒絕收據即使帶序號與列也不寫資料', async () => {
   for (const item of rejected.receipts) {
     expect(await apply(item)).toEqual({ sequence: 'ignored' })
   }
-  expect(await apply({ ...rejected.receipts[0], ...{ class_seq: 1, changes: [row(1, {})] } }))
+  expect(await apply({ ...rejected.receipts[0], class_seq: 1, changes: [row(1, {})] }))
     .toEqual({ sequence: 'ignored' })
   expect(await listConfirmedRows(db, scope)).toEqual([])
   expect(await getClassState(db, scope)).toEqual(before)
