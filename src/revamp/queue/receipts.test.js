@@ -137,6 +137,7 @@ it('只在第五次連續內部錯誤暫停', () => {
     [submit(retry('a', 'INTERNAL_ERROR')), 'INTERNAL_ERROR', 'receipt'],
     [submit(retry('a', 'FUTURE_CODE')), 'FUTURE_CODE', 'receipt'],
     [request('FUTURE_CODE'), 'FUTURE_CODE', 'request'],
+    [request('RESPONSE_LOST'), 'RESPONSE_LOST', 'request'],
   ]) {
     expect(decide(result, { items: [item('a', { internalErrors: 3 })] }).actions[0], code)
       .toMatchObject({ type: 'retry', code, level, internalErrors: 4 })
@@ -171,6 +172,17 @@ it('放棄的暫時結果維持放棄中與原計數', () => {
     expect(decide(result, { endpoint: 'cancel', items: [item('a', { state: 'cancelling', internalErrors: 4 })] })
       .actions[0], code).toMatchObject({ type: 'keep_cancelling', code, level, internalErrors: 4 })
   }
+})
+
+it('放棄等待登入或通行碼時不附自動重送秒數', () => {
+  const options = { endpoint: 'cancel', items: [item('a', { state: 'cancelling' })] }
+  for (const result of [request('CLASS_FORBIDDEN'), gas('RELAY_FORBIDDEN')]) {
+    const [action] = decide(result, options).actions
+    expect(action.type).toBe('keep_cancelling')
+    expect(action.waitSeconds).toBeUndefined()
+  }
+  expect(decide(request('RATE_LIMITED', { retry_after: 30 }), options).actions[0])
+    .toMatchObject({ type: 'keep_cancelling', waitSeconds: 30 })
 })
 
 it('查詢錯誤不動待送項目', () => {
