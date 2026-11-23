@@ -73,6 +73,19 @@ it('登入逐字保存權杖與帳號，成功回傳不含憑證', async () => {
   expect(await getLocalLogin(db)).toEqual(loginRecord)
 })
 
+it('經 GAS 登入時記下送出前的轉送起點與回應後的登入時間', async () => {
+  const responseDelay = 12_000
+  transport.send.mockImplementationOnce(async () => {
+    time += responseDelay
+    return ok(loginBody, 'gas')
+  })
+
+  expect(await signIn()).toEqual({ kind: 'success', accountId: teacher.id, teacherName: teacher.name })
+  const record = await getLocalLogin(db)
+  expect(record.loggedInAt).toBe(initialTime + responseDelay)
+  expect(record.firstRelayedAt).toBe(initialTime)
+})
+
 it('裝置標記重開連線後只隨相同登入名稱送出', async () => {
   await signIn()
   expect(JSON.parse(transport.send.mock.calls[0][0].bodyText)).not.toHaveProperty('device_marker')
