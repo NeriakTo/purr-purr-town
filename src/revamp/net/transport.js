@@ -78,8 +78,7 @@ export function createTransport({
   }
 
   function remember(metadata) {
-    if (!isRouteSuccess(metadata) || getRememberedRoute()?.via === metadata.via) return
-    // 同一路徑在記憶期間內再次成功不延長期限，讓下一個時間窗能重新試直連。
+    if (!isRouteSuccess(metadata) || getActiveRoute()?.via === metadata.via) return
     rememberedRoute = { via: metadata.via, expiresAt: clock.now() + routeMemoryMs }
   }
 
@@ -100,7 +99,7 @@ export function createTransport({
     }
   }
 
-  async function attempt(via, url, options, headersTimeoutMs) {
+  async function attempt(via, url, options, headersTimeoutMs, usingRememberedRoute) {
     const controller = new AbortController()
     const response = await withinTimeout(
       () => fetch(url, { method: 'POST', ...options, signal: controller.signal }),
@@ -114,13 +113,14 @@ export function createTransport({
     }
 
     const status = response.status
-    if (via === 'direct' && isHttpStatus(status)) remember({ via, status })
     if (via === 'gas' ? status !== 200 : !isHttpStatus(status)) {
       controller.abort()
       return via === 'direct'
         ? { missingHeaders: true, result: lost(via, 'unreadable_response') }
         : { result: lost(via, 'relay_http_status') }
     }
+    // 以送出當下的選路為準，即使回應到達時已過期也不續期。
+    if (via === 'direct' && !usingRememberedRoute) remember({ via, status })
 
     const readBody = via === 'direct'
       ? async () => bodyDecoder.decode(await response.arrayBuffer())
@@ -132,20 +132,22 @@ export function createTransport({
     if (via === 'direct') return { result: { kind: 'http', via, status, bodyText } }
 
     const result = decodeRelayResponse(bodyText)
-    if (result.kind === 'http') remember({ via, status: result.status })
-    if (result.kind === 'gas_error') remember({ via, code: result.code })
+    if (!usingRememberedRoute) {
+      if (result.kind === 'http') remember({ via, status: result.status })
+      if (result.kind === 'gas_error') remember({ via, code: result.code })
+    }
     return { result }
   }
 
-  function sendDirect({ path, token, bodyText }) {
+  function sendDirect({ path, token, bodyText }, usingRememberedRoute) {
     if (!backend || backend.pathname !== '/') return { result: lost('direct', 'invalid_url') }
     const headers = { 'Content-Type': 'application/json' }
     if (token) headers.Authorization = 'Bearer ' + token
     return attempt('direct', backend.origin + path, { headers, body: bodyText, redirect: 'manual' },
-      directHeadersTimeoutMs)
+      directHeadersTimeoutMs, usingRememberedRoute)
   }
 
-  async function sendGas(request) {
+  async function sendGas(request, usingRememberedRoute) {
     if (!relay) return { result: lost('gas', 'invalid_url') }
     let relayPass
     try {
@@ -156,7 +158,7 @@ export function createTransport({
     return attempt('gas', gasUrl, {
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: encodeRelayRequest({ ...request, relayPass }),
-    }, gasHeadersTimeoutMs)
+    }, gasHeadersTimeoutMs, usingRememberedRoute)
   }
 
   async function send({ path, token, bodyText }) {
@@ -171,20 +173,20 @@ export function createTransport({
     }
     const request = { path, token, bodyText }
     if (via === 'gas') {
-      const gas = await sendGas(request)
+      const gas = await sendGas(request, true)
       const { kind, reason, code } = gas.result
       if (rememberedRoute === route &&
           ((kind === 'lost' && reason !== 'relay_pass_failed') || code === 'UPSTREAM_UNREACHABLE')) {
         rememberedRoute = null
       }
       if (!gas.missingHeaders || !retryDirectOnRememberedGasFailure) return gas.result
-      const direct = await sendDirect(request)
+      const direct = await sendDirect(request, false)
       return { ...direct.result, attemptedGas: true }
     }
 
-    const direct = await sendDirect(request)
+    const direct = await sendDirect(request, route !== null)
     if (!direct.missingHeaders || !gasUrl) return direct.result
-    return (await sendGas(request)).result
+    return (await sendGas(request, false)).result
   }
 
   return { send, getRememberedRoute }
