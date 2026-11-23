@@ -284,6 +284,46 @@ it('列鍵序列化依鍵名排序，保留值與型別', () => {
   expect(serializeEntityKey({ student_id: '1' })).not.toBe(serializeEntityKey({ student_id: 1 }))
 })
 
+it('列鍵接受含字串、有限數字與布林值的純物件', () => {
+  const key = Object.assign(Object.create(null), { 字串: '一', 數字: -1.5, 布林: false })
+  expect(JSON.parse(serializeEntityKey(key))).toEqual({ 字串: '一', 數字: -1.5, 布林: false })
+})
+
+it('列鍵本身必須是至少有一個屬性的純物件', () => {
+  for (const key of [[], '座號一', 1, true, null, undefined, new Date(0), Object.create({ student_id: '座號一' })]) {
+    expect(() => serializeEntityKey(key)).toThrow(TypeError)
+    expect(() => serializeEntityKey(key)).toThrow('列鍵須為純物件')
+  }
+  expect(() => serializeEntityKey({})).toThrow(TypeError)
+  expect(() => serializeEntityKey({})).toThrow('列鍵至少需要一個屬性')
+})
+
+it('列鍵值無效時指出屬性名稱', () => {
+  for (const value of [undefined, null, {}, [], NaN, Infinity, -Infinity, 1n, Symbol('座號'), () => {}]) {
+    const serialize = () => serializeEntityKey({ task_id: '作業甲', student_id: value })
+    expect(serialize).toThrow(TypeError)
+    expect(serialize).toThrow('列鍵屬性 student_id 須為字串、有限數字或布林值')
+  }
+  const symbol = Symbol('座號')
+  expect(() => serializeEntityKey({ [symbol]: '座號一' })).toThrow(TypeError)
+  expect(() => serializeEntityKey({ [symbol]: '座號一' })).toThrow('Symbol(座號)')
+})
+
+it.each([
+  ['宣告的目標列', badTarget => ({ ...input, targets: [badTarget] })],
+  ['自動版本條件的目標列', badTarget => ({ ...input, expect: 'auto', expectTarget: badTarget })],
+])('%s若有無效的列鍵，整批操作回滾', async (_label, makeInput) => {
+  const [existing] = await createOperations(db, scope, [input])
+  const badTarget = { ...target, key: { ...target.key, student_id: undefined } }
+  const creating = createOperations(db, scope, [declared, makeInput(badTarget)])
+  await expect(creating).rejects.toThrow(TypeError)
+  await expect(creating).rejects.toThrow('列鍵屬性 student_id 須為字串、有限數字或布林值')
+  expect(await listOperations(db, scope)).toEqual([existing])
+  expect(await resolveExpect(db, scope, target)).toEqual({ rev: 0 })
+  const [next] = await createOperations(db, scope, [input])
+  expect(next.client_seq).toBe(2)
+})
+
 it('依帳號與班級列出待送，別的帳號筆數跨班計算', async () => {
   await createOperations(db, scope, [input])
   await createOperations(db, { ...scope, classId: '班級乙' }, [input])
