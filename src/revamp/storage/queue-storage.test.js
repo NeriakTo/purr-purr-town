@@ -2,11 +2,12 @@ import { IDBFactory } from 'fake-indexeddb'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import {
   CLASS_DATA_STORES, STORAGE_MIGRATIONS, countOtherAccounts, createOperations,
-  createOperationsInTransaction, deleteDraft, deleteLocalLogin, getAccountSetting,
+  createOperationsInTransaction, deleteDraft, deleteLocalLogin, deleteLocalLoginInTransaction,
+  deleteNeedsAttention, getAccountSetting,
   getClassState, getDeviceSetting, getDraft, getLocalLogin, listNeedsAttention,
   listOperations, openQueueDatabase, removeOperation, removeOperationInTransaction,
   resolveExpect, runStorageTransaction, saveAccountSetting, saveClassState,
-  saveDeviceSetting, saveDraft, saveLocalLogin, saveNeedsAttention, serializeEntityKey,
+  saveClassStateInTransaction, saveDeviceSetting, saveDraft, saveLocalLogin, saveNeedsAttention, serializeEntityKey,
   updateOperation,
 } from './queue-storage.js'
 
@@ -161,6 +162,64 @@ it.each([
   expect(await listOperations(db, scope)).toEqual([existing])
   expect(await getDraft(db, scope, '初稿')).toBeUndefined()
   expect(await listNeedsAttention(db, scope)).toEqual([])
+})
+
+it.each([
+  ['保留並登出', 'LOGIN_REQUIRED', deleteLocalLogin],
+  ['換帳號', 'ACCOUNT_MISMATCH', connection => saveLocalLogin(connection, otherAccount)],
+])('%s後舊分頁不能改動既有班級資料', async (_label, code, changeLogin) => {
+  const other = await connect()
+  const [queued, attended] = await createOperations(db, scope, [declared, input])
+  const state = await saveClassState(db, scope, { seenSeq: 3, appliedSeq: 2 })
+  await saveDraft(db, scope, '初稿', draft)
+  await removeOperation(db, scope, attended.op_id, { reason: '待確認' })
+  const attention = await listNeedsAttention(db, scope)
+
+  await changeLogin(other)
+  const attempts = [
+    ['班級狀態', () => saveClassState(db, scope, { notCreated: true })],
+    ['送出欄位', () => updateOperation(db, scope, queued.op_id, { status: 'sending' })],
+    ['移出待送', () => removeOperation(db, scope, queued.op_id)],
+    ['移入需要處理', () => removeOperation(db, scope, queued.op_id, { reason: '測試' })],
+    ['移出不存在的待送並附處理原因', () => removeOperation(db, scope, duplicateUUID(), { reason: '測試' })],
+    ['刪草稿', () => deleteDraft(db, scope, '初稿')],
+    ['刪需要處理', () => deleteNeedsAttention(db, scope, attended.op_id)],
+  ]
+  const results = await Promise.allSettled(attempts.map(([, write]) => write()))
+  for (const [index, [label]] of attempts.entries()) {
+    expect.soft(results[index], label).toMatchObject({ status: 'rejected', reason: { code } })
+  }
+  expect(await getClassState(db, scope)).toEqual(state)
+  expect(await listOperations(db, scope)).toEqual([queued])
+  expect(await resolveExpect(db, scope, target)).toEqual({ after_op: queued.op_id })
+  expect(await getDraft(db, scope, '初稿')).toEqual(draft)
+  expect(await listNeedsAttention(db, scope)).toEqual(attention)
+})
+
+it('清除班級資料並移除登入的交易排在前面時，另一個連線不能重建班級狀態', async () => {
+  const other = await connect()
+  await saveClassState(db, scope, { seenSeq: 3 })
+  const clearing = runStorageTransaction(other, [...CLASS_DATA_STORES, 'localLogin'], 'readwrite', async tx => {
+    for (const store of CLASS_DATA_STORES) tx.objectStore(store).clear()
+    await deleteLocalLoginInTransaction(tx)
+  })
+  const writing = saveClassState(db, scope, { appliedSeq: 2 })
+  await expect(writing).rejects.toMatchObject({ code: 'LOGIN_REQUIRED' })
+  await clearing
+  expect(await getClassState(db, scope)).toEqual({ ...scope, notCreated: false, seenSeq: 0, appliedSeq: 0 })
+})
+
+it('組合交易缺少登入儲存區時指出缺少的儲存區，並回滾先前改動', async () => {
+  const state = await saveClassState(db, scope, { seenSeq: 3 })
+  const writing = runStorageTransaction(db, 'classState', 'readwrite', async tx => {
+    tx.objectStore('classState').delete([scope.accountId, scope.classId])
+    await saveClassStateInTransaction(tx, scope, { appliedSeq: 2 })
+  })
+  await expect(writing).rejects.toMatchObject({
+    code: 'TRANSACTION_SCOPE_MISMATCH',
+    message: expect.stringContaining('localLogin'),
+  })
+  expect(await getClassState(db, scope)).toEqual(state)
 })
 
 it('沒有建成只擋新增待送與存草稿，仍可更新及完整移入需要處理', async () => {
