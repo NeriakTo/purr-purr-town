@@ -96,8 +96,8 @@
 | E-13 | `PAIRING_INVALID` | 不適用 | 配對端點及此碼已移除。 |
 | E-14 | `LEGACY_WRITE_CLOSED` | 舊後端，HTTP 410 | `PUT /api/v1/snapshots/:classId`、`DELETE /api/v1/classes/:classId`、`POST /api/v1/classes`。`POST /api/v1/auth/register` 由獨立開關控制。 |
 | E-45 | `RELAY_FORBIDDEN` | GAS 包裝 | GAS 已啟用轉送通行碼，請求缺少或帶錯通行碼。 |
-| 後端新增 | `LOGIN_FAILED` | 401 | `auth/login`。帳號不存在、密碼錯誤或帳號名稱重複。後端新增，送出端處置見[規格 01 第五節](../../docs/revamp/operation-contract/01-操作規格-v0.4-總則.md#五錯誤碼表)。 |
-| 後端新增 | `ORIGIN_FORBIDDEN` | 403 | 十個新版端點。直連帶了站台未允許的 `Origin`。後端新增，送出端處置見[規格 01 第五節](../../docs/revamp/operation-contract/01-操作規格-v0.4-總則.md#五錯誤碼表)。 |
+| E-46 | `LOGIN_FAILED` | 401 | `auth/login`。帳號不存在、密碼錯誤或帳號名稱重複。送出端處置見[規格 01 第五節](../../docs/revamp/operation-contract/01-操作規格-v0.4-總則.md#五錯誤碼表)。 |
+| E-47 | `ORIGIN_FORBIDDEN` | 403 | 十個新版端點。直連帶了站台未允許的 `Origin`。送出端處置見[規格 01 第五節](../../docs/revamp/operation-contract/01-操作規格-v0.4-總則.md#五錯誤碼表)。 |
 
 「GAS 包裝」指 GAS 自己回錯時，外層 HTTP 為 200，本文 `http_status` 為 0，錯誤碼在 `gas_error`。寫入程序定案的操作層級結果依規格 01 第 5.2 節出現在提交收據。放棄與查詢也能帶回原有的定案收據。背景工作使用內部收據，沒有 HTTP 回應。
 
