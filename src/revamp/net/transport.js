@@ -44,7 +44,7 @@ function decodeRelayResponse(text) {
   }
   if (envelope?.v === 1) {
     const { http_status: status, body_text: bodyText, gas_error: code } = envelope
-    if (isHttpStatus(status) && typeof bodyText === 'string') {
+    if (isHttpStatus(status) && typeof bodyText === 'string' && !Object.hasOwn(envelope, 'gas_error')) {
       return { kind: 'http', via: 'gas', status, bodyText }
     }
     if (status === 0 && GAS_ERRORS.has(code)) {
