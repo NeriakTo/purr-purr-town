@@ -155,7 +155,7 @@ export function createTransport({
     } catch {
       return { result: lost('gas', 'relay_pass_failed') }
     }
-    return attempt('gas', gasUrl, {
+    return attempt('gas', relay.href, {
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: encodeRelayRequest({ ...request, relayPass }),
     }, gasHeadersTimeoutMs, usingRememberedRoute)
