@@ -505,6 +505,41 @@ it('等登入與通行碼時輪詢不重送，更新並喚醒後同編號送出'
   expect((await f.call(3)).ids).toEqual([other.op_id])
 })
 
+it('不喚醒時重看另一連線寫入的登入權杖，用新權杖同編號重送', async () => {
+  const [head] = await add()
+  const f = setup()
+  f.sender.start()
+  const first = await f.call(0)
+  expect(first.token).toBe(token)
+  first.response.resolve(request('AUTH_EXPIRED'))
+  await f.state('waiting_login')
+  await ready()
+
+  await login(scope.accountId, newToken)
+  await advance(DEFAULT_IDLE_POLL_MS - 1)
+  expect(f.calls).toHaveLength(1)
+  await advance(1)
+  await until(() => f.calls.length > 1 || Number.isFinite(clock.next()))
+  expect(f.calls[1]).toMatchObject({ ids: [head.op_id], token: newToken })
+})
+
+it('不喚醒時重看新存的通行碼，同編號重送', async () => {
+  const [head] = await add()
+  const f = setup()
+  f.sender.start()
+  const first = await f.call(0)
+  first.response.resolve({ kind: 'gas_error', via: 'gas', code: 'RELAY_FORBIDDEN' })
+  await f.state('waiting_relay_pass')
+  await ready()
+
+  f.relayPassStore.write('更新後的測試通行碼')
+  await advance(DEFAULT_IDLE_POLL_MS - 1)
+  expect(f.calls).toHaveLength(1)
+  await advance(1)
+  await until(() => f.calls.length > 1 || Number.isFinite(clock.next()))
+  expect(f.calls[1]).toMatchObject({ ids: [head.op_id] })
+})
+
 it('交易提交後合併跳號通知，並觀測最外層序號', async () => {
   const [head, second, third] = await add(3)
   const f = setup()
