@@ -333,6 +333,14 @@ it('工作階段成功本文不合格時不套用有效期', async () => {
   expect(await getLocalLogin(db)).toEqual(loginRecord)
 })
 
+it('工作階段回應的老師和本機登入的帳號不同時不套用', async () => {
+  const record = { ...loginRecord, expiresAt: iso(time - 1), requiresLogin: true }
+  await saveLocalLogin(db, record)
+  transport.send.mockResolvedValue(ok({ ...sessionBody, teacher: { ...teacher, id: '另一個測試用帳號' } }))
+  expect(await checkSession()).toEqual({ kind: 'invalid_response' })
+  expect(await getLocalLogin(db)).toEqual(record)
+})
+
 it('轉送通行碼可重開連線後讀回，連線關閉後讀取會失敗', async () => {
   const store = createIndexedDbRelayPassStore({ db })
   expect(await store.read()).toBeNull()
