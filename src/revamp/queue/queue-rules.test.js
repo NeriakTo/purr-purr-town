@@ -24,7 +24,7 @@ it('狀態只接受圖上轉移及定案與接手補充規則', () => {
     [null, 'persisted', 'queued'],
     ['queued', 'send', 'sending'], ['sending', 'retry', 'queued'], ['sending', 'takeover', 'queued'],
     ['sending', 'pause', 'paused'], ['paused', 'resume', 'queued'], ['paused', 'cancel', 'cancelling'],
-    ['queued', 'cancel', 'cancelling'], ['sending', 'report_unsaved', 'cancelling'],
+    ['queued', 'cancel', 'cancelling'], ['sending', 'cancel', 'cancelling'], ['sending', 'report_unsaved', 'cancelling'],
     ['cancelling', 'keep_cancelling', 'cancelling'], ['cancelling', 'takeover', 'cancelling'],
     ['queued', 'takeover', 'queued'], ['paused', 'takeover', 'paused'],
     ['sending', 'settled', 'removed'], ['sending', 'invalid_op_id', 'removed'],
