@@ -229,3 +229,139 @@ it('轉送連線與通行碼讀取失敗時，回傳內容不帶原始例外或�
   vi.spyOn(relayPassStore, 'read').mockRejectedValueOnce(fail())
   expect(await send(request)).toEqual({ kind: 'lost', via: 'gas', reason: 'relay_pass_failed' })
 })
+
+it('直連遇到不透明轉址時以原本文走轉送，只有直連使用手動轉址', async () => {
+  const { fetch, send, getRememberedRoute } = setup()
+  const readDirect = vi.fn()
+  fetch.mockResolvedValueOnce({ status: 0, arrayBuffer: readDirect }).mockResolvedValueOnce(gas())
+  expect(await send(request)).toEqual({ kind: 'http', via: 'gas', status: 200, bodyText: raw })
+  const [[direct, directOptions], [relay, relayOptions]] = fetch.mock.calls
+  expect(direct).toBe(directUrl + path)
+  expect(directOptions.redirect).toBe('manual')
+  expect(relay).toBe(gasUrl)
+  expect(relayOptions).not.toHaveProperty('redirect')
+  expect(directOptions.body).toBe(request.bodyText)
+  expect(JSON.parse(relayOptions.body).body_text).toBe(directOptions.body)
+  expect(readDirect).not.toHaveBeenCalled()
+  expect(getRememberedRoute()?.via).toBe('gas')
+})
+
+it('直連回應不可讀且未設定轉送時回應遺失，不記住直連', async () => {
+  const { fetch, send, getRememberedRoute } = setup({ gasUrl: undefined })
+  fetch.mockResolvedValueOnce({ status: 0 })
+  expect(await send(request)).toEqual({ kind: 'lost', via: 'direct', reason: 'unreadable_response' })
+  expect(fetch).toHaveBeenCalledTimes(1)
+  expect(getRememberedRoute()).toBeNull()
+})
+
+it.each([
+  ['fetch_failed', () => { throw fail() }, 0],
+  ['headers_timeout', pending, DEFAULT_GAS_HEADERS_TIMEOUT_MS],
+  ['relay_http_status', () => http(502, '{}'), 0],
+  ['body_failed', () => ({ status: 200, text: async () => { throw fail() } }), 0],
+  ['body_timeout', () => ({ status: 200, text: pending }), DEFAULT_BODY_TIMEOUT_MS],
+  ['invalid_envelope', () => gas({ body_text: raw }), 0],
+  ['UPSTREAM_UNREACHABLE', () => gas({ http_status: 0, gas_error: 'UPSTREAM_UNREACHABLE' }), 0],
+])('記住的轉送遇到 %s 時照樣回傳結果，下次改從直連試起', async (reason, respond, delay) => {
+  const { fetch, send, getRememberedRoute } = setup()
+  fetch.mockRejectedValueOnce(fail()).mockResolvedValueOnce(gas())
+    .mockImplementationOnce(respond).mockResolvedValueOnce(http(200, raw))
+  await send(request)
+  expect(getRememberedRoute()?.via).toBe('gas')
+  const result = send(request)
+  await vi.advanceTimersByTimeAsync(delay)
+  expect(await result).toEqual(reason === 'UPSTREAM_UNREACHABLE'
+    ? { kind: 'gas_error', via: 'gas', code: reason }
+    : { kind: 'lost', via: 'gas', reason })
+  expect(fetch).toHaveBeenCalledTimes(3)
+  expect(getRememberedRoute()).toBeNull()
+  expect((await send(request)).via).toBe('direct')
+  expect(fetch.mock.calls.map(([url]) => url)).toEqual([directUrl + path, gasUrl, gasUrl, directUrl + path])
+})
+
+it.each(['BAD_ENVELOPE', 'RELAY_FORBIDDEN', 'ROUTE_NOT_ALLOWED', 'AUTH_REQUIRED'])(
+  '記住的轉送回 %s 時保留原本的期限',
+  async code => {
+    const { fetch, send, getRememberedRoute } = setup()
+    fetch.mockRejectedValueOnce(fail()).mockResolvedValueOnce(gas())
+      .mockResolvedValueOnce(gas({ http_status: 0, gas_error: code }))
+    await send(request)
+    const route = getRememberedRoute()
+    expect(await send(request)).toEqual({ kind: 'gas_error', via: 'gas', code })
+    expect(getRememberedRoute()).toEqual(route)
+  },
+)
+
+it('到期前送出的轉送即使到期後成功，也不建立新的期限', async () => {
+  const { fetch, send, getRememberedRoute } = setup()
+  fetch.mockRejectedValueOnce(fail()).mockResolvedValueOnce(gas())
+    .mockImplementationOnce(() => new Promise(resolve => setTimeout(() => resolve(gas()), 1000)))
+    .mockResolvedValueOnce(http(200, raw))
+  await send(request)
+  await vi.advanceTimersByTimeAsync(299_500)
+  const inFlight = send(request)
+  await vi.advanceTimersByTimeAsync(1000)
+  expect(await inFlight).toEqual({ kind: 'http', via: 'gas', status: 200, bodyText: raw })
+  expect(getRememberedRoute()).toBeNull()
+  expect((await send(request)).via).toBe('direct')
+  expect(fetch.mock.calls.map(([url]) => url)).toEqual([directUrl + path, gasUrl, gasUrl, directUrl + path])
+})
+
+it('到期後才失敗的舊轉送不清除新建立的轉送記憶', async () => {
+  const { fetch, send, getRememberedRoute } = setup()
+  fetch.mockRejectedValueOnce(fail()).mockResolvedValueOnce(gas())
+    .mockImplementationOnce(() => new Promise((_, reject) => setTimeout(() => reject(fail()), 1000)))
+    .mockRejectedValueOnce(fail()).mockResolvedValueOnce(gas())
+  await send(request)
+  await vi.advanceTimersByTimeAsync(299_500)
+  const inFlight = send(request)
+  await vi.advanceTimersByTimeAsync(500)
+  expect((await send(request)).via).toBe('gas')
+  const renewedRoute = getRememberedRoute()
+  await vi.advanceTimersByTimeAsync(500)
+  expect(await inFlight).toEqual({ kind: 'lost', via: 'gas', reason: 'fetch_failed' })
+  expect(getRememberedRoute()).toEqual(renewedRoute)
+})
+
+it.each(['ROUTE_NOT_ALLOWED', null])('轉送包裝同時帶 HTTP 狀態與 gas_error %s 時回應遺失', async gasError => {
+  const { fetch, send } = setup()
+  fetch.mockRejectedValueOnce(fail())
+    .mockResolvedValueOnce(gas({ http_status: 200, body_text: raw, gas_error: gasError }))
+  expect(await send(request)).toEqual({ kind: 'lost', via: 'gas', reason: 'invalid_envelope' })
+})
+
+it('轉送用解析後的網址，回應以狀態與本文解包', async () => {
+  const { fetch, send } = setup({ gasUrl: ' HTTPS://RELAY.INVALID:443/exec ' })
+  fetch.mockRejectedValueOnce(fail())
+    .mockResolvedValueOnce(gas({ via: '其他', http_status: 200, body_text: raw }))
+  expect(await send(request)).toEqual({ kind: 'http', via: 'gas', status: 200, bodyText: raw })
+  expect(fetch.mock.calls[1][0]).toBe(gasUrl)
+})
+
+it('後端來源帶路徑時回網址無效且不發請求', async () => {
+  const { fetch, send } = setup({ backendOrigin: directUrl + '/api' })
+  expect(await send(request)).toEqual({ kind: 'lost', via: 'direct', reason: 'invalid_url' })
+  expect(fetch).not.toHaveBeenCalled()
+})
+
+it.each(['/api/v2/../ops', '/api/v2/ops#片段', '/api/v2/ ops'])(
+  '路徑 %s 無效時不發請求',
+  async invalidPath => {
+    const { fetch, send } = setup()
+    expect(await send({ ...request, path: invalidPath })).toEqual({
+      kind: 'lost', via: 'direct', reason: 'invalid_path',
+    })
+    expect(fetch).not.toHaveBeenCalled()
+  },
+)
+
+it.each([
+  ['本文', { bodyText: {} }],
+  ['權杖', { token: 42 }],
+])('%s型別不符時不發請求', async (_label, fields) => {
+  const { fetch, send } = setup()
+  expect(await send({ ...request, ...fields })).toEqual({
+    kind: 'lost', via: 'direct', reason: 'invalid_request',
+  })
+  expect(fetch).not.toHaveBeenCalled()
+})

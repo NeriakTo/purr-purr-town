@@ -85,3 +85,53 @@ it('通行碼用實際字串精算或用長度保守估算，單筆包不下時�
   expect(splitSubmitBatches({ classId, operations, relayPass: 'a'.repeat(relayPass.length) }).blocked).toBeNull()
   expect(splitSubmitBatches({ classId, operations: [] })).toEqual({ bodies: [], blocked: null })
 })
+
+it.each([-1, 1.5])('通行碼長度 %s 無效時丟出 RangeError', relayPassLength => {
+  const input = { classId, operations: [], relayPassLength }
+  expect(() => splitSubmitBatches(input)).toThrow(RangeError)
+  expect(() => splitSubmitBatches({ ...input, relayPass: '測試' })).toThrow(RangeError)
+})
+
+function submitBody(operations) {
+  const ops = operations.map(({ op_id, type, payload, expect, client_time, client_seq }) => ({
+    op_id, type, payload, expect, client_time, client_seq,
+  }))
+  return JSON.stringify({ v: 1, class_id: classId, batch_id: null, ops })
+}
+
+function operationsAtLimit(sizeOf, payload) {
+  const operations = Array.from({ length: 8 }, (_, index) => operation(index + 1, { payload }))
+  operations.push(operation(9, { payload: '' }))
+  const remaining = maxRequestBytes - sizeOf(submitBody(operations))
+  operations.at(-1).payload = 'a'.repeat(remaining)
+  return operations
+}
+
+it('轉送外層等於五百一十二 KiB 可同批，多一位元組就切批，保留落單的代理字元', () => {
+  const relayPass = '測試"\\'
+  const sizeOf = body => outerBytes(body, relayPass)
+  const operations = operationsAtLimit(sizeOf, String.fromCharCode(0xd800).repeat(9000))
+  const exact = submitBody(operations)
+  expect(sizeOf(exact)).toBe(maxRequestBytes)
+  expect(splitSubmitBatches({ classId, operations, relayPass })).toEqual({ bodies: [exact], blocked: null })
+
+  operations.at(-1).payload += 'a'
+  expect(sizeOf(submitBody(operations))).toBe(maxRequestBytes + 1)
+  const { bodies, blocked } = splitSubmitBatches({ classId, operations, relayPass })
+  expect(blocked).toBeNull()
+  expect(bodies).toEqual([submitBody(operations.slice(0, -1)), submitBody(operations.slice(-1))])
+})
+
+it('直連本文等於上限或多一位元組時，仍依較早超限的轉送外層切批', () => {
+  const operations = operationsAtLimit(bytes, 'a'.repeat(60_000))
+  for (const excess of [0, 1]) {
+    operations.at(-1).payload += 'a'.repeat(excess)
+    const body = submitBody(operations)
+    expect(bytes(body)).toBe(maxRequestBytes + excess)
+    expect(outerBytes(body)).toBeGreaterThan(maxRequestBytes)
+    expect(splitSubmitBatches({ classId, operations })).toEqual({
+      bodies: [submitBody(operations.slice(0, -1)), submitBody(operations.slice(-1))],
+      blocked: null,
+    })
+  }
+})
