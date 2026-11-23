@@ -16,7 +16,7 @@ function fits(batch, directBytes, gasBytes) {
 
 // operations 已依同一班的 client_seq 排序。保留原順序，只回傳可送的前綴。
 export function splitSubmitBatches({ classId, operations, relayPass, relayPassLength = 0 }) {
-  if (typeof relayPass !== 'string' && (!Number.isSafeInteger(relayPassLength) || relayPassLength < 0)) {
+  if (!Number.isSafeInteger(relayPassLength) || relayPassLength < 0) {
     throw new RangeError('通行碼長度須為非負整數')
   }
   const exactPass = typeof relayPass === 'string'
