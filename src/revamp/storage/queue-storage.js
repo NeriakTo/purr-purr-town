@@ -149,9 +149,19 @@ export function getLocalLogin(db) {
 }
 
 async function requireLogin(tx, accountId) {
+  if (!tx.objectStoreNames.contains(LOGIN_STORE)) {
+    throw new StorageError('TRANSACTION_SCOPE_MISMATCH', `班級資料的寫入交易須涵蓋 ${LOGIN_STORE} 儲存區`)
+  }
   const login = await getLocalLoginInTransaction(tx)
   if (!login) throw new StorageError('LOGIN_REQUIRED', '本機沒有登入紀錄')
   if (login.accountId !== accountId) throw new StorageError('ACCOUNT_MISMATCH', '本機登入帳號與操作帳號不符')
+}
+
+function writeClassDataInTransaction(tx, scope, work) {
+  return writeInTransaction(tx, async () => {
+    await requireLogin(tx, scope.accountId)
+    return work()
+  })
 }
 
 export async function getClassStateInTransaction(tx, scope) {
@@ -187,9 +197,8 @@ export function createOperationsInTransaction(tx, scope, inputs, {
   randomUUID = () => globalThis.crypto.randomUUID(),
   now = Date.now,
 } = {}) {
-  return writeInTransaction(tx, async () => {
+  return writeClassDataInTransaction(tx, scope, async () => {
     const [accountId, classId] = classKey(scope)
-    await requireLogin(tx, accountId)
     await requireCreatedOrPendingClass(tx, scope)
     if (!Array.isArray(inputs) || inputs.length === 0) throw new TypeError('至少需要一筆操作')
 
@@ -263,7 +272,7 @@ function belongsToScope(operation, { accountId, classId }) {
 }
 
 export function updateOperationInTransaction(tx, scope, opId, patch) {
-  return writeInTransaction(tx, async () => {
+  return writeClassDataInTransaction(tx, scope, async () => {
     const fields = Object.entries(patch)
     for (const [field, value] of fields) {
       if (!SEND_FIELDS.includes(field)) throw new TypeError(`不得更新待送操作欄位 ${field}`)
@@ -279,19 +288,22 @@ export function updateOperationInTransaction(tx, scope, opId, patch) {
 }
 
 export function updateOperation(db, scope, opId, patch) {
-  return runStorageTransaction(db, QUEUE_STORE, 'readwrite', tx => updateOperationInTransaction(tx, scope, opId, patch))
+  return runStorageTransaction(db, [LOGIN_STORE, QUEUE_STORE], 'readwrite', tx =>
+    updateOperationInTransaction(tx, scope, opId, patch),
+  )
+}
+
+async function putNeedsAttention(tx, scope, operation, details) {
+  if (!operation || !belongsToScope(operation, scope)) {
+    throw new StorageError('OPERATION_SCOPE_MISMATCH', '原操作與需要處理的帳號或班級不符')
+  }
+  const [accountId, classId] = classKey(scope)
+  const item = { ...details, accountId, classId, op_id: operation.op_id, operation }
+  await requestResult(tx.objectStore(ATTENTION_STORE).put(item))
 }
 
 export function saveNeedsAttentionInTransaction(tx, scope, operation, details) {
-  return writeInTransaction(tx, async () => {
-    const [accountId, classId] = classKey(scope)
-    await requireLogin(tx, accountId)
-    if (!operation || !belongsToScope(operation, scope)) {
-      throw new StorageError('OPERATION_SCOPE_MISMATCH', '原操作與需要處理的帳號或班級不符')
-    }
-    const item = { ...details, accountId, classId, op_id: operation.op_id, operation }
-    await requestResult(tx.objectStore(ATTENTION_STORE).put(item))
-  })
+  return writeClassDataInTransaction(tx, scope, () => putNeedsAttention(tx, scope, operation, details))
 }
 
 export function saveNeedsAttention(db, scope, operation, details) {
@@ -309,19 +321,23 @@ export function listNeedsAttention(db, scope) {
 }
 
 export function deleteNeedsAttentionInTransaction(tx, scope, opId) {
-  return writeInTransaction(tx, () => requestResult(tx.objectStore(ATTENTION_STORE).delete([...classKey(scope), opId])))
+  return writeClassDataInTransaction(tx, scope, () =>
+    requestResult(tx.objectStore(ATTENTION_STORE).delete([...classKey(scope), opId])),
+  )
 }
 
 export function deleteNeedsAttention(db, scope, opId) {
-  return runStorageTransaction(db, ATTENTION_STORE, 'readwrite', tx => deleteNeedsAttentionInTransaction(tx, scope, opId))
+  return runStorageTransaction(db, [LOGIN_STORE, ATTENTION_STORE], 'readwrite', tx =>
+    deleteNeedsAttentionInTransaction(tx, scope, opId),
+  )
 }
 
 export function removeOperationInTransaction(tx, scope, opId, attention) {
-  return writeInTransaction(tx, async () => {
+  return writeClassDataInTransaction(tx, scope, async () => {
     const queue = tx.objectStore(QUEUE_STORE)
     const operation = await requestResult(queue.get(opId))
     if (!operation || !belongsToScope(operation, scope)) return undefined
-    if (attention !== undefined) await saveNeedsAttentionInTransaction(tx, scope, operation, attention)
+    if (attention !== undefined) await putNeedsAttention(tx, scope, operation, attention)
     const relations = tx.objectStore('queuedTargets')
     const keys = await requestResult(relations.index('byOperation').getAllKeys(opId))
     for (const key of keys) await requestResult(relations.delete(key))
@@ -331,15 +347,14 @@ export function removeOperationInTransaction(tx, scope, opId, attention) {
 }
 
 export function removeOperation(db, scope, opId, attention) {
-  const stores = [QUEUE_STORE, 'queuedTargets']
-  if (attention !== undefined) stores.push(LOGIN_STORE, ATTENTION_STORE)
+  const stores = [LOGIN_STORE, QUEUE_STORE, 'queuedTargets']
+  if (attention !== undefined) stores.push(ATTENTION_STORE)
   return runStorageTransaction(db, stores, 'readwrite', tx => removeOperationInTransaction(tx, scope, opId, attention))
 }
 
 export function saveDraftInTransaction(tx, scope, draftId, draft) {
-  return writeInTransaction(tx, async () => {
+  return writeClassDataInTransaction(tx, scope, async () => {
     const [accountId, classId] = classKey(scope)
-    await requireLogin(tx, accountId)
     await requireCreatedOrPendingClass(tx, scope)
     await requestResult(tx.objectStore(DRAFT_STORE).put({ accountId, classId, draftId, draft }))
   })
@@ -361,11 +376,15 @@ export function getDraft(db, scope, draftId) {
 }
 
 export function deleteDraftInTransaction(tx, scope, draftId) {
-  return writeInTransaction(tx, () => requestResult(tx.objectStore(DRAFT_STORE).delete([...classKey(scope), draftId])))
+  return writeClassDataInTransaction(tx, scope, () =>
+    requestResult(tx.objectStore(DRAFT_STORE).delete([...classKey(scope), draftId])),
+  )
 }
 
 export function deleteDraft(db, scope, draftId) {
-  return runStorageTransaction(db, DRAFT_STORE, 'readwrite', tx => deleteDraftInTransaction(tx, scope, draftId))
+  return runStorageTransaction(db, [LOGIN_STORE, DRAFT_STORE], 'readwrite', tx =>
+    deleteDraftInTransaction(tx, scope, draftId),
+  )
 }
 
 export function saveLocalLoginInTransaction(tx, login) {
@@ -426,7 +445,7 @@ export function saveAccountSetting(db, accountId, name, value) {
 }
 
 export function saveClassStateInTransaction(tx, scope, patch) {
-  return writeInTransaction(tx, async () => {
+  return writeClassDataInTransaction(tx, scope, async () => {
     const [accountId, classId] = classKey(scope)
     const current = await getClassStateInTransaction(tx, scope)
     const state = { ...current, ...patch, accountId, classId }
@@ -440,5 +459,7 @@ export function saveClassStateInTransaction(tx, scope, patch) {
 }
 
 export function saveClassState(db, scope, patch) {
-  return runStorageTransaction(db, CLASS_STATE_STORE, 'readwrite', tx => saveClassStateInTransaction(tx, scope, patch))
+  return runStorageTransaction(db, [LOGIN_STORE, CLASS_STATE_STORE], 'readwrite', tx =>
+    saveClassStateInTransaction(tx, scope, patch),
+  )
 }
