@@ -15,7 +15,8 @@ const fromRepo = path => fileURLToPath(new URL(path, import.meta.url))
 export default defineConfig(({ mode }) => ({
   root: fromRepo('./src/revamp/'),
   base: resolveBasePath(process.env[BASE_PATH_ENV]),
-  cacheDir: fromRepo('./node_modules/.vite-revamp/'),
+  // 兩種模式分開快取，同時或先後建置不會互相干擾；也不與現行網頁的 node_modules/.vite/ 共用。
+  cacheDir: fromRepo(mode === 'test' ? './node_modules/.vite-revamp-test/' : './node_modules/.vite-revamp/'),
   plugins: [react(), tailwindcss()],
   define: {
     __APP_VERSION__: JSON.stringify(version),
