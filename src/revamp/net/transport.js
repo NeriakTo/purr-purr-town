@@ -112,7 +112,9 @@ export function createTransport({
     if (via === 'direct' && isHttpStatus(status)) remember({ via, status })
     if (via === 'gas' ? status !== 200 : !isHttpStatus(status)) {
       controller.abort()
-      return { result: lost(via, via === 'gas' ? 'relay_http_status' : 'unreadable_response') }
+      return via === 'direct'
+        ? { missingHeaders: true, result: lost(via, 'unreadable_response') }
+        : { result: lost(via, 'relay_http_status') }
     }
 
     const readBody = via === 'direct'
