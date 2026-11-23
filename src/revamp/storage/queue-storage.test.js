@@ -13,6 +13,7 @@ import {
 
 const scope = { accountId: '帳號甲', classId: '班級甲' }
 const otherAccount = { ...scope, accountId: '帳號乙' }
+const otherClass = { ...scope, classId: '班級乙' }
 const target = { entity: 'submission', key: { task_id: '作業甲', student_id: '座號一' } }
 const reversed = { ...target, key: { student_id: '座號一', task_id: '作業甲' } }
 const draft = { entries: [{ seat: 1 }] }
@@ -394,4 +395,91 @@ it('接受外部交易組合寫入，任何一步失敗就一起回滾', async (
   expect(await listOperations(db, scope)).toEqual([first])
   expect(await listNeedsAttention(db, scope)).toEqual([])
   expect(await resolveExpect(db, scope, target)).toEqual({ after_op: first.op_id })
+})
+
+it('刪需要處理只刪指定一筆，沒有建成的班也可刪除', async () => {
+  const [first, second] = await createOperations(db, scope, [input, input])
+  await removeOperation(db, scope, first.op_id, { reason: '測試甲' })
+  await removeOperation(db, scope, second.op_id, { reason: '測試乙' })
+  await saveClassState(db, scope, { notCreated: true })
+  await deleteNeedsAttention(db, scope, first.op_id)
+  expect(await listNeedsAttention(db, scope)).toEqual([
+    { ...scope, op_id: second.op_id, reason: '測試乙', operation: second },
+  ])
+})
+
+it.each([
+  ['操作不存在', undefined],
+  ['操作屬於別的帳號', otherAccount],
+  ['操作屬於別的班級', otherClass],
+])('%s時更新與移出皆回 undefined，所有待送與需要處理資料留存', async (_label, originalScope) => {
+  const [existing] = await createOperations(db, scope, [declared], { randomUUID: duplicateUUID })
+  let foreign
+  if (originalScope) {
+    await saveLocalLogin(db, originalScope)
+    const [operation] = await createOperations(db, originalScope, [declared])
+    foreign = operation
+    await saveLocalLogin(db, scope)
+  }
+  const opId = foreign?.op_id ?? '00000000-0000-4000-8000-000000000002'
+  await expect(updateOperation(db, scope, opId, { status: 'sending' })).resolves.toBeUndefined()
+  await expect(removeOperation(db, scope, opId)).resolves.toBeUndefined()
+  await expect(removeOperation(db, scope, opId, { reason: '測試' })).resolves.toBeUndefined()
+  expect(await listOperations(db, scope)).toEqual([existing])
+  expect(await resolveExpect(db, scope, target)).toEqual({ after_op: existing.op_id })
+  expect(await listNeedsAttention(db, scope)).toEqual([])
+  if (foreign) {
+    expect(await listOperations(db, originalScope)).toEqual([foreign])
+    expect(await resolveExpect(db, originalScope, target)).toEqual({ after_op: foreign.op_id })
+    expect(await listNeedsAttention(db, originalScope)).toEqual([])
+  }
+})
+
+it.each([
+  ['別的帳號', otherAccount],
+  ['別的班級', otherClass],
+])('原操作屬於%s時，寫需要處理回 OPERATION_SCOPE_MISMATCH', async (_label, originalScope) => {
+  await saveLocalLogin(db, originalScope)
+  const [foreign] = await createOperations(db, originalScope, [input])
+  await saveLocalLogin(db, scope)
+  await expect(saveNeedsAttention(db, scope, foreign, { reason: '測試' }))
+    .rejects.toMatchObject({ code: 'OPERATION_SCOPE_MISMATCH' })
+  expect(await listNeedsAttention(db, scope)).toEqual([])
+  expect(await listOperations(db, originalScope)).toEqual([foreign])
+})
+
+it('單筆的 batch_id 為 null，多筆的 batch_id 都是第一筆的 op_id', async () => {
+  const [single] = await createOperations(db, scope, [input])
+  const batch = await createOperations(db, scope, [input, input, input])
+  expect((await listOperations(db, scope)).map(operation => operation.batch_id))
+    .toEqual([null, batch[0].op_id, batch[0].op_id, batch[0].op_id])
+  expect(single.batch_id).toBeNull()
+})
+
+it('同一操作重複宣告同一列時只留一筆目標關聯', async () => {
+  const [operation] = await createOperations(db, scope, [{ ...input, targets: [target, reversed, target] }])
+  const relations = await runStorageTransaction(db, 'queuedTargets', 'readonly', tx =>
+    new Promise((resolve, reject) => {
+      const request = tx.objectStore('queuedTargets').index('byOperation').getAll(operation.op_id)
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    }),
+  )
+  expect(relations).toEqual([{
+    ...scope, op_id: operation.op_id, client_seq: operation.client_seq,
+    entity: target.entity, entityKey: serializeEntityKey(target.key),
+  }])
+})
+
+it('班級狀態拒絕非布林標記與負數或非整數序號，原狀態留存', async () => {
+  const state = await saveClassState(db, scope, { notCreated: true, seenSeq: 3, appliedSeq: 2 })
+  for (const patch of [{ notCreated: '是' }, { seenSeq: -1 }, { seenSeq: 1.5 }, { appliedSeq: -1 }, { appliedSeq: 1.5 }]) {
+    await expect(saveClassState(db, scope, patch)).rejects.toThrow(TypeError)
+    expect(await getClassState(db, scope)).toEqual(state)
+  }
+})
+
+it('寫本機登入紀錄缺少帳號時丟 TypeError 並保留原帳號', async () => {
+  await expect(saveLocalLogin(db, {})).rejects.toThrow(TypeError)
+  expect(await getLocalLogin(db)).toEqual({ accountId: scope.accountId })
 })
