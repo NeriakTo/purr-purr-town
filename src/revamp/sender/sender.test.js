@@ -95,7 +95,7 @@ function fakeClock() {
 }
 
 async function until(check) {
-  for (let turn = 0; turn < 200; turn++) {
+  for (let turn = 0; turn < 2000; turn++) {
     const value = await check()
     if (value) return value
     await new Promise(resolve => setImmediate(resolve))
@@ -171,6 +171,7 @@ function setup({ connection = db, ...options } = {}) {
 }
 
 const operations = (to = scope) => listOperations(peer, to)
+const makeSingle = operation => updateOperation(peer, scope, operation.op_id, { sendIndividually: true })
 const ready = () => until(() => Number.isFinite(clock.next()))
 async function advance(ms) {
   await ready()
@@ -197,6 +198,7 @@ it('兩個分頁只有持鎖者送出，停止後交棒', async () => {
 
 it('持鎖分頁消失後先重設所有本帳號班級再同編號重送', async () => {
   const [head] = await add()
+  await makeSingle(head)
   const [later] = await add()
   const [cancelling, inherited] = await add(2, { to: otherClass })
   await updateOperation(peer, otherClass, cancelling.op_id, { status: 'cancelling' })
@@ -209,7 +211,9 @@ it('持鎖分頁消失後先重設所有本帳號班級再同編號重送', asyn
   locks.disappear()
   const second = setup({ connection: peer })
   second.sender.start()
-  const retried = await second.call(0)
+  await until(() => second.calls.length || Number.isFinite(clock.next()))
+  expect(second.calls).toHaveLength(1)
+  const [retried] = second.calls
   expect(retried.ids).toEqual(call.ids)
   expect(retried.ids).toEqual([head.op_id])
   expect(await operations(otherClass)).toMatchObject([{ status: 'cancelling' }, { status: 'queued' }])
@@ -236,6 +240,7 @@ it('班級最前筆退避時後兩筆不能越過它', async () => {
 
 it('暫時結果保留操作，第五次內部錯誤暫停，老師可以再試一次', async () => {
   const [head] = await add()
+  await makeSingle(head)
   await add()
   const f = setup()
   f.sender.start()
@@ -261,9 +266,14 @@ it('暫時結果保留操作，第五次內部錯誤暫停，老師可以再試�
 
 it('套用與移出同交易，套用丟錯後回滾並退避重送', async () => {
   const [head] = await add()
+  await makeSingle(head)
   const [later] = await add()
   const f = setup()
   let failedTransaction
+  let afterRollback
+  f.onStateChange.mockImplementation(state => {
+    if (state.classes[0]?.reason === 'send_interrupted') afterRollback = operations()
+  })
   f.receiptApplier.applyReceipt.mockImplementationOnce(async (tx, to) => {
     failedTransaction = tx
     await saveClassStateInTransaction(tx, to, { seenSeq: 90 })
@@ -273,6 +283,7 @@ it('套用與移出同交易，套用丟錯後回滾並退避重送', async () =
   const first = await f.call(0)
   first.response.resolve(submit(saved(head.op_id)))
   const waiting = await f.state('waiting_retry')
+  expect((await afterRollback)[0]).toMatchObject({ op_id: head.op_id, status: 'sending', attempts: 1 })
   expect(failedTransaction.mode).toBe('readwrite')
   expect(failedTransaction.objectStoreNames.contains('queuedOps')).toBe(true)
   expect((await operations())[0]).toMatchObject({ op_id: head.op_id, status: 'queued', attempts: 1 })
@@ -290,6 +301,7 @@ it('套用與移出同交易，套用丟錯後回滾並退避重送', async () =
 
 it('拒絕樣本移進需要處理並保留原操作和目前值', async () => {
   const [head] = await add()
+  await makeSingle(head)
   const [later] = await add()
   const f = setup()
   f.sender.start()
@@ -298,7 +310,7 @@ it('拒絕樣本移進需要處理並保留原操作和目前值', async () => {
   call.response.resolve(http({ ...rejected, receipts: [receipt] }))
   expect((await f.call(1)).ids).toEqual([later.op_id])
   expect(await attention()).toMatchObject([{
-    operation: { ...head, status: 'sending', attempts: 1 }, reason: 'STALE_STATE', code: 'STALE_STATE',
+    operation: { ...head, status: 'sending', attempts: 1, sendIndividually: true }, reason: 'STALE_STATE', code: 'STALE_STATE',
     current: receipt.current, receipt, programmerError: false, level: 'receipt', via: 'direct',
     movedAt: clock.now(),
   }])
@@ -306,6 +318,7 @@ it('拒絕樣本移進需要處理並保留原操作和目前值', async () => {
 
 it('兩輪之間和送出期間換帳號或登出都停止原帳號', async () => {
   const [head] = await add()
+  await makeSingle(head)
   const [later] = await add()
   const reading = deferred()
   const passStore = { read: vi.fn().mockReturnValue(reading.promise) }
@@ -350,6 +363,30 @@ it('別的帳號留下的送出中項目不送也不重設', async () => {
   await ready()
   expect(f.calls).toHaveLength(1)
   expect(await operations(otherAccount)).toEqual([original])
+})
+
+it('標成送出中後換帳號，送出前重讀登入紀錄並攔下請求', async () => {
+  const [head] = await add()
+  const f = setup()
+  const openTransaction = db.transaction.bind(db)
+  let switchOnCommit = false
+  let switching
+  vi.spyOn(db, 'transaction').mockImplementation((...args) => {
+    const tx = openTransaction(...args)
+    if (switchOnCommit && tx.mode === 'readwrite') {
+      switchOnCommit = false
+      tx.addEventListener('complete', () => { switching = login(otherAccount.accountId) }, { once: true })
+    }
+    return tx
+  })
+  f.onStateChange.mockImplementation(state => {
+    if (state.classes[0]?.status === 'queued' && !switching) switchOnCommit = true
+  })
+  f.sender.start()
+  await until(() => f.calls.length || f.sender.getState().accountId === otherAccount.accountId)
+  await switching
+  expect(f.calls).toHaveLength(0)
+  expect((await operations())[0]).toMatchObject({ op_id: head.op_id, status: 'sending' })
 })
 
 it('五十一筆先送原樣的五十筆本文，結清後才送最後一筆', async () => {
@@ -554,4 +591,12 @@ it('狀態、通知與鎖錯誤不帶權杖或通行碼', async () => {
   expect(outputs).not.toContain(token)
   expect(outputs).not.toContain(pass)
   expect(missingLock.calls).toHaveLength(0)
+})
+
+it('缺少收據套用介面時不啟動，也不請求送出權', async () => {
+  const requestLock = vi.fn()
+  const f = setup({ receiptApplier: undefined, locks: { request: requestLock } })
+  expect(() => f.sender.start()).toThrow('送出迴圈需要收據套用介面')
+  expect(f.sender.getState()).toMatchObject({ hasLock: false, status: 'stopped' })
+  expect(requestLock).not.toHaveBeenCalled()
 })
