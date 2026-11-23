@@ -60,11 +60,22 @@ export async function putRecord(db, storeName, value) {
   try {
     transaction.objectStore(storeName).put(value)
   } catch (error) {
-    transaction.abort()
-    await done.catch(() => {})
+    await abortQuietly(transaction, done)
     throw error
   }
   await done
+}
+
+// 請求同步丟錯時中止交易，但呼叫端要拿到的是原本的錯：
+// abort() 自己丟錯（交易已不在可中止的狀態）就不再等交易結束，因為那時交易的事件不一定還會來。
+async function abortQuietly(transaction, done) {
+  const settled = done.catch(() => {})
+  try {
+    transaction.abort()
+  } catch {
+    return
+  }
+  await settled
 }
 
 export async function getRecord(db, storeName, key) {
