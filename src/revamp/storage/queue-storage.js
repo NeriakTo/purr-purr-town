@@ -68,7 +68,7 @@ export function openQueueDatabase({ factory = globalThis.indexedDB, migrations =
   })
 }
 
-class StorageError extends Error {
+export class StorageError extends Error {
   constructor(code, message, options) {
     super(message, options)
     this.name = 'StorageError'
@@ -76,7 +76,7 @@ class StorageError extends Error {
   }
 }
 
-function requestResult(request) {
+export function requestResult(request) {
   return new Promise((resolve, reject) => {
     request.addEventListener('success', () => resolve(request.result), { once: true })
     request.addEventListener('error', () => reject(request.error), { once: true })
@@ -171,7 +171,7 @@ async function requireLogin(tx, accountId) {
   if (login.accountId !== accountId) throw new StorageError('ACCOUNT_MISMATCH', '本機登入帳號與操作帳號不符')
 }
 
-function writeClassDataInTransaction(tx, scope, work) {
+export function writeClassDataInTransaction(tx, scope, work) {
   return writeInTransaction(tx, async () => {
     await requireLogin(tx, scope.accountId)
     return work()
