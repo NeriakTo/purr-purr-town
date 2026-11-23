@@ -295,6 +295,17 @@ it('本機到期判斷取較早時間並看重新登入標記', () => {
   expect(getLocalSessionState({ ...loginRecord, requiresLogin: true }, time)).toBe('expired')
 })
 
+it('後端有效期尚遠時，經 GAS 未滿 24 小時仍有效，滿 24 小時即到期', () => {
+  const record = { ...loginRecord, firstRelayedAt: time }
+  expect(getLocalSessionState(record, time + day - 1)).toBe('valid')
+  expect(getLocalSessionState(record, time + day)).toBe('expired')
+})
+
+it('本機到期時間格式不合格時視為已到期', () => {
+  const record = { ...loginRecord, expiresAt: iso(time + day).slice(0, 10) }
+  expect(getLocalSessionState(record, time)).toBe('expired')
+})
+
 it('工作階段查詢成功更新有效期、清標記並回本機成功時間', async () => {
   await saveLocalLogin(db, { ...loginRecord, expiresAt: iso(time - 1), requiresLogin: true })
   transport.send.mockImplementation(async () => {
