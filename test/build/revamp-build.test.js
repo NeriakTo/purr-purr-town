@@ -131,4 +131,14 @@ describe('新版網頁的建置設定', () => {
     expect(isSameOrInside(outDir, distDir), `${outDir} 在 dist/ 裡面`).toBe(false)
     expect(isSameOrInside(distDir, outDir), `${outDir} 是 dist/ 的上層`).toBe(false)
   })
+
+  // 正式建置與測試建置常在同一台機器上先後或同時跑，快取目錄分開才不會互相干擾。
+  it('正式與測試建置用不同的快取目錄，且都不與現行網頁共用', () => {
+    const cacheDirOf = mode => resolve(root, revampConfig({ command: 'build', mode, isSsrBuild: false, isPreview: false }).cacheDir)
+    const production = cacheDirOf('production')
+    const test = cacheDirOf('test')
+    expect(production).not.toBe(test)
+    expect(isSameOrInside(production, test) || isSameOrInside(test, production)).toBe(false)
+    for (const dir of [production, test]) expect(dir).not.toBe(join(root, 'node_modules', '.vite'))
+  })
 })
