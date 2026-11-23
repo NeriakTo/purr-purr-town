@@ -72,6 +72,8 @@ export function createFakeDeps(overrides = {}) {
       record(['ready'])
       ready.resolve(line)
     },
+    // 預設當成三個埠都空著；檢查埠本身的測試在 ports.test.js 與 backend-ready.test.js。
+    checkPorts: async () => {},
     loadServer: async () => ({
       waitForDatabase: async () => record(['waitForDatabase']),
       setupDatabase: async options => record(['setupDatabase', options.database]),
