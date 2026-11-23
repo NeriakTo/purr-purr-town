@@ -78,9 +78,20 @@ async function abortQuietly(transaction, done) {
   await settled
 }
 
+// 讀取也等交易完成才算成功：請求成功後交易仍可能被中止（例如連線被強制關閉），這時呼叫端拿到失敗。
+// 請求同步丟錯（例如鍵不合法）時一併中止交易。
 export async function getRecord(db, storeName, key) {
   const transaction = db.transaction(storeName, 'readonly')
-  return requestResult(transaction.objectStore(storeName).get(key))
+  const done = transactionDone(transaction)
+  let request
+  try {
+    request = transaction.objectStore(storeName).get(key)
+  } catch (error) {
+    await abortQuietly(transaction, done)
+    throw error
+  }
+  const [value] = await Promise.all([requestResult(request), done])
+  return value
 }
 
 function requestResult(request) {
