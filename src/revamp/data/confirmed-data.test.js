@@ -10,7 +10,7 @@ import confirmHeld from '../../../docs/revamp/frontend-queue/samples/submit-conf
 import rejected from '../../../docs/revamp/frontend-queue/samples/submit-rejected.json'
 import incremental from '../../../docs/revamp/frontend-queue/samples/read-changes-incremental.json'
 import {
-  createOperations, deleteLocalLogin, deleteLocalLoginInTransaction, getClassState,
+  createOperations, deleteLocalLogin, deleteLocalLoginInTransaction, getClassState, getLocalLogin,
   listOperations, openQueueDatabase, removeOperationInTransaction, resolveExpect,
   runStorageTransaction, saveClassState, saveLocalLogin,
 } from '../storage/queue-storage.js'
@@ -240,6 +240,7 @@ it('同一交易刪除登入後的收據與讀取寫入會回滾', async () => {
       await deleteLocalLoginInTransaction(tx)
       await work(tx)
     })).rejects.toMatchObject({ code: 'LOGIN_REQUIRED' })
+    expect(await getLocalLogin(secondDb)).toEqual({ accountId: scope.accountId })
     expect(await listConfirmedRows(secondDb, scope)).toEqual([])
   }
   await readRows([target])
