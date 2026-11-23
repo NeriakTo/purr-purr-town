@@ -10,12 +10,13 @@ import { READY_TOKEN } from './scripts/e2e/settings.js'
 // 之後啟動的後端腳本與測試程序都繼承同一個值。
 process.env.PPT_E2E_TEACHER_PASSWORD ??= randomBytes(24).toString('hex')
 
+// 這裡列的服務會照順序一個起好才起下一個。後端腳本啟動前會確認網頁、後端、資料庫三個埠都沒人用，
+// 所以後端要排在網頁前面；網頁服務之後再起，埠被占用時由 --strictPort 直接失敗。
 export default defineConfig({
   ...baseConfig,
   testDir: './e2e/backend',
   testIgnore: [],
   webServer: [
-    previewServer,
     {
       name: 'api',
       command: 'node scripts/e2e/backend.js',
@@ -25,5 +26,6 @@ export default defineConfig({
       // 送 SIGTERM 讓腳本自己停掉它啟動的後端程序與資料庫容器；逾時才強制結束。
       gracefulShutdown: { signal: 'SIGTERM', timeout: 30_000 },
     },
+    previewServer,
   ],
 })

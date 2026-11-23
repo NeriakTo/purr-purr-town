@@ -9,9 +9,10 @@
 //   docker(args)                 執行 docker 指令，回傳 { stdout }；失敗時錯誤帶 stderr
 //   randomSecret()、containerName()
 //   spawnBackend(env)            起後端子程序，回傳子程序物件（pid、exitCode、signalCode、kill、'exit' 事件）
-//   fetch、waitForReady、timeouts（可省略，用預設值）
+//   checkPorts、fetch、waitForReady、timeouts（可省略，用預設值）
 import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
+import { assertPortsFree } from './ports.js'
 import {
   buildBackendEnv, DATABASE_NAME, dockerRunArgs, LOOPBACK, READY_TOKEN, readE2eSettings, TEACHER_ID,
 } from './settings.js'
@@ -103,6 +104,14 @@ export async function startStack(settings, { state, deps, env }) {
   const waitForReady = deps.waitForReady ?? waitForBackendReady
   const ensureRunning = () => {
     if (state.stopping) throw new StartupError('已要求停止')
+  }
+
+  // 第一步先確認三個埠都沒人用；被占用就報錯，什麼都不啟動。
+  const checkPorts = deps.checkPorts ?? assertPortsFree
+  try {
+    await checkPorts(settings)
+  } catch (error) {
+    throw new StartupError(error.message)
   }
 
   const server = await deps.loadServer()
