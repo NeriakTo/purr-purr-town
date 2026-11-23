@@ -66,6 +66,7 @@ export function createLifecycle({ docker, removeDir, say, timeouts = DEFAULT_TIM
   }
 
   // 只移除本次建立的容器：有容器編號用編號，docker run 被中斷時用本次產生的唯一名稱。
+  // 容器已不存在（docker run 沒成功、或資料庫自己停了而被 --rm 自動移除）時目的已達成，不算失敗。
   async function removeContainer() {
     if (state.dockerRun) await state.dockerRun.catch(() => {})
     const target = state.containerId ?? state.containerName
@@ -74,7 +75,7 @@ export function createLifecycle({ docker, removeDir, say, timeouts = DEFAULT_TIM
       await docker(['rm', '--force', target])
       say('已移除本次建立的資料庫容器')
     } catch (error) {
-      if (!state.containerId && /no such container/i.test(error.stderr ?? '')) return
+      if (/no such container/i.test(error.stderr ?? '')) return
       say(`移除資料庫容器失敗，請手動執行 docker rm --force ${target}：${error.stderr?.trim() || error.message}`)
     }
   }
