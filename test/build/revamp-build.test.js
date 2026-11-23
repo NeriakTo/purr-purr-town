@@ -1,6 +1,5 @@
 import { execFile } from 'node:child_process'
-import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { mkdir, mkdtemp, readdir, readFile, rm } from 'node:fs/promises'
 import { isAbsolute, join, relative, resolve } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
@@ -19,6 +18,9 @@ const runner = join(root, 'test', 'build', 'run-revamp-build.js')
 const revampRoot = join(root, 'src', 'revamp')
 const testingDir = join(revampRoot, 'testing')
 const distDir = join(root, 'dist')
+// 建置輸出寫在倉庫內、已被 git 忽略的 node_modules/.cache/ 底下，不寫系統暫存目錄：
+// 之後的施工會在只准寫倉庫目錄的沙箱裡跑 npm test。eslint 與 vitest 都不掃 node_modules。
+const buildWorkRoot = join(root, 'node_modules', '.cache', 'revamp-build-test')
 const markers = [TEST_HOOK_GLOBAL, PROBE_DB_NAME]
 const outDirs = []
 
@@ -31,7 +33,8 @@ function buildEnv(extra) {
 }
 
 async function build({ mode, env = {} }) {
-  const workDir = await mkdtemp(join(tmpdir(), 'ppt-revamp-build-'))
+  await mkdir(buildWorkRoot, { recursive: true })
+  const workDir = await mkdtemp(join(buildWorkRoot, `${mode}-`))
   outDirs.push(workDir)
   const outDir = join(workDir, 'dist')
   const reportFile = join(workDir, 'modules.json')
@@ -65,11 +68,10 @@ describe('新版網頁的建置產物', () => {
   let production
   let testBuild
 
+  // 兩次建置依序跑，不同時跑兩份完整打包（避免 CPU 與記憶體尖峰加倍）。
   beforeAll(async () => {
-    [production, testBuild] = await Promise.all([
-      build({ mode: 'production' }),
-      build({ mode: 'test', env: { PPT_BASE_PATH: '/' } }),
-    ])
+    production = await build({ mode: 'production' })
+    testBuild = await build({ mode: 'test', env: { PPT_BASE_PATH: '/' } })
   }, 120_000)
 
   afterAll(async () => {
