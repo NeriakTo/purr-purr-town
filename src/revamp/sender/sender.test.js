@@ -232,7 +232,7 @@ it('班級最前筆退避時後兩筆不能越過它', async () => {
   await updateOperation(peer, scope, second.op_id, { nextAttemptAt: 0 })
   await updateOperation(peer, scope, third.op_id, { nextAttemptAt: 0 })
   f.sender.wake()
-  await ready()
+  await until(() => f.calls.length > 1 || Number.isFinite(clock.next()))
   expect(f.calls).toHaveLength(1)
   await advance(2000)
   expect((await f.call(1)).ids).toEqual(first.ids)
