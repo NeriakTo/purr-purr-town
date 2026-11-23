@@ -67,9 +67,14 @@ export function createTransport({
   const relay = parseEndpoint(gasUrl)
   let rememberedRoute = null
 
-  function getRememberedRoute() {
+  function getActiveRoute() {
     if (rememberedRoute && rememberedRoute.expiresAt <= clock.now()) rememberedRoute = null
-    return rememberedRoute && { ...rememberedRoute }
+    return rememberedRoute
+  }
+
+  function getRememberedRoute() {
+    const route = getActiveRoute()
+    return route && { ...route }
   }
 
   function remember(metadata) {
@@ -155,7 +160,8 @@ export function createTransport({
   }
 
   async function send({ path, token, bodyText }) {
-    const via = getRememberedRoute()?.via ?? 'direct'
+    const route = getActiveRoute()
+    const via = route?.via ?? 'direct'
     if (typeof path !== 'string' || !/^\/[A-Za-z0-9._~-]+(?:\/[A-Za-z0-9._~-]+)*$/.test(path) ||
         /(?:^|\/)\.{1,2}(?:\/|$)/.test(path)) {
       return lost(via, 'invalid_path')
@@ -166,6 +172,11 @@ export function createTransport({
     const request = { path, token, bodyText }
     if (via === 'gas') {
       const gas = await sendGas(request)
+      const { kind, reason, code } = gas.result
+      if (rememberedRoute === route &&
+          ((kind === 'lost' && reason !== 'relay_pass_failed') || code === 'UPSTREAM_UNREACHABLE')) {
+        rememberedRoute = null
+      }
       if (!gas.missingHeaders || !retryDirectOnRememberedGasFailure) return gas.result
       const direct = await sendDirect(request)
       return { ...direct.result, attemptedGas: true }
