@@ -118,7 +118,7 @@ function withAction(item, context, fields, decision) {
     action = { ...action, waitSeconds: retryDelaySeconds(item.attempts, fields.retryAfter) }
   }
 
-  const { retryAfter, ...metadata } = fields
+  const { retryAfter: _retryAfter, ...metadata } = fields
   return { op_id: item.op_id, state: item.state, via, internalErrors, ...metadata, ...action }
 }
 
