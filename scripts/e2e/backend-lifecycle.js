@@ -8,9 +8,11 @@
 //   makeTempDir()、writeSecret(file, content)、removeDir(dir)
 //   docker(args)                 執行 docker 指令，回傳 { stdout }；失敗時錯誤帶 stderr
 //   randomSecret()、containerName()
-//   spawnBackend(env)            起後端子程序，回傳子程序物件（pid、exitCode、signalCode、kill、'exit' 事件）
+//   spawnBackend(env)            起後端子程序，回傳子程序物件（pid、exitCode、signalCode、kill、'exit' 事件，
+//                                stdio[3] 是子程序回報監聽位址的管道，見 backend-process.js）
 //   checkPorts、fetch、waitForReady、timeouts（可省略，用預設值）
 import { join } from 'node:path'
+import { createInterface } from 'node:readline'
 import { setTimeout as delay } from 'node:timers/promises'
 import { assertPortsFree } from './ports.js'
 import {
@@ -25,20 +27,81 @@ function isRunning(child) {
   return child.exitCode === null && child.signalCode === null
 }
 
-// 等後端開始回應：未登入呼叫 /api/v2/auth/session 會回 401。
-export async function waitForBackendReady({ backend, settings, timeoutMs, fetch = globalThis.fetch }) {
-  const deadline = Date.now() + timeoutMs
-  while (Date.now() < deadline) {
-    if (!isRunning(backend)) throw new StartupError('後端程序在就緒前結束')
+const READY_PROBE_PATH = '/api/v2/auth/session'
+const PROBE_REQUEST_TIMEOUT_MS = 2000
+const PROBE_INTERVAL_MS = 250
+
+function parseReport(line) {
+  try {
+    const report = JSON.parse(line)
+    return report !== null && typeof report === 'object' ? report : null
+  } catch {
+    return null
+  }
+}
+
+// 等子程序經私有管道（stdio[3]，見 listen-report.js）回報監聽成功，而且 PID、位址、埠都是這一次的。
+// 管道關閉（子程序結束）時不在這裡判失敗，交給子程序結束的事件給出明確原因。
+function ownListening(backend, { host, apiPort }, signal) {
+  const reports = backend.stdio?.[3]
+  if (!reports) return Promise.reject(new StartupError('後端程序沒有監聽回報管道，無法確認埠是它自己綁的'))
+  return new Promise(resolve => {
+    const lines = createInterface({ input: reports, crlfDelay: Infinity })
+    const stop = () => {
+      lines.close()
+      reports.resume()
+    }
+    signal.addEventListener('abort', stop, { once: true })
+    lines.on('line', line => {
+      const report = parseReport(line)
+      if (report?.pid === backend.pid && report.address === host && report.port === apiPort) {
+        stop()
+        resolve(report)
+      }
+    })
+  })
+}
+
+// 埠已由自己的子程序占住，之後連到這個埠的請求都會到它；再確認 API 已能回應（未登入呼叫會回 401）。
+// 每個請求都有逾時，不會因為對方只收連線不回應而卡住。
+async function probeApi(apiOrigin, fetch, signal) {
+  while (!signal.aborted) {
     try {
-      const response = await fetch(`${settings.apiOrigin}/api/v2/auth/session`, { method: 'POST' })
+      const response = await fetch(`${apiOrigin}${READY_PROBE_PATH}`, {
+        method: 'POST',
+        signal: AbortSignal.any([signal, AbortSignal.timeout(PROBE_REQUEST_TIMEOUT_MS)]),
+      })
+      await response.body?.cancel()
       if (response.status === 401) return
     } catch {
-      // 還沒開始監聽，稍後再試
+      // 還不能回應，稍後再試
     }
-    await delay(250)
+    await delay(PROBE_INTERVAL_MS, undefined, { signal }).catch(() => {})
   }
-  throw new StartupError(`後端 ${timeoutMs / 1000} 秒內沒有就緒`)
+}
+
+function describeExit({ code, signal }) {
+  return signal ? `訊號 ${signal}` : `代碼 ${code}`
+}
+
+// 就緒判斷：先等這一次起的子程序自己回報監聽成功，回報之前不送任何請求；之後才確認 API 回 401。
+// 子程序在任何時候結束都立刻判失敗，不等逾時；超過 timeoutMs 也判失敗。
+export async function waitForBackendReady({ backend, backendExit, settings, timeoutMs, fetch = globalThis.fetch }) {
+  const abort = new AbortController()
+  let timer
+  const timedOut = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new StartupError(`後端 ${timeoutMs / 1000} 秒內沒有就緒`)), timeoutMs)
+  })
+  const exited = (backendExit ?? watchExit(backend)).then(info => {
+    throw new StartupError(`後端程序在就緒前結束（${describeExit(info)}）`)
+  })
+  try {
+    await Promise.race([ownListening(backend, settings, abort.signal), exited, timedOut])
+    await Promise.race([probeApi(settings.apiOrigin, fetch, abort.signal), exited, timedOut])
+  } finally {
+    clearTimeout(timer)
+    abort.abort()
+  }
 }
 
 export function createLifecycle({ docker, removeDir, say, timeouts = DEFAULT_TIMEOUTS }) {
