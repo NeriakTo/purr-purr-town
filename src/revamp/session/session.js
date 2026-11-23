@@ -91,6 +91,7 @@ export async function login({ db, transport, clock }, { name, passcode }) {
   const bodyText = JSON.stringify(requestBody)
   if (encoder.encode(bodyText).length > LOGIN_BODY_LIMIT) return { kind: 'invalid_input' }
 
+  const sentAt = clock.now()
   const response = await sendAuthRequest(transport, { path: LOGIN_PATH, bodyText })
   if (response.kind !== 'http') return authFailure(response)
 
@@ -109,7 +110,7 @@ export async function login({ db, transport, clock }, { name, passcode }) {
     token: body.token,
     expiresAt: body.expires_at,
     loginVia: via,
-    firstRelayedAt: via === 'gas' ? loggedInAt : null,
+    firstRelayedAt: via === 'gas' ? sentAt : null,
     requiresLogin: false,
     loggedInAt,
   }
