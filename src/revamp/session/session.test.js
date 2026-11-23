@@ -313,6 +313,28 @@ it.each(['AUTH_REQUIRED', 'AUTH_EXPIRED'])('工作階段查詢回 %s 時只標�
   expect(await getLocalLogin(db)).toEqual({ ...loginRecord, requiresLogin: true })
 })
 
+it.each(['AUTH_REQUIRED', 'AUTH_EXPIRED'])('工作階段查詢遇 GAS 轉送錯誤 %s 時只標記需重新登入', async code => {
+  await saveLocalLogin(db, loginRecord)
+  transport.send.mockResolvedValue(gasError(code))
+  expect(await checkSession()).toEqual({ kind: 'requires_login', code })
+  expect(await getLocalLogin(db)).toEqual({ ...loginRecord, requiresLogin: true })
+})
+
+it.each([
+  ['429 RATE_LIMITED', error(429, 'RATE_LIMITED', { retry_after: 5 }), { kind: 'rate_limited', retry_after: 5 }],
+  ['500 INTERNAL_ERROR', error(500, 'INTERNAL_ERROR'), { kind: 'server_error', code: 'INTERNAL_ERROR' }],
+  ['503 SERVER_BUSY', error(503, 'SERVER_BUSY'), { kind: 'server_error', code: 'SERVER_BUSY' }],
+  ['GAS RELAY_FORBIDDEN', gasError('RELAY_FORBIDDEN'), { kind: 'relay_pass_required' }],
+  ['老師名稱不是字串', ok({ ...sessionBody, teacher: { ...teacher, name: 1 } }), { kind: 'invalid_response' }],
+  ['伺服器時間格式不合格', ok({ ...sessionBody, server_time: '2026-01-02' }), { kind: 'invalid_response' }],
+])('工作階段查詢遇 %s 時回對應結果且不改紀錄', async (_label, response, expected) => {
+  const record = { ...loginRecord, expiresAt: iso(time + day) }
+  await saveLocalLogin(db, record)
+  transport.send.mockResolvedValue(response)
+  expect(await checkSession()).toStrictEqual(expected)
+  expect(await getLocalLogin(db)).toEqual(record)
+})
+
 it.each([
   ['成功', ok(sessionBody)],
   ['權杖到期', error(401, 'AUTH_EXPIRED')],
