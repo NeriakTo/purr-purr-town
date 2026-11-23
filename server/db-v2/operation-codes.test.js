@@ -2,11 +2,12 @@ import { readFile, readdir } from 'node:fs/promises'
 import { expect, test } from 'vitest'
 import { readResultCodes } from './test-support/operation-specification.js'
 
-// 規格 01:398–449。E-13 的 PAIRING_INVALID 已移除。
+// 規格 01:399–454。E-13 的 PAIRING_INVALID 已移除。E-46、E-47 是網站請求層級的碼，不在資料庫列舉。
 const specificationCodes = new Set([
   'AUTH_REQUIRED', 'AUTH_EXPIRED', 'CLASS_FORBIDDEN', 'RATE_LIMITED', 'SERVER_BUSY',
   'UPSTREAM_UNREACHABLE', 'INTERNAL_ERROR', 'NOT_PROCESSED', 'BAD_ENVELOPE', 'ROUTE_NOT_ALLOWED',
   'INVALID_OP_ID', 'OP_ID_REUSED', 'LEGACY_WRITE_CLOSED', 'CALL_ID_REUSED', 'HELD_QUEUE_FULL', 'RELAY_FORBIDDEN',
+  'LOGIN_FAILED', 'ORIGIN_FORBIDDEN',
   'OK', 'HELD_FOR_TEACHER', 'OP_CANCELLED', 'UNKNOWN_OP_TYPE', 'INVALID_PAYLOAD', 'FORBIDDEN_ROLE',
   'SCOPE_FORBIDDEN', 'NOT_FOUND', 'ID_CONFLICT', 'STALE_STATE', 'INVALID_TRANSITION', 'ENTITY_INACTIVE',
   'CLASS_ARCHIVED', 'INSUFFICIENT_BALANCE', 'OUT_OF_STOCK', 'PRICE_CHANGED', 'ITEM_ALREADY_USED',
@@ -31,17 +32,18 @@ test('回應碼只在一處定義且全部列在規格表', async () => {
   expect(codes.filter(code => !specificationCodes.has(code))).toEqual([])
 })
 
-test('規格第 5 節的 44 個有效碼與資料庫的 34 個碼逐項一致', async () => {
+test('規格第 5 節的 46 個有效碼與資料庫的 34 個碼逐項一致', async () => {
   const { retry, final } = await readResultCodes()
   const rows = [...retry, ...final]
-  expect(rows).toHaveLength(45)
+  expect(rows).toHaveLength(47)
   expect(rows.filter(row => row.removed).map(row => row.id)).toEqual(['E-13'])
   const active = rows.filter(row => !row.removed).map(row => row.code)
-  expect(active).toHaveLength(44)
+  expect(active).toHaveLength(46)
   expect(active.sort()).toEqual([...specificationCodes].sort())
   const external = new Set([
     'AUTH_REQUIRED', 'AUTH_EXPIRED', 'RATE_LIMITED', 'SERVER_BUSY', 'UPSTREAM_UNREACHABLE',
     'INTERNAL_ERROR', 'NOT_PROCESSED', 'ROUTE_NOT_ALLOWED', 'LEGACY_WRITE_CLOSED', 'RELAY_FORBIDDEN',
+    'LOGIN_FAILED', 'ORIGIN_FORBIDDEN',
   ])
   const sql = await readFile(new URL('./sql/020-operations.sql', import.meta.url), 'utf8')
   const [, body] = sql.match(/CREATE TYPE ppt\.operation_code AS ENUM\s*\(([^)]+)\)/)
