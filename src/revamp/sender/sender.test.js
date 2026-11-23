@@ -606,6 +606,32 @@ it('甲班暫停仍可送完乙班', async () => {
   expect(await operations(otherClass)).toEqual([])
 })
 
+it('單筆收據的 CLASS_FORBIDDEN 只讓甲班等登入，乙班照常送完', async () => {
+  const [head] = await add()
+  const [other] = await add(1, { to: otherClass })
+  const f = setup()
+  f.sender.start()
+  const first = await f.call(0)
+  expect(first.ids).toEqual([head.op_id])
+  first.response.resolve(submit(retry(head.op_id, 'CLASS_FORBIDDEN')))
+
+  await until(() => f.calls.length > 1 || Number.isFinite(clock.next()))
+  expect(f.calls[1]).toMatchObject({ ids: [other.op_id], token })
+  f.calls[1].response.resolve(submit(saved(other.op_id)))
+  await f.state('waiting_login')
+  await advance(DEFAULT_IDLE_POLL_MS)
+  await until(() => f.calls.length > 2 || Number.isFinite(clock.next()))
+
+  expect(f.calls).toHaveLength(2)
+  expect(f.sender.getState().classes).toEqual([
+    { classId: scope.classId, opId: head.op_id, status: 'waiting_login' },
+  ])
+  expect(await operations()).toMatchObject([
+    { op_id: head.op_id, status: 'queued', lastCode: 'CLASS_FORBIDDEN' },
+  ])
+  expect(await operations(otherClass)).toEqual([])
+})
+
 it('限流指定三十秒，期限前不送，到期用同編號重送', async () => {
   const [head] = await add()
   const f = setup()
