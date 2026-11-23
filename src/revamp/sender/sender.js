@@ -251,7 +251,6 @@ export function createSender({
         publish({ hasLock: false, status: 'error', accountId: null, classes: [], reason: 'lock_failed' })
       }
     } finally {
-      if (active === request) active = undefined
       if (state.status !== 'error' || request.controller.signal.aborted) {
         publish({ hasLock: false, status: 'stopped', accountId: null, classes: [] })
       }
@@ -259,22 +258,33 @@ export function createSender({
   }
 
   function start() {
-    if (active) return
+    if (active) {
+      if (active.controller.signal.aborted) active.restart = true
+      return
+    }
     if (typeof locks?.request !== 'function') throw new Error('送出迴圈需要 Web Locks')
     if (!Array.isArray(receiptApplier?.stores) || typeof receiptApplier.applyReceipt !== 'function' ||
         typeof receiptApplier.observeSubmitSequence !== 'function') {
       throw new Error('送出迴圈需要收據套用介面')
     }
     if (!Number.isFinite(idlePollMs) || idlePollMs <= 0) throw new Error('重看間隔須為正數')
-    const request = { controller: new AbortController() }
+    const request = { controller: new AbortController(), restart: false }
     active = request
     request.done = Promise.resolve().then(() => run(request))
+    // 等舊一輪釋放送出權且停止完成，再處理最後一次啟停要求。
+    void request.done.then(() => {
+      active = undefined
+      if (request.restart) start()
+    })
     publish({ hasLock: false, status: 'waiting_lock', accountId: null, classes: [] })
   }
 
   function stop() {
     const request = active
-    request?.controller.abort()
+    if (request) {
+      request.restart = false
+      request.controller.abort()
+    }
     interruptSleep?.()
     // 仍持有送出權直到既有連線回傳，以免正常停止時與接手者同時送出。
     return request?.done ?? Promise.resolve()
