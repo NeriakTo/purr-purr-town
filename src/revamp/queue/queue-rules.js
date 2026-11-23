@@ -14,7 +14,8 @@ export function chunkLookupIds(opIds) {
 
 const transitions = {
   queued: { send: 'sending', cancel: 'cancelling', takeover: 'queued' },
-  sending: { retry: 'queued', takeover: 'queued', pause: 'paused', report_unsaved: 'cancelling' },
+  // 老師可以對任何還沒結清的項目選放棄，送出中的也算（規格 4.6 的表）。
+  sending: { retry: 'queued', takeover: 'queued', pause: 'paused', cancel: 'cancelling', report_unsaved: 'cancelling' },
   paused: { resume: 'queued', cancel: 'cancelling', takeover: 'paused' },
   cancelling: { keep_cancelling: 'cancelling', takeover: 'cancelling' },
 }
