@@ -1,0 +1,43 @@
+{
+  "server_time": "2026-11-22T08:00:00.000Z",
+  "class_seq": 4,
+  "receipts": [
+    {
+      "code": "OK",
+      "op_id": "00000000-0000-4000-8000-000000000103",
+      "result": {
+        "noop": true,
+        "transactions": [],
+        "effects_added": [],
+        "effects_reversed": []
+      },
+      "status": "committed",
+      "changes": [
+        {
+          "key": {
+            "task_id": "00000000-0000-4000-8000-000000000008",
+            "student_id": "00000000-0000-4000-8000-000000000002"
+          },
+          "rev": 1,
+          "value": {
+            "status": "missing",
+            "assignment_active": true
+          },
+          "entity": "submission",
+          "prev_rev": 1,
+          "basis_rev": 1,
+          "last_op_id": "00000000-0000-4000-8000-000000000103",
+          "prev_value": {
+            "status": "missing",
+            "assignment_active": true
+          },
+          "prev_basis_rev": 1
+        }
+      ],
+      "replayed": false,
+      "warnings": [],
+      "class_seq": 4,
+      "committed_at": "2026-11-22T07:59:00.000004+00:00"
+    }
+  ]
+}

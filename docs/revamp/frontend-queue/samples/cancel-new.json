@@ -1,0 +1,19 @@
+{
+  "server_time": "2026-11-22T08:00:00.000Z",
+  "receipt": {
+    "code": "OP_CANCELLED",
+    "op_id": "00000000-0000-4000-8000-000000000109",
+    "result": {
+      "noop": false,
+      "transactions": [],
+      "effects_added": [],
+      "effects_reversed": []
+    },
+    "status": "cancelled",
+    "changes": [],
+    "replayed": false,
+    "warnings": [],
+    "class_seq": null,
+    "committed_at": null
+  }
+}

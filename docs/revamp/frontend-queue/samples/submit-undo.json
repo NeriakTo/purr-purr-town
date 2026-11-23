@@ -1,0 +1,80 @@
+{
+  "server_time": "2026-11-22T08:00:00.000Z",
+  "class_seq": 5,
+  "receipts": [
+    {
+      "code": "OK",
+      "op_id": "00000000-0000-4000-8000-000000000107",
+      "result": {
+        "noop": false,
+        "undo": {
+          "skipped": [],
+          "target_op_id": "00000000-0000-4000-8000-000000000102",
+          "amount_changed": []
+        },
+        "transactions": [
+          "00000000-0000-4000-8000-000000009002"
+        ],
+        "effects_added": [],
+        "effects_reversed": [
+          {
+            "event": "submission.missing",
+            "rule_id": "458c05c9-a05f-5995-8d69-b6a19cb79c8c",
+            "rule_rev": 1,
+            "effect_id": "00000000-0000-4000-8000-000000009001",
+            "lineage_id": "00000000-0000-4000-8000-000000009001",
+            "subject_key": "00000000-0000-4000-8000-000000000008",
+            "effective_at": "2026-11-22T07:59:00.000003+00:00",
+            "subject_kind": "task",
+            "effective_amount": -20,
+            "root_transaction_id": "00000000-0000-4000-8000-000000009000"
+          }
+        ]
+      },
+      "status": "committed",
+      "changes": [
+        {
+          "key": {
+            "task_id": "00000000-0000-4000-8000-000000000008",
+            "student_id": "00000000-0000-4000-8000-000000000002"
+          },
+          "rev": 2,
+          "value": {
+            "status": "pending",
+            "assignment_active": false
+          },
+          "entity": "submission",
+          "prev_rev": 1,
+          "basis_rev": 0,
+          "last_op_id": "00000000-0000-4000-8000-000000000107",
+          "prev_value": {
+            "status": "missing",
+            "assignment_active": true
+          },
+          "prev_basis_rev": 1
+        },
+        {
+          "key": {
+            "student_id": "00000000-0000-4000-8000-000000000002"
+          },
+          "rev": 3,
+          "value": {
+            "balance": 0,
+            "total_earned": 0
+          },
+          "entity": "account",
+          "prev_rev": 2,
+          "last_op_id": "00000000-0000-4000-8000-000000000107",
+          "prev_value": {
+            "balance": -20,
+            "total_earned": -20
+          }
+        }
+      ],
+      "replayed": false,
+      "warnings": [],
+      "class_seq": 5,
+      "committed_at": "2026-11-22T07:59:00.000005+00:00"
+    }
+  ]
+}

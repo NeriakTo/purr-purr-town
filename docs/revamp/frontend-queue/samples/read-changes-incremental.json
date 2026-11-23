@@ -1,0 +1,221 @@
+{
+  "server_time": "2026-11-22T08:00:00.000Z",
+  "class_seq": 15,
+  "rows": [
+    {
+      "entity": "account",
+      "key": {
+        "student_id": "00000000-0000-4000-8000-000000000002"
+      },
+      "rev": 6,
+      "value": {
+        "balance": 17,
+        "total_earned": 20
+      }
+    },
+    {
+      "entity": "confirmation",
+      "key": {
+        "confirmation_id": "00000000-0000-4000-8000-000000000120"
+      },
+      "rev": 1,
+      "value": {
+        "kind": "agent_held",
+        "status": "pending",
+        "task_id": null,
+        "batch_id": "00000000-0000-4000-8000-000000000112",
+        "created_at": "2026-11-22T07:59:00.000006+00:00",
+        "student_id": null,
+        "held_reason": "max_students_per_call",
+        "processed_at": null,
+        "created_op_id": "00000000-0000-4000-8000-000000000120",
+        "processed_op_id": null,
+        "proposed_status": null
+      }
+    }
+  ],
+  "transactions": [
+    {
+      "kind": "adjust",
+      "op_id": "00000000-0000-4000-8000-000000000126",
+      "amount": 10,
+      "origin": "op",
+      "reason": "測試加分",
+      "voided": false,
+      "rule_id": null,
+      "batch_id": null,
+      "rule_rev": null,
+      "semester": "115-1",
+      "class_seq": 15,
+      "legacy_id": null,
+      "student_id": "00000000-0000-4000-8000-000000000002",
+      "occurred_at": "2026-11-22T07:59:00.000010+00:00",
+      "source_path": null,
+      "chain_broken": false,
+      "earned_delta": 10,
+      "effective_at": "2026-11-22T07:59:00.000010+00:00",
+      "transaction_id": "00000000-0000-4000-8000-000000009004",
+      "legacy_semantics": null,
+      "transaction_type": null,
+      "root_transaction_id": null,
+      "corrected_transaction_id": null,
+      "restored_from_transaction_id": null
+    }
+  ],
+  "operations": [
+    {
+      "type": "points.adjust",
+      "op_id": "00000000-0000-4000-8000-000000000126",
+      "payload": {
+        "amount": 10,
+        "reason": "測試加分",
+        "student_id": "00000000-0000-4000-8000-000000000002"
+      },
+      "batch_id": null,
+      "class_seq": 15,
+      "actor_kind": "teacher",
+      "client_time": null,
+      "committed_at": "2026-11-22T07:59:00.000010+00:00"
+    }
+  ],
+  "legacy_effects": [
+    {
+      "effect_id": "00000000-sample-legacy-effect",
+      "student_id": "00000000-0000-4000-8000-000000000002",
+      "task_id": "sample-legacy-task",
+      "status": "legacy_unresolved",
+      "suggested_transaction_id": null,
+      "candidates": [
+        {
+          "reason": "作業缺交",
+          "suggested": false,
+          "effective_at": "2026-11-20T04:00:00+00:00",
+          "default_listed": true,
+          "transaction_id": "sample-legacy-transaction",
+          "effective_amount": -6
+        }
+      ]
+    }
+  ],
+  "payroll": [
+    {
+      "job_id": "c484edc9-f5cc-5207-baa9-bfebf236bd9c",
+      "pay_date": "2026-11-22",
+      "period": "2026-W47",
+      "first_day": "2026-11-16",
+      "needs_legacy_confirmation": false
+    },
+    {
+      "job_id": "eb84ff73-6e05-537b-a555-d94d828997c4",
+      "pay_date": "2026-11-22",
+      "period": "2026-W47",
+      "first_day": "2026-11-16",
+      "needs_legacy_confirmation": false
+    },
+    {
+      "job_id": "f04eb5ba-20fb-5d7c-b2ec-45c7d738a253",
+      "pay_date": "2026-11-22",
+      "period": "2026-W47",
+      "first_day": "2026-11-16",
+      "needs_legacy_confirmation": false
+    }
+  ],
+  "agent_batches": [
+    {
+      "batch_id": "00000000-0000-4000-8000-000000000112",
+      "created_at": "2026-11-22T07:59:00.000006+00:00",
+      "note": "測試暫緩批次",
+      "op_count": 0,
+      "seats": [],
+      "pending_held": true,
+      "held_ops": [
+        {
+          "type": "submission.set_status",
+          "op_id": "00000000-0000-4000-8000-000000000120",
+          "expect": {
+            "rev": 1
+          },
+          "payload": {
+            "status": "missing",
+            "task_id": "00000000-0000-4000-8000-000000000009",
+            "student_id": "00000000-0000-4000-8000-000000000002"
+          },
+          "batch_id": "00000000-0000-4000-8000-000000000112",
+          "class_id": "00000000-0000-4000-8000-000000000001"
+        },
+        {
+          "type": "submission.set_status",
+          "op_id": "00000000-0000-4000-8000-000000000121",
+          "expect": {
+            "rev": 1
+          },
+          "payload": {
+            "status": "missing",
+            "task_id": "00000000-0000-4000-8000-000000000009",
+            "student_id": "00000000-0000-4000-8000-000000000003"
+          },
+          "batch_id": "00000000-0000-4000-8000-000000000112",
+          "class_id": "00000000-0000-4000-8000-000000000001"
+        },
+        {
+          "type": "submission.set_status",
+          "op_id": "00000000-0000-4000-8000-000000000122",
+          "expect": {
+            "rev": 1
+          },
+          "payload": {
+            "status": "missing",
+            "task_id": "00000000-0000-4000-8000-000000000009",
+            "student_id": "00000000-0000-4000-8000-000000000004"
+          },
+          "batch_id": "00000000-0000-4000-8000-000000000112",
+          "class_id": "00000000-0000-4000-8000-000000000001"
+        },
+        {
+          "type": "submission.set_status",
+          "op_id": "00000000-0000-4000-8000-000000000123",
+          "expect": {
+            "rev": 1
+          },
+          "payload": {
+            "status": "missing",
+            "task_id": "00000000-0000-4000-8000-000000000009",
+            "student_id": "00000000-0000-4000-8000-000000000005"
+          },
+          "batch_id": "00000000-0000-4000-8000-000000000112",
+          "class_id": "00000000-0000-4000-8000-000000000001"
+        },
+        {
+          "type": "submission.set_status",
+          "op_id": "00000000-0000-4000-8000-000000000124",
+          "expect": {
+            "rev": 1
+          },
+          "payload": {
+            "status": "missing",
+            "task_id": "00000000-0000-4000-8000-000000000009",
+            "student_id": "00000000-0000-4000-8000-000000000006"
+          },
+          "batch_id": "00000000-0000-4000-8000-000000000112",
+          "class_id": "00000000-0000-4000-8000-000000000001"
+        },
+        {
+          "type": "submission.set_status",
+          "op_id": "00000000-0000-4000-8000-000000000125",
+          "expect": {
+            "rev": 1
+          },
+          "payload": {
+            "status": "missing",
+            "task_id": "00000000-0000-4000-8000-000000000009",
+            "student_id": "00000000-0000-4000-8000-000000000007"
+          },
+          "batch_id": "00000000-0000-4000-8000-000000000112",
+          "class_id": "00000000-0000-4000-8000-000000000001"
+        }
+      ],
+      "undone": false
+    }
+  ],
+  "full": false
+}

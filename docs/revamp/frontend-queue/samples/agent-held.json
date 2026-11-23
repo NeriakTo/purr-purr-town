@@ -1,0 +1,18 @@
+{
+  "code": "HELD_FOR_TEACHER",
+  "op_id": "00000000-0000-4000-8000-000000000120",
+  "result": {
+    "noop": false,
+    "held_reason": "max_students_per_call",
+    "transactions": [],
+    "effects_added": [],
+    "confirmation_id": "00000000-0000-4000-8000-000000000120",
+    "effects_reversed": []
+  },
+  "status": "held",
+  "changes": [],
+  "replayed": false,
+  "warnings": [],
+  "class_seq": null,
+  "committed_at": null
+}

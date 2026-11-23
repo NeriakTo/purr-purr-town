@@ -1,0 +1,58 @@
+{
+  "server_time": "2026-11-22T08:00:00.000Z",
+  "class_seq": 29,
+  "receipts": [
+    {
+      "code": "OK",
+      "op_id": "00000000-0000-4000-8000-000000000129",
+      "result": {
+        "noop": false,
+        "batch": {
+          "batch_id": "00000000-0000-4000-8000-000000000112",
+          "op_count": 6
+        },
+        "items": [
+          {
+            "outcome": "undone",
+            "undo_op_id": "8eb7920a-ab23-5026-bdd0-a0fa964a9fce",
+            "target_op_id": "00000000-0000-4000-8000-000000000125"
+          },
+          {
+            "outcome": "undone",
+            "undo_op_id": "39ad0d14-6b43-5140-879a-689db2d0b951",
+            "target_op_id": "00000000-0000-4000-8000-000000000124"
+          },
+          {
+            "outcome": "undone",
+            "undo_op_id": "237e680f-4f26-5174-88aa-3a357def4267",
+            "target_op_id": "00000000-0000-4000-8000-000000000123"
+          },
+          {
+            "outcome": "undone",
+            "undo_op_id": "cd2481f8-6e0d-5d9c-b941-4a581b0fbd17",
+            "target_op_id": "00000000-0000-4000-8000-000000000122"
+          },
+          {
+            "outcome": "undone",
+            "undo_op_id": "609f58a4-2b8d-53e2-a6a4-7787ffafa35a",
+            "target_op_id": "00000000-0000-4000-8000-000000000121"
+          },
+          {
+            "outcome": "undone",
+            "undo_op_id": "82bcb9fe-5f5d-5f40-91e3-868701c06ff6",
+            "target_op_id": "00000000-0000-4000-8000-000000000120"
+          }
+        ],
+        "transactions": [],
+        "effects_added": [],
+        "effects_reversed": []
+      },
+      "status": "committed",
+      "changes": [],
+      "replayed": false,
+      "warnings": [],
+      "class_seq": 29,
+      "committed_at": "2026-11-22T07:59:00.000012+00:00"
+    }
+  ]
+}

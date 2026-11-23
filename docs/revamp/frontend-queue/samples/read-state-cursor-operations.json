@@ -1,0 +1,21 @@
+{
+  "server_time": "2026-11-22T08:00:00.000Z",
+  "class_seq": 15,
+  "stream": "operations",
+  "items": [
+    {
+      "type": "group.save",
+      "op_id": "00000000-0000-4000-8000-000000000127",
+      "payload": {
+        "name": "測試小組",
+        "group_key": "組甲"
+      },
+      "batch_id": null,
+      "class_seq": 14,
+      "actor_kind": "teacher",
+      "client_time": null,
+      "committed_at": "2026-11-22T07:59:00.000009+00:00"
+    }
+  ],
+  "next": "eyJzdHJlYW0iOiJvcGVyYXRpb25zIiwia2V5IjpbMTRdfQ"
+}

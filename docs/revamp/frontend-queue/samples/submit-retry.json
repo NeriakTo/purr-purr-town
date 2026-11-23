@@ -1,0 +1,21 @@
+{
+  "server_time": "2026-11-22T08:00:00.000Z",
+  "class_seq": 5,
+  "receipts": [
+    {
+      "code": "BAD_ENVELOPE",
+      "op_id": "00000000-0000-4000-8000-000000000108",
+      "status": "retry"
+    },
+    {
+      "code": "OP_ID_REUSED",
+      "op_id": "00000000-0000-4000-8000-000000000102",
+      "status": "retry"
+    },
+    {
+      "code": "INVALID_OP_ID",
+      "op_id": null,
+      "status": "retry"
+    }
+  ]
+}
