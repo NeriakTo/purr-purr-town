@@ -149,6 +149,37 @@ it('升版保留待送與草稿，舊連線回報需要重開', async () => {
 })
 
 it.each([
+  {
+    storeName: 'readOperations', primaryField: 'op_id', indexName: 'byClassSequence',
+    indexFields: ['class_seq'], row: { op_id: '操作甲', class_seq: 3 },
+  },
+  {
+    storeName: 'readTransactions', primaryField: 'transaction_id', indexName: 'byStudentTime',
+    indexFields: ['student_id', 'occurred_at'],
+    row: { transaction_id: '交易甲', student_id: '座號一', occurred_at: '2026-01-02T03:04:05Z' },
+  },
+])('第一版的 $storeName 主鍵與索引直接使用後端欄位', async ({
+  storeName, primaryField, indexName, indexFields, row,
+}) => {
+  expect(db.version).toBe(1)
+  const scopeFields = ['accountId', 'classId']
+  const record = { ...scope, ...row }
+  const found = await runStorageTransaction(db, storeName, 'readwrite', tx => {
+    const store = tx.objectStore(storeName)
+    const index = store.index(indexName)
+    expect(store.keyPath).toEqual([...scopeFields, primaryField])
+    expect(index.keyPath).toEqual([...scopeFields, ...indexFields])
+    store.add(record)
+    return new Promise((resolve, reject) => {
+      const request = index.get([...scopeFields, ...indexFields].map(field => record[field]))
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+  })
+  expect(found).toEqual(record)
+})
+
+it.each([
   ['登出', 'LOGIN_REQUIRED', connection => deleteLocalLogin(connection)],
   ['換帳號', 'ACCOUNT_MISMATCH', connection => saveLocalLogin(connection, otherAccount)],
 ])('%s後舊分頁寫入遭拒且既有項目留存', async (_label, code, changeLogin) => {
