@@ -361,6 +361,27 @@ it.each([
   expect(await getLocalLogin(db)).toEqual(priorRecord)
 })
 
+it.each([
+  ['少一個字元', token.slice(1)],
+  ['含大寫字元', token.toUpperCase()],
+  ['含非十六進位字元', 'g' + token.slice(1)],
+])('標記重新登入時，權杖%s就回 false、不開交易也不改紀錄', async (_label, invalidToken) => {
+  await saveLocalLogin(db, loginRecord)
+  const transaction = vi.spyOn(db, 'transaction')
+
+  expect(await markSessionRequiresLogin({ db }, invalidToken)).toBe(false)
+  expect(transaction).not.toHaveBeenCalled()
+  expect(await getLocalLogin(db)).toEqual(loginRecord)
+})
+
+it('重新登入已標記時再次標記回 true 且紀錄不變', async () => {
+  const record = { ...loginRecord, requiresLogin: true }
+  await saveLocalLogin(db, record)
+
+  expect(await markSessionRequiresLogin({ db }, token)).toBe(true)
+  expect(await getLocalLogin(db)).toEqual(record)
+})
+
 it('查詢沒有本機權杖就不送出，離線時不改紀錄', async () => {
   expect(await checkSession()).toEqual({ kind: 'no_login' })
   await saveLocalLogin(db, { accountId: teacher.id })
