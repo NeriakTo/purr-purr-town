@@ -1,0 +1,41 @@
+{
+  "classId": "synthetic-trial",
+  "className": "【虛構試轉班】",
+  "data": {
+    "classId": "synthetic-trial",
+    "className": "【虛構試轉班】",
+    "updatedAt": "2026-11-15",
+    "students": [
+      {
+        "id": "fixture-s1",
+        "name": "【虛構學生一號】",
+        "number": 7,
+        "bank": {
+          "balance": 13,
+          "totalEarned": 15,
+          "transactions": [
+            {
+              "id": "fixture-tx",
+              "date": "2026-11-01",
+              "amount": 10,
+              "balance": 10,
+              "reason": "【虛構點數理由】"
+            }
+          ]
+        }
+      },
+      { "id": "fixture-s2", "name": "【虛構學生二號】", "number": " 7 " },
+      { "id": "fixture-s3", "name": "【虛構學生三號】", "number": "", "seatNumber": 0 },
+      { "id": "fixture-s4", "name": "【虛構學生四號】", "number": null }
+    ],
+    "logs": [
+      {
+        "date": "2026-11-01",
+        "tasks": [{ "id": "fixture-task", "title": "【虛構作業標題】" }],
+        "status": {
+          "fixture-s1": { "fixture-deleted-task": "missing", "fixture-task": true }
+        }
+      }
+    ]
+  }
+}
