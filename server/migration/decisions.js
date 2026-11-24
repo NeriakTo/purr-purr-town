@@ -28,7 +28,14 @@ export function taipeiTimestamp(date) {
 export function decisionInputError(decisions) {
   if (!decisions || typeof decisions !== 'object' || Array.isArray(decisions)) return 'decisions 必須是物件'
   if (decisions.openingAdjustment === true && decisions.cutoverDate == null) return 'openingAdjustment 需要 cutoverDate'
+  if (Object.hasOwn(decisions, 'orphanTaskStatus') && !snapshotOnlyOrphanTaskStatus(decisions)) {
+    return "orphanTaskStatus 必須是 'snapshot_only'"
+  }
   return null
+}
+
+export function snapshotOnlyOrphanTaskStatus(decisions) {
+  return Object.hasOwn(decisions, 'orphanTaskStatus') && decisions.orphanTaskStatus === 'snapshot_only'
 }
 
 export function requireDecisions(decisions) {
