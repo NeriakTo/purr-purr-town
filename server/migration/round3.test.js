@@ -23,7 +23,7 @@ describe('7.4 A 轉換決定', () => {
     const selected = { cutoverDate: decisions.cutoverDate, semesterRule: 'month' }
     const output = convert(source, { decisions: selected })
     const batch = output.rows.migration_batches[0]
-    expect(batch).toMatchObject({ decisions: selected, cutover_date: '2026-11-15', converter_version: 'v2-1A-r3' })
+    expect(batch).toMatchObject({ decisions: selected, cutover_date: '2026-11-15', converter_version: 'v2-1A-r4' })
     expect(batch).not.toHaveProperty('semester_basis')
     expect(output.rows.classes[0].current_semester).toBe('115-1')
     expect(reconcile(source, output).differences).toEqual([])

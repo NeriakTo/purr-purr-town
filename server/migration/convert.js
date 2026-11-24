@@ -23,7 +23,7 @@ const numeric = v => typeof v === 'number' && Number.isFinite(v)
 const store = r => typeof r === 'string' && (r.startsWith('購買') || r.startsWith('使用道具'))
 export const statusOf = v => v === true ? 'on_time' : v === false || v === undefined ? 'pending' : ['on_time', 'late', 'missing', 'leave', 'exempt', 'makeup'].includes(v) ? v : 'unknown'
 export { semesterAt } from './decisions.js'
-export const CONVERTER_VERSION = 'v2-1A-r3'
+export const CONVERTER_VERSION = 'v2-1A-r4'
 
 export function migrationBatchId(classKey, source, decisions) {
   return digest([CONVERTER_VERSION, classKey, source, decisions])
