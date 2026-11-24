@@ -31,14 +31,36 @@ const audit = reconcile(classA, converted, { decisions })
 | `cutoverDate` | 臺灣日期 `YYYY-MM-DD` | 批次 `cutover_date=null`，不產生期初調整。來源未設定目前學期時，改用 `data.updatedAt` 推算 |
 | `openingAdjustment` | `true`，須同時提供 `cutoverDate` | 停用期初調整，`BALANCE_DRIFT`、`TOTAL_EARNED_DRIFT` 擋匯入 |
 | `semesterRule` | `'month'` | 作業與交易的 `semester` 留空，各自列 `UNKNOWN_TASK_SEMESTER` 或 `UNKNOWN_TRANSACTION_SEMESTER` 擋匯入 |
+| `orphanTaskStatus`（選填） | `'snapshot_only'` | 找不到當天作業的狀態照常建立繳交列，並列 `ORPHAN_TASK` 擋匯入 |
 
-`openingAdjustment: true` 缺切換日會直接拋出輸入錯誤。非法切換日列 `INVALID_CUTOVER_DATE`。批次以 `decisions` JSONB 原樣保存決定，預設空物件。`cutover_date` 保存明傳的日期文字，`converter_version` 是 `v2-1A-r3`。
+`openingAdjustment: true` 缺切換日會直接拋出輸入錯誤。非法切換日列 `INVALID_CUTOVER_DATE`。明傳的 `orphanTaskStatus` 只接受 `'snapshot_only'`。批次以 `decisions` JSONB 原樣保存決定，預設空物件。`cutover_date` 保存明傳的日期文字，`converter_version` 是 `v2-1A-r4`。
 
 輸入限可由 JSON 匯出表示的一班資料，形狀為 `{ classId, className, data: { classId, className, teacher, students, logs, settings, updatedAt } }`，不是後端同步封套，也不是多班清單。實際匯出位置：`src/components/modals/SettingsModal.jsx:271`。`updatedAt` 是**匯出當下**，不能用它裁決不同裝置哪份內容較新。
 
-輸出為 `{ rows: { 表名: [...] }, errors: [{code,path,value}], report }`。錯誤包含來源 JSON Pointer 與原值；批次另保存同一份 `validation_errors`。`report` 包含來源 SHA-256、版本、各表筆數、錯誤數及 `rules_triggered: 0`。未知與孤立資料仍有來源快照；可拆出的列保留，無法建立的外鍵為 `null`，不建虛構學生、不靜默略過、不自動修復。
+輸出為 `{ rows: { 表名: [...] }, errors: [{code,path,value}], report }`。錯誤包含來源 JSON Pointer 與原值；批次另保存同一份 `validation_errors`。`report` 包含來源 SHA-256、版本、各表筆數、錯誤數及 `rules_triggered: 0`。未知與孤立資料仍有來源快照；可拆出的列保留，無法建立的外鍵為 `null`，不建虛構學生、不靜默略過、不自動修復。依主控 2026-11-24 裁定，啟用 `orphanTaskStatus: 'snapshot_only'` 後，已刪作業的狀態留在 `logs.raw` 與 `migration_sources.raw`，逐筆列提示。
 
 對帳的 `differences` 是 `{path,expected,actual}` 清單，另逐生輸出餘額、累計、交易數、更正邊、背包數、使用數、評語學期與新舊期間統計。`source_errors` 保留來源問題，`ready_for_import` 要求三項決定齊全、無差異且無來源錯誤。兩個假班刻意包含來源錯誤；「對帳無差異」只證明忠實搬移，不能宣稱可正式匯入。
+
+## 試轉摘要
+
+在倉庫根目錄執行，明傳 `--decisions` JSON。命令只讀指定來源檔，將摘要 JSON 印到標準輸出。參數、讀檔、解析或決定錯誤會回傳結束碼 2，原因印到標準錯誤。
+
+```sh
+node server/migration/trial-summary.js server/migration/__fixtures__/trial-source.json --decisions '{"cutoverDate":"2026-11-15","openingAdjustment":true,"semesterRule":"month","orphanTaskStatus":"snapshot_only"}'
+```
+
+程式內可匯入純函式 `summarizeTrial(source, decisions)`。
+
+| 輸出鍵 | 內容 |
+| --- | --- |
+| `converter_version`、`batch_id`、`decisions`、`row_counts` | 轉換器版本、批次編號、表中已知的決定及各表筆數 |
+| `error_counts`、`notice_counts` | 各錯誤碼與提示碼的筆數 |
+| `orphan_task_statuses` | 依 `day`、`task_key` 排序列出各組的 `count`、`by_status`。缺少日期或日期值不是字串時，摘要的 `day` 為 `null` |
+| `duplicate_seat_numbers` | 重複的 `seat_number` 與 `student_paths`。只統計非空的 `number`，轉為字串後去除前後空白再比對 |
+| `seat_number_coverage` | 有 `number` 的 `with_number`、只有 `seatNumber` 的 `seat_number_only`、兩欄皆空的 `neither` |
+| `opening_adjustments` | 每筆調整的 `path`、`amount`、`earned_delta` |
+| `convert_ready` | 轉換結果的匯入就緒狀態 |
+| `reconcile` | `matches`、`difference_count`、`difference_paths`（最多前 50 筆路徑）、`period_skipped_count`、`ready_for_import` |
 
 ## 資料表與完整欄位對照
 
@@ -63,7 +85,7 @@ const audit = reconcile(classA, converted, { decisions })
 | `students[].comments[學期]` | `comments.semester` 使用原 key，絕不搬到目前學期；`student_id` 關聯學生 |
 | 評語 `rawComment,polishedComment,motto,analysis,status,errorMessage,generatedAt,updatedAt,modelUsed` | `comments.raw` 同名九欄全部保留，包含觀察文字、生成狀態與模型來源 |
 | 評語 `locked,lockedComment,lockedMotto` | `comments.raw` 三原值；`locked_comment=lockedComment ?? locked ?? false`，`locked_motto=lockedMotto ?? locked ?? false`。明確 false 不被舊 true 蓋掉；非布林報 INVALID_LOCK |
-| `logs[].date,tasks,status` | `logs.raw` 完整紀錄；每個 task 拆 `tasks`，每個狀態拆 `submissions`；紀錄序號保留，不以日期去重 |
+| `logs[].date,tasks,status` | `logs.raw` 完整紀錄；每個 task 拆 `tasks`，狀態依下節規則拆 `submissions`；紀錄序號保留，不以日期去重 |
 | `logs[].tasks[].id,title,type,createdAt,dueDate` | `tasks.legacy_id,title,task_type,published_on,due_on`；`raw` 五原值。缺日期欄位只沿用舊 log.date 後備（不產生新日期），無法辨識學期則 semester=null |
 | `logs[].status[學生舊編號][任務舊編號]` | `submissions.student_id,legacy_student_id,task_id,status,present,raw`；`legacy_id` 保存任務舊編號，完整語意見狀態表 |
 | `settings.currentSemester` | `settings_entries(key=currentSemester).raw` 原值；`classes.current_semester` 是固定日期推算的讀取值，與原值分開 |
@@ -107,7 +129,9 @@ const audit = reconcile(classA, converted, { decisions })
 | 缺鍵 | pending | false | 未記錄；不是已確認缺交 |
 | 未知值（含 null、數字、物件、其他字串） | unknown | true | UNKNOWN_STATUS；原值保留 raw |
 
-只有在該歷史 log 的 `status` 已有某學生容器時，才對該 log 有舊編號的 tasks 展開缺鍵；這表示「有此歷史容器」，不是證明該學生當時被指派。不存在的學生容器與不存在的任務 key 也輸出列並報錯。沒有學生容器就不拿現在全班學生補應交列。
+只有在該歷史 log 的 `status` 已有某學生容器時，才對該 log 有舊編號的 tasks 展開缺鍵；這表示「有此歷史容器」，不是證明該學生當時被指派。找不到學生或當天作業時，預設仍建立繳交列並報錯。沒有學生容器就不拿現在全班學生補應交列。
+
+明傳 `orphanTaskStatus: 'snapshot_only'` 時，若全部日期的 `tasks` 都找不到該鍵，視為作業已刪除。該狀態保留在 `logs.raw` 與 `migration_sources.raw`，逐筆列 `ORPHAN_TASK_STATUS` 提示，省略繳交列與舊編號對照。僅在別天找得到同一作業鍵時，仍建立繳交列，當天的作業外鍵留空並列 `ORPHAN_TASK`。找不到學生時仍列 `ORPHAN_STUDENT`。
 
 舊格式沒有獨立的「當時指派名單」；`tasks.assignees_known=false` 且逐任務在 `report.notices` 列帶來源路徑的 `UNKNOWN_ASSIGNMENT_LIST`。現有狀態容器只記 `assignment_evidence=legacy_status_container`，不能宣稱已還原完整名單。之後新作業必須保存當時名單；歷史待裁決前保持未知。
 
