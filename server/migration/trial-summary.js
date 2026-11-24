@@ -1,5 +1,7 @@
+import { readFileSync } from 'node:fs'
+import { pathToFileURL } from 'node:url'
 import { convert } from './convert.js'
-import { snapshotOnlyOrphanTaskStatus, validCutoverDate } from './decisions.js'
+import { decisionInputError, snapshotOnlyOrphanTaskStatus, validCutoverDate } from './decisions.js'
 import { reconcile } from './reconcile.js'
 
 function summarizeDecisions(decisions) {
@@ -95,4 +97,66 @@ export function summarizeTrial(source, decisions) {
     convert_ready: report.ready_for_import,
     reconcile: summarizeReconciliation(audit),
   }
+}
+
+function cliDecisionError(decisions) {
+  const issue = decisionInputError(decisions)
+  if (issue) return issue
+  if (Object.hasOwn(decisions, 'cutoverDate') && !validCutoverDate(decisions.cutoverDate)) {
+    return 'cutoverDate 必須是有效的 YYYY-MM-DD 日期'
+  }
+  if (Object.hasOwn(decisions, 'openingAdjustment') && typeof decisions.openingAdjustment !== 'boolean') {
+    return 'openingAdjustment 必須是布林值'
+  }
+  if (Object.hasOwn(decisions, 'semesterRule') && decisions.semesterRule !== 'month') {
+    return "semesterRule 必須是 'month'"
+  }
+  return null
+}
+
+function cliFailure(reason) {
+  process.stderr.write(`${reason}\n`)
+  return 2
+}
+
+function runCli(args) {
+  const [sourcePath, option, decisionsJson] = args
+  if (args.length !== 3 || !sourcePath || sourcePath.startsWith('--') || option !== '--decisions') {
+    return cliFailure("用法：node server/migration/trial-summary.js <來源檔> --decisions '<JSON>'")
+  }
+
+  let decisions
+  try {
+    decisions = JSON.parse(decisionsJson)
+  } catch {
+    return cliFailure('--decisions 不是有效的 JSON')
+  }
+  const issue = cliDecisionError(decisions)
+  if (issue) return cliFailure(issue)
+
+  let text
+  try {
+    text = readFileSync(sourcePath, 'utf8')
+  } catch {
+    return cliFailure('無法讀取來源檔')
+  }
+  let source
+  try {
+    source = JSON.parse(text)
+  } catch {
+    return cliFailure('來源檔不是有效的 JSON')
+  }
+
+  let serialized
+  try {
+    serialized = JSON.stringify(summarizeTrial(source, decisions), null, 2)
+  } catch {
+    return cliFailure('無法完成來源轉換與對帳')
+  }
+  process.stdout.write(`${serialized}\n`)
+  return 0
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  process.exitCode = runCli(process.argv.slice(2))
 }

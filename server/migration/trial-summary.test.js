@@ -1,8 +1,14 @@
 import { expect, it, vi } from 'vitest'
+import { spawnSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 import source from './__fixtures__/trial-source.json'
 import { TABLES } from './convert.js'
 import * as reconciliation from './reconcile.js'
 import { summarizeTrial } from './trial-summary.js'
+
+const scriptPath = fileURLToPath(new URL('./trial-summary.js', import.meta.url))
+const sourcePath = fileURLToPath(new URL('./__fixtures__/trial-source.json', import.meta.url))
+const invalidJsonPath = fileURLToPath(new URL('./__fixtures__/classes.js', import.meta.url))
 
 const decisions = {
   cutoverDate: '2026-11-15',
@@ -116,4 +122,32 @@ it('額外決定及異型日期的內嵌欄位不會流入摘要', () => {
     { day: null, task_key: 'fixture-deleted-task', count: 1, by_status: { missing: 1 } },
   ])
   expectNoFixtureText(summary)
+})
+
+function runCli(...args) {
+  return spawnSync(process.execPath, [scriptPath, ...args], { encoding: 'utf8' })
+}
+
+it('命令列成功時只在標準輸出印可解析的摘要', () => {
+  const result = runCli(sourcePath, '--decisions', JSON.stringify(decisions))
+  expect(result.status).toBe(0)
+  expect(result.stderr).toBe('')
+  expect(JSON.parse(result.stdout)).toEqual(summarizeTrial(source, decisions))
+  expectNoFixtureText(JSON.parse(result.stdout))
+})
+
+it.each([
+  ['缺少決定', [sourcePath], /用法：/],
+  ['檔案讀不到', [`${sourcePath}.missing`, '--decisions', '{}'], /無法讀取來源檔/],
+  ['來源 JSON 有誤', [invalidJsonPath, '--decisions', '{}'], /來源檔不是有效的 JSON/],
+  ['決定 JSON 有誤', [sourcePath, '--decisions', '{ fake-input'], /--decisions 不是有效的 JSON/],
+  ['孤兒決定不合法', [sourcePath, '--decisions', '{"orphanTaskStatus":"fake-input"}'], /orphanTaskStatus 必須/],
+  ['切換日不合法', [sourcePath, '--decisions', '{"cutoverDate":"fake-input"}'], /cutoverDate 必須/],
+])('命令列遇到%s只印原因並回傳 2', (_case, args, reason) => {
+  const result = runCli(...args)
+  expect(result.status).toBe(2)
+  expect(result.stdout).toBe('')
+  expect(result.stderr.trim().split('\n')).toHaveLength(1)
+  expect(result.stderr).toMatch(reason)
+  expect(result.stderr).not.toMatch(/fake-input|假班甲/)
 })
