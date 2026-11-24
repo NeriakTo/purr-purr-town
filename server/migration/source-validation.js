@@ -1,12 +1,23 @@
-import { pointer, canonicalJson } from './convert.js'
+import { pointer, canonicalJson, statusOf } from './convert.js'
 import {
   accountFields, legacyTransactionFacts, openingAdjustmentFor, reportAccountDrift, validateTransactionDate,
 } from './ledger.js'
-import { openingAdjustmentEnabled, requireDecisions, resolveCurrentSemester, validateTaskDate } from './decisions.js'
+import { openingAdjustmentEnabled, requireDecisions, resolveCurrentSemester, snapshotOnlyOrphanTaskStatus, validateTaskDate } from './decisions.js'
 import { correctionCycleMembers, correctionTargets, correctionMatches } from './corrections.js'
 
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value)
 const numeric = value => typeof value === 'number' && Number.isFinite(value)
+
+function collectTaskIds(logs) {
+  const ids = new Set()
+  for (const log of logs) {
+    if (!Array.isArray(log.tasks)) continue
+    for (const task of log.tasks) {
+      if (object(task) && task.id != null) ids.add(String(task.id))
+    }
+  }
+  return ids
+}
 
 // 直接走訪來源，不呼叫 convert，也不讀取轉換結果的列或錯誤。
 export function validateSource(source, earnedFromLegacy, { notices = [], openingAdjustments = [], decisions = {} } = {}) {
@@ -167,7 +178,9 @@ export function validateSource(source, earnedFromLegacy, { notices = [], opening
     if (Array.isArray(s.taskExemptRules)) s.taskExemptRules.forEach((r, j) => fields(r, `${path}/taskExemptRules/${j}`, 'keyword taskType'))
     else if (s.taskExemptRules !== undefined) fields(s.taskExemptRules, `${path}/taskExemptRules`, 'keywords taskTypes')
   }
-  array(data.logs, '/data/logs', true).forEach((log, i) => {
+  const logs = array(data.logs, '/data/logs', true)
+  const allTaskIds = snapshotOnlyOrphanTaskStatus(decisions) ? collectTaskIds(logs) : null
+  logs.forEach((log, i) => {
     const p = `/data/logs/${i}`
     fields(log, p, 'date tasks status')
     const tasks = array(log.tasks, `${p}/tasks`, true)
@@ -186,8 +199,14 @@ export function validateSource(source, earnedFromLegacy, { notices = [], opening
       const keys = new Set([...tasks.filter(t => t.id != null).map(t => String(t.id)), ...Object.keys(vals)])
       for (const key of keys) {
         const value = vals[key]
-        if (value !== undefined && value !== true && value !== false && !['on_time', 'late', 'missing', 'leave', 'exempt', 'makeup'].includes(value)) error('UNKNOWN_STATUS', `${sp}/${pointer(key)}`, value)
-        reference(tm, key, 'ORPHAN_TASK', `${sp}/${pointer(key)}`)
+        const path = `${sp}/${pointer(key)}`
+        const status = statusOf(value)
+        if (allTaskIds && !allTaskIds.has(key)) {
+          notice('ORPHAN_TASK_STATUS', path, { day: log.date, legacy_student_id: sid, task_key: key, status })
+          continue
+        }
+        if (status === 'unknown') error('UNKNOWN_STATUS', path, value)
+        reference(tm, key, 'ORPHAN_TASK', path)
       }
     }
   })

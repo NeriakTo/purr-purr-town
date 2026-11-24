@@ -5,7 +5,7 @@ import {
   accountFields, legacyTransactionFacts, openingAdjustmentFields, openingAdjustmentRaw, sumNumeric, transactionFields,
 } from './ledger.js'
 import { CONVERTER_VERSION, digest, pointer, migrationBatchId, TABLES } from './convert.js'
-import { decisionInputError, hasFormalImportDecisions, resolveCurrentSemester, selectedSemester, taipeiDay } from './decisions.js'
+import { decisionInputError, hasFormalImportDecisions, resolveCurrentSemester, selectedSemester, snapshotOnlyOrphanTaskStatus, taipeiDay } from './decisions.js'
 
 const list = v => Array.isArray(v) ? v : []
 const entries = v => v && typeof v === 'object' && !Array.isArray(v) ? Object.entries(v) : []
@@ -18,6 +18,16 @@ function recordList(value) {
 function normalizeRecord(value) {
   if (value !== null && typeof value === "object" && !Array.isArray(value)) return value
   return {}
+}
+
+function collectTaskIds(logs) {
+  const ids = new Set()
+  for (const log of logs) {
+    for (const task of recordList(log.tasks)) {
+      if (task.id != null) ids.add(String(task.id))
+    }
+  }
+  return ids
 }
 
 function periodSkipReasons(errors, studentPath) {
@@ -247,13 +257,16 @@ export function reconcile(source, converted, { decisions: expectedDecisions, imp
     }, diff)
     students.push({ legacy_id: s.id || s.uuid || null, balance, total_earned: total, transaction_count: txs.length, correction_edges: txs.filter(t => t.correctedTxId !== undefined).map(t => [t.id, t.correctedTxId]), inventory_count: recordList(s.inventory).length, usage_count: usages, comment_semesters: entries(s.comments).map(([sem]) => sem), periods, period_comparison: comparison })
   })
-  recordList(data.logs).forEach((log, i) => {
+  const logs = recordList(data.logs)
+  const allTaskIds = snapshotOnlyOrphanTaskStatus(decisions) ? collectTaskIds(logs) : null
+  logs.forEach((log, i) => {
     const p = `/data/logs/${i}`, lr = expectRow('logs', p, log)
     recordList(log.tasks).forEach((t, j) => expectRow('tasks', `${p}/tasks/${j}`, t, { legacy_id: t.id ?? null, log_id: lr?.id, title: t.title ?? null, task_type: t.type ?? null, published_on: t.createdAt ?? log.date ?? null, due_on: t.dueDate ?? log.date ?? null, semester: selectedSemester(t.createdAt ?? log.date, decisions), correction_state: t.type === '訂正' ? 'legacy_unlinked' : null, original_task_id: null, teacher_confirmed: null, assignees_known: false }))
     entries(log.status).forEach(([sid, values]) => {
       const vals = Object.fromEntries(entries(values))
       const keys = [...new Set([...recordList(log.tasks).filter(t => t.id != null).map(t => String(t.id)), ...entries(vals).map(([key]) => key)])]
       for (const key of keys) {
+        if (allTaskIds && !allTaskIds.has(key)) continue
         const value = vals?.[key], present = Object.hasOwn(vals || {}, key)
         const status = value === true ? 'on_time' : value === false || !present ? 'pending' : ['on_time', 'late', 'missing', 'leave', 'exempt', 'makeup'].includes(value) ? value : 'unknown'
         const tasks = list(rows.tasks).filter(r => r.log_id === lr?.id && r.legacy_id !== null && String(r.legacy_id) === key)
