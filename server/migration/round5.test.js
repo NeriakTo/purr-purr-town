@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest'
 import { convert } from './convert.js'
+import { reconcile } from './reconcile.js'
 
 const decisions = { semesterRule: 'month' }
 const late = '作業遲交'
@@ -148,4 +149,88 @@ it('沒有候選時仍可核對適用事件的同名規則金額', () => {
   expect(out.report.legacy_effects[0]).toMatchObject({
     candidate_transactions: [], same_name_rule_amounts: { [late]: [-11], [missing]: '無' },
   })
+})
+
+function auditFixture(options, mutate) {
+  const source = fixture(options)
+  const converted = convert(source, { decisions })
+  expect(reconcile(source, converted).differences).toEqual([])
+  mutate(converted.rows)
+  return reconcile(source, converted).differences.map(({ path }) => path)
+}
+
+it('對帳從來源辨認歷史效果，不依賴被一併刪除的繳交列', () => {
+  const paths = auditFixture(undefined, rows => {
+    rows.legacy_effects.pop()
+    rows.submissions.pop()
+  })
+  expect(paths).toContain('legacy_effects/source_paths')
+})
+
+it('對帳拒絕重複的歷史效果列', () => {
+  const paths = auditFixture(undefined, rows => rows.legacy_effects.push({ ...rows.legacy_effects[0] }))
+  expect(paths).toContain('legacy_effects/source_paths')
+})
+
+it('對帳拒絕為不扣分、缺少狀態或參照失效的繳交新增歷史效果', () => {
+  const source = fixture({ statuses: ['late', 'on_time', undefined] })
+  source.data.logs[0].status['fixture-student']['fixture-orphan-task'] = 'late'
+  source.data.logs[0].tasks.push({ id: 'fixture-task-3' }, { id: 'fixture-task-3' })
+  source.data.logs[0].status['fixture-student']['fixture-task-3'] = 'missing'
+  source.data.logs[0].status['fixture-orphan-student'] = { 'fixture-task-0': 'missing' }
+  const converted = convert(source, { decisions })
+  expect(reconcile(source, converted).differences).toEqual([])
+  const [effect] = converted.rows.legacy_effects
+  for (const submission of converted.rows.submissions.slice(1)) {
+    const tampered = structuredClone(converted)
+    tampered.rows.legacy_effects.push({
+      ...effect, source_path: submission.source_path, submission_id: submission.id,
+      task_id: submission.task_id, student_id: submission.student_id,
+    })
+    expect(reconcile(source, tampered).differences.map(({ path }) => path)).toContain('legacy_effects/source_paths')
+  }
+})
+
+it('對帳拒絕兩列候選共用一筆交易', () => {
+  const paths = auditFixture({
+    statuses: ['late', 'missing'], transactions: [transaction(), transaction(missing, -20)],
+  }, rows => {
+    const [first, second] = rows.legacy_effects
+    second.transaction_id = first.transaction_id
+    second.amount_at_link = first.amount_at_link
+  })
+  expect(paths).toContain('legacy_effects/candidate_transaction_ids')
+})
+
+it('對帳檢查候選金額必須為負，即使與來源交易相等', () => {
+  const paths = auditFixture({ transactions: [transaction(), transaction(late, 8)] }, rows => {
+    const [effect] = rows.legacy_effects
+    effect.transaction_id = rows.transactions[1].id
+    effect.amount_at_link = 8
+  })
+  expect(paths).toContain('legacy_effects/data/logs/0/status/fixture-student/fixture-task-0/amount_at_link_negative')
+})
+
+it('對帳以來源更正差額檢查有效金額，交易與效果一起竄改也抓得到', () => {
+  const paths = auditFixture({
+    transactions: [transaction(), { ...transaction('假修正金額', 3), type: 'correction', correctedTxId: 'fixture-tx-0' }],
+  }, rows => {
+    rows.transactions[1].amount = 5
+    rows.legacy_effects[0].amount_at_link = -5
+  })
+  expect(paths).toContain('legacy_effects/data/logs/0/status/fixture-student/fixture-task-0/amount_at_link')
+})
+
+it('對帳拒絕候選指向不存在的交易', () => {
+  const paths = auditFixture(undefined, rows => {
+    rows.legacy_effects[0].transaction_id = 'fixture-absent-transaction'
+  })
+  expect(paths).toContain('legacy_effects/data/logs/0/status/fixture-student/fixture-task-0/amount_at_link')
+})
+
+it('對帳拒絕保留路徑卻改指另一筆繳交的效果列', () => {
+  const paths = auditFixture({ statuses: ['late', 'on_time'] }, rows => {
+    rows.legacy_effects[0].submission_id = rows.submissions[1].id
+  })
+  expect(paths).toContain('legacy_effects/data/logs/0/status/fixture-student/fixture-task-0/submission_id')
 })

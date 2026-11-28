@@ -1,35 +1,17 @@
 import { correctionCycleMembers, correctionMatches, correctionTargets } from "./corrections.js"
 import { buildLegacyEffectReport, recordPossibleSubmission } from './legacy-effects.js'
-import { createHash } from 'node:crypto'
+import { CONVERTER_VERSION, digest, pointer, migrationBatchId, TABLES, statusOf } from './migration-format.js'
 import {
   accountFields, effectiveTransactionAmounts, legacyTransactionFacts, openingAdjustmentFields, openingAdjustmentFor,
   openingAdjustmentRaw, reportAccountDrift, transactionFields, validateTransactionDate,
 } from './ledger.js'
 import { hasFormalImportDecisions, openingAdjustmentEnabled, requireDecisions, resolveCurrentSemester, selectedSemester, snapshotOnlyOrphanTaskStatus, validateTaskDate } from './decisions.js'
 
-export const TABLES = ['migration_batches', 'migration_sources', 'legacy_ids', 'classes', 'students', 'accounts', 'transactions', 'inventory_items', 'comments', 'exempt_rules', 'logs', 'tasks', 'submissions', 'legacy_effects', 'settings_entries', 'products', 'jobs', 'job_assignments', 'daily_duties', 'seats', 'announcements', 'rules', 'groups', 'semesters']
-export const pointer = v => String(v).replaceAll('~', '~0').replaceAll('/', '~1')
-export function canonicalJson(value) {
-  return JSON.stringify(value === undefined ? null : value, function sortedKeys(key, item) {
-    if (item === null || typeof item !== 'object' || Array.isArray(item)) return item
-    return Object.fromEntries(Object.keys(item).sort().map(name => [name, item[name]]))
-  })
-}
-
-export function digest(value) {
-  return createHash('sha256').update(canonicalJson(value)).digest('hex')
-}
 const isObject = v => v !== null && typeof v === 'object' && !Array.isArray(v)
 const numeric = v => typeof v === 'number' && Number.isFinite(v)
 const store = r => typeof r === 'string' && (r.startsWith('購買') || r.startsWith('使用道具'))
-export const statusOf = v => v === true ? 'on_time' : v === false || v === undefined ? 'pending' : ['on_time', 'late', 'missing', 'leave', 'exempt', 'makeup'].includes(v) ? v : 'unknown'
+export { canonicalJson, CONVERTER_VERSION, digest, pointer, migrationBatchId, TABLES, statusOf } from './migration-format.js'
 export { semesterAt } from './decisions.js'
-export const CONVERTER_VERSION = 'v2-1A-r5'
-
-export function migrationBatchId(classKey, source, decisions) {
-  return digest([CONVERTER_VERSION, classKey, source, decisions])
-}
-
 function collectTaskIds(logs) {
   const ids = new Set()
   for (const log of logs) {

@@ -2,9 +2,9 @@ import { validateSource, orderedErrors } from "./source-validation.js"
 import { correctionCycleMembers, correctionTargets } from "./corrections.js"
 import { isDeepStrictEqual } from 'node:util'
 import {
-  accountFields, legacyTransactionFacts, openingAdjustmentFields, openingAdjustmentRaw, sumNumeric, transactionFields,
+  accountFields, effectiveTransactionAmounts, legacyTransactionFacts, openingAdjustmentFields, openingAdjustmentRaw, sumNumeric, transactionFields,
 } from './ledger.js'
-import { CONVERTER_VERSION, digest, pointer, migrationBatchId, TABLES } from './convert.js'
+import { CONVERTER_VERSION, digest, pointer, migrationBatchId, TABLES } from './migration-format.js'
 import { decisionInputError, hasFormalImportDecisions, resolveCurrentSemester, selectedSemester, snapshotOnlyOrphanTaskStatus, taipeiDay } from './decisions.js'
 
 const list = v => Array.isArray(v) ? v : []
@@ -163,6 +163,39 @@ function checkImportedSubmissions(imported, convertedRows, diff) {
   }
 }
 
+function uniqueSourceIds(records, legacyId, idAt) {
+  const ids = new Map()
+  records.forEach((record, index) => {
+    const legacy = legacyId(record)
+    if (legacy == null) return
+    const key = String(legacy)
+    ids.set(key, ids.has(key) ? null : idAt(index, legacy))
+  })
+  return ids
+}
+
+function checkLegacyEffectReferences(effects, expectedEffects, diff) {
+  for (const row of effects) {
+    const references = expectedEffects.get(row.source_path)
+    if (!references) continue
+    const path = `legacy_effects${row.source_path}`
+    for (const [field, expected] of Object.entries(references)) diff(`${path}/${field}`, expected, row[field])
+  }
+}
+
+function checkLegacyCandidateAmounts(candidates, effectiveAmounts, diff) {
+  for (const row of candidates) {
+    const path = `legacy_effects${row.source_path}`
+    diff(`${path}/amount_at_link_negative`, true, numeric(row.amount_at_link) && row.amount_at_link < 0)
+    diff(`${path}/amount_at_link`, effectiveAmounts.get(row.transaction_id) ?? null, row.amount_at_link)
+  }
+}
+
+function checkUniqueLegacyCandidateTransactions(candidates, diff) {
+  const ids = candidates.map(row => row.transaction_id)
+  diff('legacy_effects/candidate_transaction_ids', ids.length, new Set(ids).size)
+}
+
 export function reconcile(source, converted, { decisions: expectedDecisions, importedSubmissions } = {}) {
   source = source ?? null
   const periodSkipped = [], notices = [], openingAdjustments = []
@@ -190,6 +223,7 @@ export function reconcile(source, converted, { decisions: expectedDecisions, imp
   }
   const data = source?.data || {}, settings = data.settings || {}, classKey = source?.classId ?? data.classId ?? null
   const classId = digest(['class', classKey]), batchId = migrationBatchId(classKey, source, decisions)
+  const expectedEffects = new Map(), effectiveAmounts = new Map()
   const sourceErrors = validateSource(source, legacyEarned, { notices, openingAdjustments, decisions })
   diff("report/notices", orderedErrors(notices), orderedErrors(converted?.report?.notices))
   diff("report/opening_adjustments", openingAdjustments, converted?.report?.opening_adjustments)
@@ -206,7 +240,10 @@ export function reconcile(source, converted, { decisions: expectedDecisions, imp
     const found = list(rows[table]).filter(r => r.legacy_id !== null && String(r.legacy_id) === String(legacy))
     return found.length === 1 ? found[0].id : null
   }
-  recordList(data.students).forEach((s, i) => {
+  const sourceStudents = recordList(data.students)
+  const studentIds = uniqueSourceIds(sourceStudents, s => s.id || s.uuid || null,
+    (i, legacy) => digest([classKey, 'students', `/data/students/${i}`, legacy]))
+  sourceStudents.forEach((s, i) => {
     const p = `/data/students/${i}`
     const sr = expectRow('students', p, s, { legacy_id: s.id || s.uuid || null, name: s.name ?? null, seat_number: s.number ?? null, group_key: s.group == null ? null : String(s.group), avatar: s.avatar ?? null, enrollment_status: typeof s.inactive === 'boolean' || s.inactive === undefined ? (s.inactive ? 'home_study' : 'enrolled') : 'unknown' })
     const bank = s.bank || {}, txs = recordList(bank.transactions), valid = txs.every(t => numeric(t.amount))
@@ -229,10 +266,13 @@ export function reconcile(source, converted, { decisions: expectedDecisions, imp
     function transactionIdAt(index) {
       return one('transactions', `${p}/bank/transactions/${index}`)?.id ?? null
     }
+    const effective = effectiveTransactionAmounts(txs, facts)
     txs.forEach((t, j) => {
+      const txPath = `${p}/bank/transactions/${j}`
+      effectiveAmounts.set(digest([classKey, 'transactions', txPath, t.id ?? null]), effective[j])
       const targetIndex = correctionEdges.get(j)
       const targetRow = targetIndex === null ? null : one("transactions", `${p}/bank/transactions/${targetIndex}`)
-      expectRow('transactions', `${p}/bank/transactions/${j}`, t, { student_id: sr?.id, legacy_id: t.id ?? null, amount: numeric(t.amount) ? t.amount : null, reason: t.reason ?? null, occurred_at: t.date ?? null, balance_after: t.balance ?? null, voided: Boolean(t.voided), transaction_type: t.type ?? 'legacy', corrected_transaction_id: t.correctedTxId === undefined || cycleMembers.has(j) ? null : targetRow?.id ?? null, legacy_semantics: true, ...transactionFields(facts[j], transactionIdAt, decisions) })
+      expectRow('transactions', txPath, t, { student_id: sr?.id, legacy_id: t.id ?? null, amount: numeric(t.amount) ? t.amount : null, reason: t.reason ?? null, occurred_at: t.date ?? null, balance_after: t.balance ?? null, voided: Boolean(t.voided), transaction_type: t.type ?? 'legacy', corrected_transaction_id: t.correctedTxId === undefined || cycleMembers.has(j) ? null : targetRow?.id ?? null, legacy_semantics: true, ...transactionFields(facts[j], transactionIdAt, decisions) })
     })
     if (adjustment) {
       const fields = openingAdjustmentFields(adjustment, decisions.cutoverDate, sr?.id)
@@ -261,16 +301,26 @@ export function reconcile(source, converted, { decisions: expectedDecisions, imp
   const allTaskIds = snapshotOnlyOrphanTaskStatus(decisions) ? collectTaskIds(logs) : null
   logs.forEach((log, i) => {
     const p = `/data/logs/${i}`, lr = expectRow('logs', p, log)
-    recordList(log.tasks).forEach((t, j) => expectRow('tasks', `${p}/tasks/${j}`, t, { legacy_id: t.id ?? null, log_id: lr?.id, title: t.title ?? null, task_type: t.type ?? null, published_on: t.createdAt ?? log.date ?? null, due_on: t.dueDate ?? log.date ?? null, semester: selectedSemester(t.createdAt ?? log.date, decisions), correction_state: t.type === '訂正' ? 'legacy_unlinked' : null, original_task_id: null, teacher_confirmed: null, assignees_known: false }))
+    const sourceTasks = recordList(log.tasks)
+    const taskIds = uniqueSourceIds(sourceTasks, task => task.id,
+      (j, legacy) => digest([classKey, 'tasks', `${p}/tasks/${j}`, legacy]))
+    sourceTasks.forEach((t, j) => expectRow('tasks', `${p}/tasks/${j}`, t, { legacy_id: t.id ?? null, log_id: lr?.id, title: t.title ?? null, task_type: t.type ?? null, published_on: t.createdAt ?? log.date ?? null, due_on: t.dueDate ?? log.date ?? null, semester: selectedSemester(t.createdAt ?? log.date, decisions), correction_state: t.type === '訂正' ? 'legacy_unlinked' : null, original_task_id: null, teacher_confirmed: null, assignees_known: false }))
     entries(log.status).forEach(([sid, values]) => {
       const vals = Object.fromEntries(entries(values))
-      const keys = [...new Set([...recordList(log.tasks).filter(t => t.id != null).map(t => String(t.id)), ...entries(vals).map(([key]) => key)])]
+      const keys = [...new Set([...taskIds.keys(), ...Object.keys(vals)])]
       for (const key of keys) {
         if (allTaskIds && !allTaskIds.has(key)) continue
         const value = vals?.[key], present = Object.hasOwn(vals || {}, key)
         const status = value === true ? 'on_time' : value === false || !present ? 'pending' : ['on_time', 'late', 'missing', 'leave', 'exempt', 'makeup'].includes(value) ? value : 'unknown'
         const tasks = list(rows.tasks).filter(r => r.log_id === lr?.id && r.legacy_id !== null && String(r.legacy_id) === key)
-        expectRow('submissions', `${p}/status/${pointer(sid)}/${pointer(key)}`, value, { student_id: lookup('students', sid), legacy_student_id: sid, task_id: tasks.length === 1 ? tasks[0].id : null, status, present, assignment_evidence: 'legacy_status_container', teacher_confirmed: null, submitted_at: null })
+        const path = `${p}/status/${pointer(sid)}/${pointer(key)}`
+        const studentId = studentIds.get(sid), taskId = taskIds.get(key)
+        if (present && studentId && taskId && ['late', 'missing', 'makeup'].includes(value)) {
+          expectedEffects.set(path, {
+            legacy_id: null, submission_id: digest([classKey, 'submissions', path, key]), student_id: studentId, task_id: taskId,
+          })
+        }
+        expectRow('submissions', path, value, { student_id: lookup('students', sid), legacy_student_id: sid, task_id: tasks.length === 1 ? tasks[0].id : null, status, present, assignment_evidence: 'legacy_status_container', teacher_confirmed: null, submitted_at: null })
       }
     })
   })
@@ -281,6 +331,12 @@ export function reconcile(source, converted, { decisions: expectedDecisions, imp
   entries(settings.seatingChart?.grid).forEach(([coord, sid]) => expectRow('seats', `/data/settings/seatingChart/grid/${pointer(coord)}`, sid, { coordinate: coord, student_id: lookup('students', sid) }))
   entries(settings.groupAliases).forEach(([key, val]) => expectRow('groups', `/data/settings/groupAliases/${pointer(key)}`, val, { group_key: key }))
   entries(settings.semesterPeriods).forEach(([key, val]) => expectRow('semesters', `/data/settings/semesterPeriods/${pointer(key)}`, val, { period_key: key }))
+  const effects = list(rows.legacy_effects)
+  const candidates = effects.filter(row => row.link_state === 'candidate')
+  expected.set('legacy_effects', [...expectedEffects.keys()])
+  checkLegacyEffectReferences(effects, expectedEffects, diff)
+  checkUniqueLegacyCandidateTransactions(candidates, diff)
+  checkLegacyCandidateAmounts(candidates, effectiveAmounts, diff)
   for (const table of TABLES.filter(t => t !== 'legacy_ids')) {
     diff(`${table}/source_paths`, (expected.get(table) || []).sort(), list(rows[table]).map(r => r.source_path).sort())
     const all = list(rows[table])
