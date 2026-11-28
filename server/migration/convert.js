@@ -1,12 +1,13 @@
 import { correctionCycleMembers, correctionMatches, correctionTargets } from "./corrections.js"
+import { buildLegacyEffectReport, recordPossibleSubmission } from './legacy-effects.js'
 import { createHash } from 'node:crypto'
 import {
-  accountFields, legacyTransactionFacts, openingAdjustmentFields, openingAdjustmentFor,
+  accountFields, effectiveTransactionAmounts, legacyTransactionFacts, openingAdjustmentFields, openingAdjustmentFor,
   openingAdjustmentRaw, reportAccountDrift, transactionFields, validateTransactionDate,
 } from './ledger.js'
 import { hasFormalImportDecisions, openingAdjustmentEnabled, requireDecisions, resolveCurrentSemester, selectedSemester, snapshotOnlyOrphanTaskStatus, validateTaskDate } from './decisions.js'
 
-export const TABLES = ['migration_batches', 'migration_sources', 'legacy_ids', 'classes', 'students', 'accounts', 'transactions', 'inventory_items', 'comments', 'exempt_rules', 'logs', 'tasks', 'submissions', 'settings_entries', 'products', 'jobs', 'job_assignments', 'daily_duties', 'seats', 'announcements', 'rules', 'groups', 'semesters']
+export const TABLES = ['migration_batches', 'migration_sources', 'legacy_ids', 'classes', 'students', 'accounts', 'transactions', 'inventory_items', 'comments', 'exempt_rules', 'logs', 'tasks', 'submissions', 'legacy_effects', 'settings_entries', 'products', 'jobs', 'job_assignments', 'daily_duties', 'seats', 'announcements', 'rules', 'groups', 'semesters']
 export const pointer = v => String(v).replaceAll('~', '~0').replaceAll('/', '~1')
 export function canonicalJson(value) {
   return JSON.stringify(value === undefined ? null : value, function sortedKeys(key, item) {
@@ -23,7 +24,7 @@ const numeric = v => typeof v === 'number' && Number.isFinite(v)
 const store = r => typeof r === 'string' && (r.startsWith('購買') || r.startsWith('使用道具'))
 export const statusOf = v => v === true ? 'on_time' : v === false || v === undefined ? 'pending' : ['on_time', 'late', 'missing', 'leave', 'exempt', 'makeup'].includes(v) ? v : 'unknown'
 export { semesterAt } from './decisions.js'
-export const CONVERTER_VERSION = 'v2-1A-r4'
+export const CONVERTER_VERSION = 'v2-1A-r5'
 
 export function migrationBatchId(classKey, source, decisions) {
   return digest([CONVERTER_VERSION, classKey, source, decisions])
@@ -44,6 +45,7 @@ export function convert(input, { decisions = {} } = {}) {
   requireDecisions(decisions)
   const source = structuredClone(input ?? null)
   const rows = Object.fromEntries(TABLES.map(t => [t, []])), errors = [], notices = [], openingAdjustments = []
+  const effectiveAmounts = new Map(), possibleSubmissions = new Map()
   const error = (code, path, value = null) => errors.push({ code, path, value: structuredClone(value) })
   const notice = (code, path, value = null) => notices.push({ code, path, value: structuredClone(value) })
   const arr = (v, p) => {
@@ -126,7 +128,9 @@ export function convert(input, { decisions = {} } = {}) {
     const edges = correctionTargets(txs)
     const cycles = correctionCycleMembers(edges)
     const facts = legacyTransactionFacts(txs, edges, cycles)
+    const effective = effectiveTransactionAmounts(txs, facts)
     tr.forEach((r, j) => {
+      effectiveAmounts.set(r.id, effective[j])
       const target = txs[j].correctedTxId
       const matches = correctionMatches(txs, target)
       if (target !== undefined && matches.length !== 1) {
@@ -185,7 +189,8 @@ export function convert(input, { decisions = {} } = {}) {
     }
   })
   const logs = arr(data.logs, '/data/logs')
-  const allTaskIds = snapshotOnlyOrphanTaskStatus(decisions) ? collectTaskIds(logs) : null
+  const allTaskIds = collectTaskIds(logs)
+  const snapshotOnly = snapshotOnlyOrphanTaskStatus(decisions)
   logs.forEach((log, i) => {
     const p = `/data/logs/${i}`
     check(log, p, 'date tasks status')
@@ -203,7 +208,9 @@ export function convert(input, { decisions = {} } = {}) {
       const keys = [...new Set([...tasks.filter(t => t.legacy_id !== null).map(t => String(t.legacy_id)), ...Object.keys(vals)])]
       keys.forEach(key => {
         const present = Object.hasOwn(vals, key), value = vals[key], path = `${sp}/${pointer(key)}`, status = statusOf(value)
-        if (allTaskIds && !allTaskIds.has(key)) {
+        const orphan = !allTaskIds.has(key)
+        if (present) recordPossibleSubmission(possibleSubmissions, sid, status, orphan)
+        if (snapshotOnly && orphan) {
           notice('ORPHAN_TASK_STATUS', path, { day: log.date, legacy_student_id: legacySid, task_key: key, status })
           return
         }
@@ -245,6 +252,7 @@ export function convert(input, { decisions = {} } = {}) {
   for (const [key, fields] of [['automation', 'dailyQuestBonus latePenalty missingPenalty'], ['shop', 'name icon products'], ['currency', 'base tier1 tier2'], ['currencyRates', 'fish cookie']]) if (settings[key] !== undefined) check(settings[key], `/data/settings/${key}`, fields)
   for (const key of ['base', 'tier1', 'tier2']) if (settings.currency?.[key] !== undefined) check(settings.currency[key], `/data/settings/currency/${key}`, 'name icon rate')
   arr(settings.ruleCategories, '/data/settings/ruleCategories').forEach((v, i) => check(v, `/data/settings/ruleCategories/${i}`, 'id name icon'))
+  const legacyEffectReport = buildLegacyEffectReport(rows, possibleSubmissions, effectiveAmounts, settings.automation, add)
   rows.migration_batches[0].validation_errors = structuredClone(errors)
   return {
     rows,
@@ -254,6 +262,7 @@ export function convert(input, { decisions = {} } = {}) {
       source_hash: digest(source),
       notices,
       opening_adjustments: openingAdjustments,
+      ...legacyEffectReport,
       row_counts: Object.fromEntries(Object.entries(rows).map(([table, records]) => [table, records.length])),
       error_count: errors.length,
       ready_for_import: errors.length === 0 && hasFormalImportDecisions(decisions),
