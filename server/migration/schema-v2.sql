@@ -217,6 +217,24 @@ CREATE TABLE migration_v2.submissions (
   UNIQUE (batch_id, source_path)
 );
 
+CREATE TABLE migration_v2.legacy_effects (
+  id text PRIMARY KEY,
+  batch_id text NOT NULL,
+  class_id text NOT NULL,
+  legacy_id jsonb,
+  source_path text NOT NULL,
+  raw jsonb NOT NULL,
+  submission_id text NOT NULL REFERENCES migration_v2.submissions(id),
+  student_id text NOT NULL REFERENCES migration_v2.students(id),
+  task_id text NOT NULL REFERENCES migration_v2.tasks(id),
+  link_state text NOT NULL CHECK (link_state IN ('candidate','unresolved')),
+  event text CHECK (event IN ('submission.late','submission.missing')),
+  transaction_id text REFERENCES migration_v2.transactions(id),
+  amount_at_link numeric,
+  unresolved_reason text CHECK (unresolved_reason IN ('orphan_status','has_makeup','multiple_submissions','no_candidate','multiple_candidates','has_refund','amount_mismatch','date_unknown','date_before_task','same_name_rule')),
+  UNIQUE (batch_id, source_path)
+);
+
 CREATE TABLE migration_v2.settings_entries (
   id text PRIMARY KEY,
   batch_id text NOT NULL,

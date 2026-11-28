@@ -37,7 +37,7 @@ it('試轉摘要每層只輸出白名單欄位、統計及來源路徑', () => {
   expectKeys(summary, [
     'converter_version', 'batch_id', 'decisions', 'row_counts', 'error_counts', 'notice_counts',
     'orphan_task_statuses', 'duplicate_seat_numbers', 'seat_number_coverage', 'opening_adjustments',
-    'convert_ready', 'reconcile',
+    'convert_ready', 'reconcile', 'legacy_effect_counts',
   ])
   expectKeys(summary.decisions, Object.keys(decisions))
   expectKeys(summary.row_counts, TABLES)
@@ -52,7 +52,7 @@ it('試轉摘要每層只輸出白名單欄位、統計及來源路徑', () => {
   ])
   expect(summary.seat_number_coverage).toEqual({ with_number: 2, seat_number_only: 1, neither: 1 })
   expect(summary.opening_adjustments).toEqual([{ path: '/data/students/0/bank', amount: 3, earned_delta: 5 }])
-  expect(summary.converter_version).toBe('v2-1A-r4')
+  expect(summary.converter_version).toBe('v2-1A-r5')
   expect(summary.batch_id).toMatch(/^[a-f0-9]{64}$/)
   expect(summary.convert_ready).toBe(true)
   expect(summary.reconcile).toEqual({

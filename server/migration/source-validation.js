@@ -1,4 +1,4 @@
-import { pointer, canonicalJson, statusOf } from './convert.js'
+import { pointer, canonicalJson, statusOf } from './migration-format.js'
 import {
   accountFields, legacyTransactionFacts, openingAdjustmentFor, reportAccountDrift, validateTransactionDate,
 } from './ledger.js'

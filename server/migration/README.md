@@ -33,7 +33,7 @@ const audit = reconcile(classA, converted, { decisions })
 | `semesterRule` | `'month'` | 作業與交易的 `semester` 留空，各自列 `UNKNOWN_TASK_SEMESTER` 或 `UNKNOWN_TRANSACTION_SEMESTER` 擋匯入 |
 | `orphanTaskStatus`（選填） | `'snapshot_only'` | 找不到當天作業的狀態照常建立繳交列，並列 `ORPHAN_TASK` 擋匯入 |
 
-`openingAdjustment: true` 缺切換日會直接拋出輸入錯誤。非法切換日列 `INVALID_CUTOVER_DATE`。明傳的 `orphanTaskStatus` 只接受 `'snapshot_only'`。批次以 `decisions` JSONB 原樣保存決定，預設空物件。`cutover_date` 保存明傳的日期文字，`converter_version` 是 `v2-1A-r4`。
+`openingAdjustment: true` 缺切換日會直接拋出輸入錯誤。非法切換日列 `INVALID_CUTOVER_DATE`。明傳的 `orphanTaskStatus` 只接受 `'snapshot_only'`。批次以 `decisions` JSONB 原樣保存決定，預設空物件。`cutover_date` 保存明傳的日期文字，`converter_version` 是 `v2-1A-r5`。
 
 輸入限可由 JSON 匯出表示的一班資料，形狀為 `{ classId, className, data: { classId, className, teacher, students, logs, settings, updatedAt } }`，不是後端同步封套，也不是多班清單。實際匯出位置：`src/components/modals/SettingsModal.jsx:271`。`updatedAt` 是**匯出當下**，不能用它裁決不同裝置哪份內容較新。
 
@@ -54,6 +54,7 @@ node server/migration/trial-summary.js server/migration/__fixtures__/trial-sourc
 | 輸出鍵 | 內容 |
 | --- | --- |
 | `converter_version`、`batch_id`、`decisions`、`row_counts` | 轉換器版本、批次編號、表中已知的決定及各表筆數 |
+| `legacy_effect_counts` | `by_link_state`、`by_unresolved_reason` 只列實際出現的狀態與原因筆數；沒有資料時為空物件 |
 | `error_counts`、`notice_counts` | 各錯誤碼與提示碼的筆數 |
 | `orphan_task_statuses` | 依 `day`、`task_key` 排序列出各組的 `count`、`by_status`。缺少日期或日期值不是字串時，摘要的 `day` 為 `null` |
 | `duplicate_seat_numbers` | 重複的 `seat_number` 與 `student_paths`。只統計非空的 `number`，轉為字串後去除前後空白再比對 |
@@ -61,6 +62,39 @@ node server/migration/trial-summary.js server/migration/__fixtures__/trial-sourc
 | `opening_adjustments` | 每筆調整的 `path`、`amount`、`earned_delta` |
 | `convert_ready` | 轉換結果的匯入就緒狀態 |
 | `reconcile` | `matches`、`difference_count`、`difference_paths`（最多前 50 筆路徑）、`period_skipped_count`、`ready_for_import` |
+
+## 歷史效果
+
+每筆來源明列（`present: true`）且可解析學生與作業的 `late`、`missing` 或 `makeup` 繳交產生一列 `legacy_effects`。共同欄位沿用繳交的 `source_path`，`legacy_id` 留空。三個外鍵為 `submission_id`、`student_id`、`task_id`。
+
+`raw` 記錄該生的三種筆數。以下兩種扣分理由均須完整相符。
+
+| 鍵 | 計數依據 |
+| --- | --- |
+| `candidate_transactions` | 有效金額小於零且理由為「作業遲交」或「作業缺交」的 `legacy_general` 根交易。有效金額為原金額加上可解析的更正差額，撤銷後為零的交易排除 |
+| `refund_transactions` | 理由為「更正：撤銷遲交扣分」或「更正：撤銷缺交扣分」的所有交易 |
+| `possible_submissions` | 來源明列的遲交、缺交及補交，含無法解析作業的狀態 |
+
+判定依下表由上而下，第一項不成立即記為 `unresolved_reason`。遲交與缺交各看自己的事件。補交合併兩種事件，並從唯一候選的理由決定事件。日期沿用轉換器的臺灣日期解析，發布日取 `task.createdAt ?? log.date`。
+
+| 順序 | 原因 | 何時記入 |
+| --- | --- | --- |
+| 1 | `orphan_status` | 同一學生有遲交、缺交或補交指向全部紀錄中都找不到的作業。2026-11-24 裁定適用於該生所有歷史效果，無論是否傳入 `orphanTaskStatus`。舊版刪作業未退分，殘留扣分可能被誤配 |
+| 2 | `has_makeup` | 判定遲交或缺交時，同一學生另有補交 |
+| 3 | `multiple_submissions` | 遲交或缺交有多筆同狀態繳交，或補交以外還有可能帶扣分的繳交 |
+| 4 | `no_candidate` | 適用事件沒有候選扣分 |
+| 5 | `multiple_candidates` | 適用事件有多筆候選扣分 |
+| 6 | `has_refund` | 適用事件已有退分 |
+| 7 | `amount_mismatch` | 候選原始金額不等於來源現行自動扣分，或金額為零 |
+| 8 | `date_unknown` | 交易或作業發布日無法解析 |
+| 9 | `date_before_task` | 交易的臺灣日期早於作業發布日 |
+| 10 | `same_name_rule` | 來源手動規則的 `label` 與交易理由完全相同，且金額等於候選原始金額 |
+
+條件全數成立時，`link_state` 為 `candidate`，`event` 為 `submission.late` 或 `submission.missing`，`transaction_id` 指向唯一候選，`amount_at_link` 保存其有效金額，`unresolved_reason` 留空。其餘列為 `unresolved`，事件、交易編號與有效金額留空。候選留待匯入前裁決。
+
+`report.legacy_effects` 逐列提供 `submission_id`、`link_state`、`unresolved_reason`、學生座號 `seat_number`、作業標題 `task_title`、臺灣發布日 `task_published_on`。每列的 `candidate_transactions` 包含適用事件的候選交易編號、臺灣日期、原始金額及理由。`same_name_rule_amounts` 依適用的扣分理由列出同名手動規則的金額陣列，無同名規則時填「無」。日期無法解析時為 `null`。
+
+`report.excess_legacy_deductions` 逐生列出有效舊扣分交易多於可能帶扣分繳交的情況，保留 `student_id`、`seat_number` 和兩種筆數。
 
 ## 資料表與完整欄位對照
 

@@ -63,6 +63,16 @@ function kindFor(ownRootKind, chainBroken) {
   return 'correction'
 }
 
+// 根交易與所有可解析的更正差額相加，保留舊版作廢標記下的原始金額。
+export function effectiveTransactionAmounts(transactions, facts) {
+  const amounts = transactions.map(transaction => Number.isFinite(transaction.amount) ? transaction.amount : null)
+  facts.forEach(({ rootIndex }, index) => {
+    if (rootIndex === null) return
+    amounts[rootIndex] = sumNumeric([amounts[rootIndex], transactions[index].amount])
+  })
+  return amounts
+}
+
 export function transactionFields(facts, idAt, decisions) {
   return {
     kind: facts.kind,
