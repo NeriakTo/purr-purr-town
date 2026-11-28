@@ -19,6 +19,17 @@ function countByCode(entries) {
   return counts
 }
 
+function summarizeLegacyEffects(effects) {
+  const by_link_state = {}, by_unresolved_reason = {}
+  for (const { link_state, unresolved_reason } of effects) {
+    by_link_state[link_state] = (by_link_state[link_state] ?? 0) + 1
+    if (unresolved_reason !== null) {
+      by_unresolved_reason[unresolved_reason] = (by_unresolved_reason[unresolved_reason] ?? 0) + 1
+    }
+  }
+  return { by_link_state, by_unresolved_reason }
+}
+
 function compareText(a, b) {
   if (a < b) return -1
   if (a > b) return 1
@@ -88,6 +99,7 @@ export function summarizeTrial(source, decisions) {
     batch_id: batch.id,
     decisions: summarizeDecisions(batch.decisions),
     row_counts: report.row_counts,
+    legacy_effect_counts: summarizeLegacyEffects(converted.rows.legacy_effects),
     error_counts: countByCode(converted.errors),
     notice_counts: countByCode(report.notices),
     orphan_task_statuses: summarizeOrphanStatuses(report.notices),

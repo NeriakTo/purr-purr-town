@@ -54,6 +54,7 @@ node server/migration/trial-summary.js server/migration/__fixtures__/trial-sourc
 | 輸出鍵 | 內容 |
 | --- | --- |
 | `converter_version`、`batch_id`、`decisions`、`row_counts` | 轉換器版本、批次編號、表中已知的決定及各表筆數 |
+| `legacy_effect_counts` | `by_link_state`、`by_unresolved_reason` 只列實際出現的狀態與原因筆數；沒有資料時為空物件 |
 | `error_counts`、`notice_counts` | 各錯誤碼與提示碼的筆數 |
 | `orphan_task_statuses` | 依 `day`、`task_key` 排序列出各組的 `count`、`by_status`。缺少日期或日期值不是字串時，摘要的 `day` 為 `null` |
 | `duplicate_seat_numbers` | 重複的 `seat_number` 與 `student_paths`。只統計非空的 `number`，轉為字串後去除前後空白再比對 |

@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest'
 import { convert } from './convert.js'
 import { reconcile } from './reconcile.js'
+import { summarizeTrial } from './trial-summary.js'
 
 const decisions = { semesterRule: 'month' }
 const late = '作業遲交'
@@ -233,4 +234,21 @@ it('對帳拒絕保留路徑卻改指另一筆繳交的效果列', () => {
     rows.legacy_effects[0].submission_id = rows.submissions[1].id
   })
   expect(paths).toContain('legacy_effects/data/logs/0/status/fixture-student/fixture-task-0/submission_id')
+})
+
+it('試轉摘要的歷史效果只列連結狀態與原因的計數', () => {
+  const source = fixture({ statuses: ['late', 'missing', 'missing'] })
+  source.data.students.push({ id: 'fixture-other', name: '假學生另一姓名' })
+  source.data.logs[0].status['fixture-other'] = { 'fixture-task-0': 'late' }
+  const summary = summarizeTrial(source, decisions)
+  expect(summary.legacy_effect_counts).toEqual({
+    by_link_state: { candidate: 1, unresolved: 3 },
+    by_unresolved_reason: { multiple_submissions: 2, no_candidate: 1 },
+  })
+  const serialized = JSON.stringify(summary)
+  for (const text of ['假學生姓名', '假學生另一姓名', '假作業標題-0', late, 'submission_id', 'amount_at_link']) {
+    expect(serialized).not.toContain(text)
+  }
+  const empty = summarizeTrial(fixture({ statuses: ['on_time'] }), decisions)
+  expect(empty.legacy_effect_counts).toEqual({ by_link_state: {}, by_unresolved_reason: {} })
 })
